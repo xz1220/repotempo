@@ -1,0 +1,34 @@
+# Build output
+bin/
+dist/
+coverage.out
+*.test
+
+# Runtime data
+*.db
+*.db-shm
+*.db-wal
+exports/
+backups/
+screenshots/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+credentials.json
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Logs and caches
+*.log
+*.tmp
+*.cache
+
