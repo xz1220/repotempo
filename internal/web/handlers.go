@@ -41,6 +41,9 @@ type pageView struct {
 	StarChart    chart
 	RankChart    chart
 	TopicChart   chart
+	GrowthChart  growthBarChart
+	TopicRanking topicRankChart
+	DiscoveryMix discoveryMixChart
 	Pagination   pagination
 	ErrorStatus  int
 	ErrorTitle   string
@@ -64,8 +67,9 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, http.StatusOK, "home", pageView{
-		Meta:      h.meta(localized, "meta.overview.title", "meta.overview.description", "overview", data.Warnings),
-		Dashboard: data,
+		Meta:        h.meta(localized, "meta.overview.title", "meta.overview.description", "overview", data.Warnings),
+		Dashboard:   data,
+		GrowthChart: dashboardGrowthChart(data.GrowthHistory, localized),
 	})
 }
 
@@ -126,9 +130,20 @@ func (h *Handler) topics(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
+	period := normalizeTopicPeriod(r.URL.Query().Get("period"))
+	ranking := makeTopicRankChart(data.Items, period, localized)
+	for _, value := range []string{"1d", "7d", "30d"} {
+		ranking.Options = append(ranking.Options, topicPeriodOption{
+			Value:  value,
+			Label:  localized.Text("period." + value),
+			URL:    topicPeriodURL(r.URL.Query(), value),
+			Active: value == period,
+		})
+	}
 	h.render(w, r, http.StatusOK, "topics", pageView{
-		Meta:   h.meta(localized, "meta.topics.title", "meta.topics.description", "topics", data.Warnings),
-		Topics: data,
+		Meta:         h.meta(localized, "meta.topics.title", "meta.topics.description", "topics", data.Warnings),
+		Topics:       data,
+		TopicRanking: ranking,
 	})
 }
 
@@ -165,8 +180,9 @@ func (h *Handler) discoveries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, http.StatusOK, "discoveries", pageView{
-		Meta:        h.meta(localized, "meta.discoveries.title", "meta.discoveries.description", "discoveries", data.Warnings),
-		Discoveries: data,
+		Meta:         h.meta(localized, "meta.discoveries.title", "meta.discoveries.description", "discoveries", data.Warnings),
+		Discoveries:  data,
+		DiscoveryMix: makeDiscoveryMixChart(data.FirstSeenSources, localized),
 	})
 }
 
@@ -315,6 +331,26 @@ func parseOffset(raw string) int {
 		return 0
 	}
 	return value
+}
+
+func normalizeTopicPeriod(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1d":
+		return "1d"
+	case "30d":
+		return "30d"
+	default:
+		return "7d"
+	}
+}
+
+func topicPeriodURL(values url.Values, period string) string {
+	copyValues := make(url.Values, len(values)+1)
+	for key, items := range values {
+		copyValues[key] = append([]string(nil), items...)
+	}
+	copyValues.Set("period", period)
+	return queryPath("/topics", copyValues)
 }
 
 func validSlug(value string) bool {

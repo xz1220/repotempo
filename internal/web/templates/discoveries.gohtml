@@ -1,12 +1,27 @@
 {{define "content"}}
   <section aria-labelledby="source-coverage">
     <div class="section-heading"><div><h2 id="source-coverage">{{t "discoveries.source_coverage"}}</h2><p>{{t "discoveries.source_coverage_help"}}</p></div></div>
-    {{if .Discoveries.Sources}}
-      <dl class="source-strip">
-        {{range .Discoveries.Sources}}
-          <div><dt>{{sourceLabel .Source}}</dt><dd>{{formatInt .RepositoryCount}}</dd><p>{{tf "discoveries.last_run" (formatDatePtr .LastRunAt)}}</p></div>
-        {{end}}
-      </dl>
+    {{if .DiscoveryMix.HasData}}
+      <figure class="source-mix-figure">
+        <svg class="source-mix-chart" viewBox="0 0 1000 40" preserveAspectRatio="none" role="img" aria-labelledby="source-mix-title source-mix-description">
+          <title id="source-mix-title">{{t "discoveries.source_mix_title"}}</title>
+          <desc id="source-mix-description">{{t "discoveries.source_mix_description"}}</desc>
+          <rect class="source-mix-track" x="0" y="0" width="1000" height="40" rx="6"></rect>
+          {{range .DiscoveryMix.Segments}}{{if gt .RepositoryCount 0}}<rect class="{{.ColorClass}}" x="{{.X}}" y="0" width="{{.Width}}" height="40" role="img" tabindex="0" aria-label="{{.Tooltip}}"><title>{{.Tooltip}}</title></rect>{{end}}{{end}}
+        </svg>
+        <figcaption>
+          <p>{{tf "discoveries.source_mix_total" (formatInt .DiscoveryMix.Total)}}</p>
+          <ol class="source-mix-legend" aria-label="{{t "discoveries.source_mix_legend"}}">
+            {{range .DiscoveryMix.Segments}}
+              <li>
+                <span class="source-key {{.ColorClass}}" aria-hidden="true">{{.Ordinal}}</span>
+                <span class="source-legend-label">{{.SourceLabel}}</span>
+                <span class="source-legend-value">{{formatInt .RepositoryCount}} · {{.Percent}}</span>
+              </li>
+            {{end}}
+          </ol>
+        </figcaption>
+      </figure>
     {{else}}
       <div class="empty-state"><h3>{{t "discoveries.no_discoveries"}}</h3><p>{{t "discoveries.no_discoveries_help"}}</p></div>
     {{end}}

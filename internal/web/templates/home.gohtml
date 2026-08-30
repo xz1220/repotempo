@@ -50,6 +50,65 @@
     <p class="muted">{{t "home.growth_note"}}</p>
   </section>
 
+  <section class="growth-section" aria-labelledby="daily-star-growth">
+    <div class="section-heading">
+      <div>
+        <h2 id="daily-star-growth">{{.GrowthChart.Title}}</h2>
+        <p>{{.GrowthChart.Description}}</p>
+      </div>
+    </div>
+    {{if .GrowthChart.HasComparable}}
+      <figure class="growth-figure">
+        <div class="growth-chart-scroll" role="region" aria-label="{{t "home.growth_chart_region"}}" tabindex="0">
+        <svg class="growth-chart" viewBox="0 0 900 240" role="img" aria-labelledby="growth-chart-title growth-chart-description">
+          <title id="growth-chart-title">{{.GrowthChart.Title}}</title>
+          <desc id="growth-chart-description">{{.GrowthChart.Description}}</desc>
+          <line class="growth-grid" x1="54" x2="880" y1="18" y2="18"></line>
+          <line class="growth-grid" x1="54" x2="880" y1="194" y2="194"></line>
+          <line class="growth-zero-axis" x1="54" x2="880" y1="{{.GrowthChart.AxisY}}" y2="{{.GrowthChart.AxisY}}"></line>
+          {{if .GrowthChart.TopLabel}}<text class="growth-axis-label" x="44" y="22" text-anchor="end">{{.GrowthChart.TopLabel}}</text>{{end}}
+          <text class="growth-axis-label" x="44" y="{{.GrowthChart.AxisY}}" dy="0.32em" text-anchor="end">{{.GrowthChart.ZeroLabel}}</text>
+          {{if .GrowthChart.BottomLabel}}<text class="growth-axis-label" x="44" y="198" text-anchor="end">{{.GrowthChart.BottomLabel}}</text>{{end}}
+          {{range .GrowthChart.Bars}}
+            {{if .Missing}}
+              <circle class="{{.Class}}" cx="{{.CenterX}}" cy="{{.Y}}" r="3" role="img" tabindex="0" aria-label="{{.Tooltip}}"><title>{{.Tooltip}}</title></circle>
+            {{else}}
+              <rect class="{{.Class}}" x="{{.X}}" y="{{.Y}}" width="{{.Width}}" height="{{.Height}}" rx="1.5" role="img" tabindex="0" aria-label="{{.Tooltip}}"><title>{{.Tooltip}}</title></rect>
+            {{end}}
+          {{end}}
+          {{range .GrowthChart.DateLabels}}<text class="growth-date-label" x="{{.X}}" y="224" text-anchor="{{.Anchor}}">{{.Text}}</text>{{end}}
+        </svg>
+        </div>
+        <figcaption>
+          <p class="chart-scroll-hint">{{t "home.growth_scroll_hint"}}</p>
+          <ul class="growth-legend" aria-label="{{t "home.growth_legend"}}">
+            <li><span class="legend-sample legend-positive" aria-hidden="true"></span>{{t "home.growth_positive"}}</li>
+            <li><span class="legend-sample legend-negative" aria-hidden="true"></span>{{t "home.growth_negative"}}</li>
+            <li><span class="legend-sample legend-missing" aria-hidden="true"></span>{{t "home.growth_missing"}}</li>
+          </ul>
+        </figcaption>
+      </figure>
+      <details class="chart-details">
+        <summary>{{t "home.growth_details"}}</summary>
+        <div class="table-scroll" role="region" aria-label="{{t "home.growth_details_region"}}" tabindex="0">
+          <table class="data-table growth-detail-table">
+            <thead><tr><th scope="col">{{t "repository.date"}}</th><th scope="col" class="numeric">{{t "home.daily_delta"}}</th><th scope="col" class="numeric">{{t "home.comparable_repositories"}}</th><th scope="col" class="numeric">{{t "home.gap_spanning_repositories"}}</th></tr></thead>
+            <tbody>
+              {{range .Dashboard.GrowthHistory}}
+                <tr><td class="mono-value">{{formatDate .Date}}</td><td class="numeric metric-delta">{{formatSigned .Delta}}</td><td class="numeric">{{formatInt .ComparableRepositoryCount}}</td><td class="numeric">{{formatInt .GapSpanningRepositoryCount}}</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    {{else}}
+      <div class="empty-state">
+        <h3>{{t "home.no_growth_history"}}</h3>
+        <p>{{t "home.no_growth_history_help"}}</p>
+      </div>
+    {{end}}
+  </section>
+
   <div class="split-layout home-sections">
     <section aria-labelledby="fastest-repositories">
       <div class="section-heading">

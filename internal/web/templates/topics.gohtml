@@ -3,6 +3,36 @@
     <div class="section-heading result-heading">
       <div><h2 id="topic-list">{{tf "topics.count" (formatInt (len .Topics.Items))}}</h2><p>{{t "topics.boundary_help"}}</p></div>
     </div>
+    <div class="topic-ranking-header">
+      <div>
+        <h3>{{t "topics.ranking_title"}}</h3>
+        <p>{{tf "topics.ranking_help" .TopicRanking.PeriodLabel}}</p>
+      </div>
+      <nav class="period-switch" aria-label="{{t "topics.ranking_period"}}">
+        {{range .TopicRanking.Options}}<a class="period-option {{if .Active}}is-active{{end}}" href="{{.URL}}" {{if .Active}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}
+      </nav>
+    </div>
+    {{if .TopicRanking.HasData}}
+      <ol class="topic-ranking-list" aria-label="{{tf "topics.ranking_region" .TopicRanking.PeriodLabel}}">
+        {{range .TopicRanking.Items}}
+          <li>
+            <span class="topic-rank-number" aria-hidden="true">{{.Rank}}</span>
+            <div class="topic-rank-identity">
+              <a class="topic-name" href="/topics/{{.Slug}}">{{.Name}}</a>
+              <p>{{tf "topics.ranking_meta" (formatIntPtr .CurrentStars) (formatInt .RepositoryCount)}}</p>
+            </div>
+            <strong class="topic-rank-delta">{{formatSigned .Delta}}</strong>
+            <svg class="topic-rank-bar" viewBox="0 0 1000 12" preserveAspectRatio="none" role="img" aria-label="{{.Tooltip}}">
+              <title>{{.Tooltip}}</title>
+              {{if $.TopicRanking.ShowBaseline}}<line class="topic-rank-baseline" x1="{{$.TopicRanking.BaselineX}}" x2="{{$.TopicRanking.BaselineX}}" y1="0" y2="12"></line>{{end}}
+              <rect class="{{.BarClass}}" x="{{.BarX}}" y="1" width="{{.BarWidth}}" height="10" rx="2"></rect>
+            </svg>
+          </li>
+        {{end}}
+      </ol>
+    {{else}}
+      <div class="empty-state compact-empty topic-ranking-empty"><h3>{{t "topics.no_ranking"}}</h3><p>{{tf "topics.no_ranking_help" .TopicRanking.PeriodLabel}}</p></div>
+    {{end}}
     {{if .Topics.Items}}
       <div class="table-scroll" role="region" aria-label="{{t "topics.metrics_region"}}" tabindex="0">
         <table class="data-table topic-table">

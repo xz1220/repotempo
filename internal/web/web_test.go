@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -365,6 +366,128 @@ func TestChartPreservesMissingObservationAsGap(t *testing.T) {
 	}
 }
 
+func TestDashboardGrowthChartDistinguishesNegativeZeroAndMissing(t *testing.T) {
+	queryer := populatedFake()
+	queryer.dashboard.GrowthHistory = []GrowthPoint{
+		{Date: mustDate("2026-08-27"), Delta: int64Pointer(120), ComparableRepositoryCount: 100},
+		{Date: mustDate("2026-08-28"), Delta: int64Pointer(0), ComparableRepositoryCount: 104},
+		{Date: mustDate("2026-08-29"), Delta: nil},
+		{Date: mustDate("2026-08-30"), Delta: int64Pointer(-35), ComparableRepositoryCount: 103, GapSpanningRepositoryCount: 2},
+	}
+	handler := newTestHandler(t, queryer)
+	response := request(t, handler, "/")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", response.Code)
+	}
+	body := response.Body.String()
+	for _, want := range []string{
+		`class="growth-bar-positive"`,
+		`class="growth-bar-negative"`,
+		`class="growth-bar-zero"`,
+		`class="growth-bar-missing"`,
+		"View exact daily values",
+		">-35<",
+		">0<",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body does not contain %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, `style="`) {
+		t.Fatal("chart emitted an inline style, which violates the CSP")
+	}
+}
+
+func TestDashboardGrowthChartNeedsAComparablePoint(t *testing.T) {
+	queryer := populatedFake()
+	queryer.dashboard.GrowthHistory = []GrowthPoint{{Date: mustDate("2026-08-30")}}
+	body := request(t, newTestHandler(t, queryer), "/").Body.String()
+	if strings.Contains(body, `class="growth-chart"`) {
+		t.Fatal("all-missing growth history rendered a chart")
+	}
+	if !strings.Contains(body, "No comparable daily history yet") {
+		t.Fatalf("all-missing history did not render the empty state: %s", body)
+	}
+}
+
+func TestTopicRankingUsesLeafTopicsPeriodAndEightItemLimit(t *testing.T) {
+	parent := TopicMetric{Slug: "agent", Name: "Agent", Delta30D: int64Pointer(99_999)}
+	items := []TopicMetric{parent}
+	for index := 0; index < 10; index++ {
+		value := int64(10_000 - index)
+		items = append(items, TopicMetric{
+			Slug:            fmt.Sprintf("leaf-%d", index),
+			Name:            fmt.Sprintf("Leaf %d", index),
+			ParentSlug:      "agent",
+			RepositoryCount: index + 1,
+			CurrentStars:    int64Pointer(int64(1_000 + index)),
+			Delta30D:        &value,
+		})
+	}
+	ranking := makeTopicRankChart(items, "30d", newLocalizer(localeEnglish))
+	if !ranking.HasData || ranking.Period != "30d" || len(ranking.Items) != 8 {
+		t.Fatalf("ranking = %#v", ranking)
+	}
+	for _, item := range ranking.Items {
+		if item.Slug == parent.Slug {
+			t.Fatal("parent topic appeared in the leaf-topic ranking")
+		}
+	}
+	if ranking.Items[0].Slug != "leaf-0" || ranking.Items[7].Slug != "leaf-7" {
+		t.Fatalf("unexpected ranking bounds: first=%q last=%q", ranking.Items[0].Slug, ranking.Items[7].Slug)
+	}
+
+	queryer := populatedFake()
+	body := request(t, newTestHandler(t, queryer), "/topics?period=30d&lang=zh-CN").Body.String()
+	for _, want := range []string{
+		`href="/topics?lang=zh-CN&amp;period=1d"`,
+		`aria-current="page">近 30 天`,
+		"叶子主题增长排行",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body does not contain %q: %s", want, body)
+		}
+	}
+}
+
+func TestDiscoveryMixUsesStableSourceColorsAndKeepsZeroCounts(t *testing.T) {
+	sources := []DiscoverySource{
+		{Source: "manual", RepositoryCount: 0},
+		{Source: "github_search", RepositoryCount: 75},
+		{Source: "ossinsight", RepositoryCount: 25},
+		{Source: "legacy", RepositoryCount: 0},
+	}
+	first := makeDiscoveryMixChart(sources, newLocalizer(localeEnglish))
+	second := makeDiscoveryMixChart([]DiscoverySource{sources[2], sources[0], sources[3], sources[1]}, newLocalizer(localeEnglish))
+	if !first.HasData || len(first.Segments) != 4 || len(second.Segments) != 4 {
+		t.Fatalf("unexpected source charts: first=%#v second=%#v", first, second)
+	}
+	colors := func(chart discoveryMixChart) map[string]string {
+		result := make(map[string]string)
+		for _, segment := range chart.Segments {
+			result[segment.Source] = segment.ColorClass
+		}
+		return result
+	}
+	for source, color := range colors(first) {
+		if colors(second)[source] != color {
+			t.Errorf("source %q color changed from %q to %q", source, color, colors(second)[source])
+		}
+	}
+
+	queryer := populatedFake()
+	queryer.discoveries.FirstSeenSources = sources
+	body := request(t, newTestHandler(t, queryer), "/discoveries").Body.String()
+	for _, want := range []string{"75.0%", "25.0%", "0 · 0.0%", "source-fill-1", "source-fill-2", "source-fill-3", "source-fill-4"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body does not contain %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "source-strip") {
+		t.Fatal("legacy source strip is still rendered")
+	}
+}
+
 func TestFatalQueryErrorIsGeneric(t *testing.T) {
 	queryer := populatedFake()
 	queryer.dashboardErr = errors.New("database failed with secret-token-value")
@@ -475,8 +598,14 @@ func populatedFake() *fakeQueryer {
 			NewStars1D:            int64Pointer(2_450),
 			NewStars7D:            int64Pointer(14_200),
 			NewStars30D:           int64Pointer(52_300),
-			FastestRepositories:   []RepositoryMetric{repository},
-			RecentRuns:            []JobRun{run},
+			GrowthHistory: []GrowthPoint{
+				{Date: mustDate("2026-08-27"), Delta: int64Pointer(1_900), ComparableRepositoryCount: 1_170},
+				{Date: mustDate("2026-08-28"), Delta: int64Pointer(2_200), ComparableRepositoryCount: 1_180},
+				{Date: mustDate("2026-08-29"), Delta: int64Pointer(0), ComparableRepositoryCount: 1_185},
+				{Date: mustDate("2026-08-30"), Delta: int64Pointer(2_450), ComparableRepositoryCount: 1_190},
+			},
+			FastestRepositories: []RepositoryMetric{repository},
+			RecentRuns:          []JobRun{run},
 		},
 		repositories: RepositoryPage{
 			Items:              []RepositoryMetric{repository},
@@ -530,6 +659,12 @@ func populatedFake() *fakeQueryer {
 				{Source: "github_search", RepositoryCount: 650, LastRunAt: &lastRun},
 				{Source: "legacy", RepositoryCount: 250, LastRunAt: &lastRun},
 				{Source: "manual", RepositoryCount: 10, LastRunAt: &lastRun},
+			},
+			FirstSeenSources: []DiscoverySource{
+				{Source: "ossinsight", RepositoryCount: 340},
+				{Source: "github_search", RepositoryCount: 650},
+				{Source: "legacy", RepositoryCount: 250},
+				{Source: "manual", RepositoryCount: 10},
 			},
 			Profiles: []DiscoveryProfile{{Name: "topic-popular", NewRepositories: 12, CandidateCount: 420, IncompleteResults: true, QuerySplitCount: 3, LastRunAt: &lastRun}},
 		},
