@@ -20,7 +20,7 @@ func TestCheckRuntimeDoesNotIncludeTokenValue(t *testing.T) {
 		DatabasePath:    filepath.Join(directory, "radar.db"),
 		DiscoveryConfig: discovery,
 		TopicsConfig:    topics,
-		GitHubToken:     "test-token-not-a-secret",
+		GitHubToken:     "fixture-token",
 	}
 	report := CheckRuntime(settings)
 	for _, check := range report.Checks {
