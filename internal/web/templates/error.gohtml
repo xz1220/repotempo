@@ -1,0 +1,8 @@
+{{define "content"}}
+  <section class="error-page" aria-labelledby="error-title">
+    <p class="error-code">{{.ErrorStatus}}</p>
+    <h2 id="error-title">{{.ErrorTitle}}</h2>
+    <p>{{.ErrorMessage}}</p>
+    <a class="button button-primary" href="/">Return to overview</a>
+  </section>
+{{end}}

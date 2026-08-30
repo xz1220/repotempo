@@ -1,0 +1,54 @@
+{{define "content"}}
+  <section aria-labelledby="run-health">
+    <div class="section-heading"><div><h2 id="run-health">Collection health</h2><p>Latest successful snapshot and current panel coverage.</p></div></div>
+    <dl class="metric-strip run-metrics">
+      <div><dt>Last successful date</dt><dd class="date-value">{{formatDatePtr .Runs.LastSuccessfulSnapshotDate}}</dd></div>
+      <div><dt>Current coverage</dt><dd>{{printf "%.1f%%" (coveragePercent .Runs.CurrentCoverage)}}</dd></div>
+      <div><dt>Successful</dt><dd>{{formatInt .Runs.CurrentCoverage.Successful}}</dd></div>
+      <div><dt>Failed</dt><dd class="{{if gt .Runs.CurrentCoverage.Failed 0}}value-danger{{end}}">{{formatInt .Runs.CurrentCoverage.Failed}}</dd></div>
+    </dl>
+  </section>
+
+  <section aria-labelledby="run-history">
+    <div class="section-heading result-heading"><div><h2 id="run-history">Recent job runs</h2><p>Each outcome retains target, success, failure, skip, and quota evidence.</p></div></div>
+    {{if .Runs.Items}}
+      <div class="run-list">
+        {{range .Runs.Items}}
+          <article class="run-row">
+            <div class="run-row-main">
+              <span class="status-badge {{statusClass .Status}}"><span aria-hidden="true"></span>{{statusLabel .Status}}</span>
+              <div class="run-identity"><h3>{{.JobType}}</h3><p class="mono-value">{{.RunID}}</p></div>
+              <dl class="run-counts">
+                <div><dt>Target</dt><dd>{{formatInt .TargetCount}}</dd></div>
+                <div><dt>Success</dt><dd>{{formatInt .SuccessCount}}</dd></div>
+                <div><dt>Failed</dt><dd class="{{if gt .FailureCount 0}}value-danger{{end}}">{{formatInt .FailureCount}}</dd></div>
+                <div><dt>Skipped</dt><dd>{{formatInt .SkippedCount}}</dd></div>
+              </dl>
+              <div class="run-time"><time>{{formatDateTime .StartedAt}}</time><span>{{formatDuration .StartedAt .FinishedAt}}</span></div>
+            </div>
+            <details class="run-details">
+              <summary>Inspect run evidence</summary>
+              <div class="run-detail-grid">
+                <div><h4>API quota remaining</h4><dl class="definition-list compact-definitions"><div><dt>Search API</dt><dd>{{if .SearchRateRemaining}}{{.SearchRateRemaining}}{{else}}N/A{{end}}</dd></div><div><dt>Core API</dt><dd>{{if .CoreRateRemaining}}{{.CoreRateRemaining}}{{else}}N/A{{end}}</dd></div></dl></div>
+                <div><h4>Search integrity</h4><p>{{if .SearchIncomplete}}Incomplete results recorded{{else}}No incomplete result flag{{end}}</p><p>{{formatInt .SearchSplitCount}} query splits</p></div>
+                <div><h4>Failures</h4>{{if .FailureRepositories}}<ul class="plain-list mono-list">{{range .FailureRepositories}}<li>{{.}}</li>{{end}}</ul>{{else}}<p>No failed repositories.</p>{{end}}{{if .ErrorSummary}}<p class="error-summary">{{.ErrorSummary}}</p>{{end}}</div>
+              </div>
+            </details>
+          </article>
+        {{end}}
+      </div>
+      {{template "run-pagination" .Pagination}}
+    {{else}}
+      <div class="empty-state"><h3>No job runs recorded</h3><p>The first collector or discovery command will create a run record.</p></div>
+    {{end}}
+  </section>
+{{end}}
+
+{{define "run-pagination"}}
+  {{if gt .Total 0}}
+    <nav class="pagination" aria-label="Run pagination">
+      <p>Showing {{formatInt .Start}} to {{formatInt .End}} of {{formatInt .Total}}</p>
+      <div>{{if .PreviousURL}}<a class="button button-secondary" href="{{.PreviousURL}}" rel="prev">Previous page</a>{{end}}{{if .NextURL}}<a class="button button-secondary" href="{{.NextURL}}" rel="next">Next page</a>{{end}}</div>
+    </nav>
+  {{end}}
+{{end}}

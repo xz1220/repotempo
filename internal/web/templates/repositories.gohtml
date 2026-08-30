@@ -1,0 +1,115 @@
+{{define "content"}}
+  <section aria-labelledby="repository-filters">
+    <h2 id="repository-filters" class="sr-only">Repository filters</h2>
+    <form class="filter-bar" method="get" action="/repositories" role="search">
+      <div class="field field-search">
+        <label for="repository-search">Search repositories</label>
+        <input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="owner or repository" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="topic-filter">Topic</label>
+        <select id="topic-filter" name="topic" data-submit-on-change>
+          <option value="">All topics</option>
+          {{range .Repositories.Topics}}
+            <option value="{{.Slug}}" {{if eq $.Repositories.Filter.TopicSlug .Slug}}selected{{end}}>{{.Name}}</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="field">
+        <label for="source-filter">First source</label>
+        <select id="source-filter" name="source" data-submit-on-change>
+          <option value="">All sources</option>
+          {{range .Repositories.Sources}}
+            <option value="{{.}}" {{if eq $.Repositories.Filter.Source .}}selected{{end}}>{{sourceLabel .}}</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="field">
+        <label for="status-filter">Monitoring</label>
+        <select id="status-filter" name="status" data-submit-on-change>
+          <option value="">All statuses</option>
+          {{range .Repositories.MonitoringStatuses}}
+            <option value="{{.}}" {{if eq $.Repositories.Filter.MonitoringStatus .}}selected{{end}}>{{statusLabel .}}</option>
+          {{end}}
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button class="button button-primary" type="submit">Apply filters</button>
+        {{if or .Repositories.Filter.Search .Repositories.Filter.TopicSlug .Repositories.Filter.Source .Repositories.Filter.MonitoringStatus}}
+          <a class="button button-secondary" href="/repositories">Clear filters</a>
+        {{end}}
+      </div>
+    </form>
+  </section>
+
+  <section aria-labelledby="repository-results">
+    <div class="section-heading result-heading">
+      <div>
+        <h2 id="repository-results">{{formatInt .Repositories.Total}} repositories</h2>
+        <p>Growth compares successful observations. N/A means the period is incomplete.</p>
+      </div>
+    </div>
+    {{if .Repositories.Items}}
+      <div class="table-scroll" role="region" aria-label="Repository metrics" tabindex="0">
+        <table class="data-table repository-table">
+          <thead>
+            <tr>
+              <th scope="col">Repository</th>
+              <th scope="col" class="numeric">Stars</th>
+              <th scope="col" class="numeric">1 day</th>
+              <th scope="col" class="numeric">7 days</th>
+              <th scope="col" class="numeric">30 days</th>
+              <th scope="col">Topics</th>
+              <th scope="col">First seen</th>
+              <th scope="col">Monitoring</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Repositories.Items}}
+              <tr>
+                <td class="repo-cell">
+                  <a class="repo-name" href="/repositories/{{.ID}}">{{.FullName}}</a>
+                  {{with githubURL .HTMLURL}}<a class="external-link" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="Open {{$.Meta.SiteName}} repository on GitHub">GitHub</a>{{end}}
+                  {{if .Description}}<p>{{.Description}}</p>{{end}}
+                </td>
+                <td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td>
+                <td class="numeric metric-delta">{{formatSigned .Delta1D}}</td>
+                <td class="numeric metric-delta">{{formatSigned .Delta7D}}</td>
+                <td class="numeric metric-delta">{{formatSigned .Delta30D}}</td>
+                <td>
+                  <div class="tag-list">
+                    {{range .Topics}}<a class="tag" href="/topics/{{.Slug}}">{{.Name}}</a>{{else}}<span class="muted">Unassigned</span>{{end}}
+                  </div>
+                </td>
+                <td>
+                  <span>{{sourceLabel .FirstSeenSource}}</span>
+                  <time class="cell-secondary">{{formatDate .FirstSeenAt}}</time>
+                </td>
+                <td><span class="status-badge {{statusClass .MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .MonitoringStatus}}</span></td>
+              </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{template "pagination" .Pagination}}
+    {{else}}
+      <div class="empty-state">
+        <h3>No repositories match</h3>
+        <p>Clear a filter or broaden the search. An empty database is also valid before the first discovery run.</p>
+        <a class="button button-secondary" href="/repositories">Clear filters</a>
+      </div>
+    {{end}}
+  </section>
+{{end}}
+
+{{define "pagination"}}
+  {{if gt .Total 0}}
+    <nav class="pagination" aria-label="Pagination">
+      <p>Showing {{formatInt .Start}} to {{formatInt .End}} of {{formatInt .Total}}</p>
+      <div>
+        {{if .PreviousURL}}<a class="button button-secondary" href="{{.PreviousURL}}" rel="prev">Previous page</a>{{end}}
+        {{if .NextURL}}<a class="button button-secondary" href="{{.NextURL}}" rel="next">Next page</a>{{end}}
+      </div>
+    </nav>
+  {{end}}
+{{end}}

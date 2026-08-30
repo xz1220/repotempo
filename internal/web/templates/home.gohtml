@@ -1,0 +1,114 @@
+{{define "content"}}
+  <section aria-labelledby="monitoring-summary">
+    <div class="section-heading">
+      <div>
+        <h2 id="monitoring-summary">Monitoring summary</h2>
+        <p>Stocks, growth, and today's collection outcome.</p>
+      </div>
+    </div>
+    <dl class="metric-strip metric-strip-wide">
+      <div>
+        <dt>Repositories</dt>
+        <dd>{{formatInt .Dashboard.RepositoryTotal}}</dd>
+      </div>
+      <div>
+        <dt>Active</dt>
+        <dd>{{formatInt .Dashboard.ActiveRepositoryTotal}}</dd>
+      </div>
+      <div>
+        <dt>Topics</dt>
+        <dd>{{formatInt .Dashboard.TopicTotal}}</dd>
+      </div>
+      <div>
+        <dt>Coverage</dt>
+        <dd>{{printf "%.1f%%" (coveragePercent .Dashboard.Coverage)}}</dd>
+      </div>
+      <div>
+        <dt>Failed today</dt>
+        <dd class="{{if gt .Dashboard.Coverage.Failed 0}}value-danger{{end}}">{{formatInt .Dashboard.Coverage.Failed}}</dd>
+      </div>
+      <div>
+        <dt>Stars today</dt>
+        <dd>{{formatSigned .Dashboard.NewStars1D}}</dd>
+      </div>
+      <div>
+        <dt>Stars in 7 days</dt>
+        <dd>{{formatSigned .Dashboard.NewStars7D}}</dd>
+      </div>
+      <div>
+        <dt>Stars in 30 days</dt>
+        <dd>{{formatSigned .Dashboard.NewStars30D}}</dd>
+      </div>
+    </dl>
+    <div class="coverage-row">
+      <div>
+        <p class="coverage-label">{{formatInt .Dashboard.Coverage.Successful}} of {{formatInt .Dashboard.Coverage.Target}} successful snapshots</p>
+        <p class="muted">Snapshot date {{formatDate .Dashboard.Coverage.Date}}</p>
+      </div>
+      <progress max="100" value="{{printf "%.1f" (coveragePercent .Dashboard.Coverage)}}">{{printf "%.1f%%" (coveragePercent .Dashboard.Coverage)}}</progress>
+    </div>
+  </section>
+
+  <div class="split-layout home-sections">
+    <section aria-labelledby="fastest-repositories">
+      <div class="section-heading">
+        <div>
+          <h2 id="fastest-repositories">Fastest repositories</h2>
+          <p>Ranked by the latest daily star change.</p>
+        </div>
+        <a class="text-link" href="/repositories">View all repositories</a>
+      </div>
+      {{if .Dashboard.FastestRepositories}}
+        <ol class="rank-list">
+          {{range .Dashboard.FastestRepositories}}
+            <li>
+              <div class="rank-position" aria-hidden="true"></div>
+              <div class="rank-main">
+                <a class="repo-name" href="/repositories/{{.ID}}">{{.FullName}}</a>
+                <p>{{if .PrimaryLanguage}}{{.PrimaryLanguage}}{{else}}Language unavailable{{end}}{{with .Topics}} · {{range $index, $topic := .}}{{if $index}}, {{end}}{{$topic.Name}}{{end}}{{end}}</p>
+              </div>
+              <div class="rank-values">
+                <strong>{{formatSigned .Delta1D}}</strong>
+                <span>{{formatIntPtr .CurrentStars}} total</span>
+              </div>
+            </li>
+          {{end}}
+        </ol>
+      {{else}}
+        <div class="empty-state">
+          <h3>No comparable growth yet</h3>
+          <p>Two successful observations are needed before a daily delta can be ranked.</p>
+        </div>
+      {{end}}
+    </section>
+
+    <section aria-labelledby="recent-runs">
+      <div class="section-heading">
+        <div>
+          <h2 id="recent-runs">Recent runs</h2>
+          <p>Latest collector and discovery outcomes.</p>
+        </div>
+        <a class="text-link" href="/runs">Inspect all runs</a>
+      </div>
+      {{if .Dashboard.RecentRuns}}
+        <ul class="run-summary-list">
+          {{range .Dashboard.RecentRuns}}
+            <li>
+              <span class="status-badge {{statusClass .Status}}"><span aria-hidden="true"></span>{{statusLabel .Status}}</span>
+              <div>
+                <strong>{{.JobType}}</strong>
+                <time>{{formatDateTime .StartedAt}}</time>
+              </div>
+              <p><strong>{{formatInt .SuccessCount}}</strong> / {{formatInt .TargetCount}}</p>
+            </li>
+          {{end}}
+        </ul>
+      {{else}}
+        <div class="empty-state">
+          <h3>No runs recorded</h3>
+          <p>Run the collector to create the first auditable job outcome.</p>
+        </div>
+      {{end}}
+    </section>
+  </div>
+{{end}}

@@ -1,0 +1,96 @@
+{{define "base"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{.Meta.Description}}">
+  <meta name="color-scheme" content="light">
+  <title>{{.Meta.Title}} · {{.Meta.SiteName}}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="{{.Meta.SiteName}} overview">
+        <span class="brand-mark" aria-hidden="true">GR</span>
+        <span>{{.Meta.SiteName}}</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" data-nav-toggle>
+        <span class="sr-only">Toggle navigation</span>
+        <span aria-hidden="true">Menu</span>
+      </button>
+      <nav id="primary-navigation" class="primary-nav" aria-label="Primary" data-navigation>
+        <a class="nav-link {{if eq .Meta.ActiveNav "overview"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "overview"}}aria-current="page"{{end}}>Overview</a>
+        <a class="nav-link {{if eq .Meta.ActiveNav "repositories"}}is-active{{end}}" href="/repositories" {{if eq .Meta.ActiveNav "repositories"}}aria-current="page"{{end}}>Repositories</a>
+        <a class="nav-link {{if eq .Meta.ActiveNav "topics"}}is-active{{end}}" href="/topics" {{if eq .Meta.ActiveNav "topics"}}aria-current="page"{{end}}>Topics</a>
+        <a class="nav-link {{if eq .Meta.ActiveNav "discoveries"}}is-active{{end}}" href="/discoveries" {{if eq .Meta.ActiveNav "discoveries"}}aria-current="page"{{end}}>Discoveries</a>
+        <a class="nav-link {{if eq .Meta.ActiveNav "runs"}}is-active{{end}}" href="/runs" {{if eq .Meta.ActiveNav "runs"}}aria-current="page"{{end}}>Runs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" class="page-shell">
+    <header class="page-heading">
+      <div>
+        <h1>{{.Meta.Title}}</h1>
+        <p>{{.Meta.Description}}</p>
+      </div>
+      <p class="as-of">As of {{.Meta.AsOfLabel}}</p>
+    </header>
+
+    {{range .Meta.Warnings}}
+      <div class="notice notice-warning" role="status">
+        <span class="notice-symbol" aria-hidden="true">!</span>
+        <p>{{.}}</p>
+      </div>
+    {{end}}
+
+    {{template "content" .}}
+  </main>
+
+  <footer class="app-footer">
+    <p>Read-only research data. Missing observations remain missing.</p>
+  </footer>
+</body>
+</html>
+{{end}}
+
+{{define "chart"}}
+  <section class="chart-panel" aria-labelledby="{{.ID}}">
+    <div class="section-heading compact">
+      <div>
+        <h2 id="{{.ID}}">{{.Title}}</h2>
+        <p>{{.Description}}</p>
+      </div>
+    </div>
+    {{if .HasData}}
+      <div class="chart-frame">
+        <svg class="line-chart" viewBox="0 0 800 224" role="img" aria-label="{{.Description}}" preserveAspectRatio="none">
+          <line class="chart-grid" x1="16" y1="14" x2="784" y2="14"></line>
+          <line class="chart-grid" x1="16" y1="106" x2="784" y2="106"></line>
+          <line class="chart-grid" x1="16" y1="198" x2="784" y2="198"></line>
+          {{range .Segments}}
+            <polyline class="chart-line" points="{{.Points}}"></polyline>
+          {{end}}
+          {{range .Points}}
+            <circle class="chart-dot" cx="{{.X}}" cy="{{.Y}}" r="3">
+              <title>{{.Label}}: {{.Value}}</title>
+            </circle>
+          {{end}}
+        </svg>
+        <div class="chart-y-label chart-y-top">{{.MaxLabel}}</div>
+        <div class="chart-y-label chart-y-bottom">{{.MinLabel}}</div>
+        <div class="chart-x-label chart-x-start">{{.StartLabel}}</div>
+        <div class="chart-x-label chart-x-end">{{.EndLabel}}</div>
+      </div>
+    {{else}}
+      <div class="empty-state compact-empty">
+        <h3>No valid points yet</h3>
+        <p>The chart appears after successful observations are recorded.</p>
+      </div>
+    {{end}}
+  </section>
+{{end}}
