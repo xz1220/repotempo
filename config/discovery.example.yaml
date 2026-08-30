@@ -1,0 +1,156 @@
+# Copy this file to discovery.yaml and tune thresholds/schedules for your use.
+# It intentionally contains no token; GITHUB_RADAR_GITHUB_TOKEN belongs in the environment.
+version: 1
+
+github:
+  api_base_url: https://api.github.com/
+  api_version: "2026-03-10"
+  user_agent: github-radar/0.1
+  timeout: 20s
+  core_interval: 100ms
+  # Authenticated Repository Search normally allows 30 requests/minute.
+  search_interval: 2s
+  secondary_backoff: 1m
+  server_backoff: 1s
+  max_retries: 3
+
+ossinsight:
+  enabled: true
+  base_url: https://api.ossinsight.io/v1/trends/repos/
+  language: All
+  timeout: 30s
+  windows:
+    - name: today
+      period: past_24_hours
+    - name: week
+      period: past_week
+    - name: month
+      period: past_month
+    - name: three-months
+      period: past_3_months
+
+# Discovery thresholds live here, not in Go code. Each broad query declares how
+# GitHub's 1,000-result boundary should be partitioned.
+profiles:
+  - name: global-high-star
+    enabled: true
+    schedule: weekly
+    sort: stars
+    order: desc
+    partition:
+      by: stars
+      max_depth: 24
+    queries:
+      - stars:
+          min: 10000
+        fork: false
+        archived: false
+
+  - name: topic-popular
+    enabled: true
+    schedule: weekly
+    sort: stars
+    order: desc
+    partition:
+      by: stars
+      max_depth: 24
+    queries:
+      - topic: ai-agent
+        stars:
+          min: 500
+        fork: false
+        archived: false
+      - topic: agent-memory
+        stars:
+          min: 200
+        fork: false
+        archived: false
+      - topic: multi-agent
+        stars:
+          min: 300
+        fork: false
+        archived: false
+      - topic: browser-automation
+        stars:
+          min: 500
+        fork: false
+        archived: false
+
+  - name: recently-created
+    enabled: true
+    schedule: daily
+    sort: stars
+    order: desc
+    partition:
+      by: created
+      max_depth: 16
+    queries:
+      - stars:
+          min: 100
+        created:
+          since_days: 30
+        fork: false
+        archived: false
+
+  - name: recently-active
+    enabled: true
+    schedule: daily
+    sort: updated
+    order: desc
+    partition:
+      by: pushed
+      max_depth: 16
+    queries:
+      - stars:
+          min: 1000
+        pushed:
+          since_days: 90
+        fork: false
+        archived: false
+
+  - name: monthly-coverage
+    enabled: true
+    schedule: monthly
+    sort: stars
+    order: desc
+    partition:
+      by: stars
+      max_depth: 24
+    queries:
+      - stars:
+          min: 1000
+        fork: false
+        archived: false
+
+  - name: benchmark-projects
+    enabled: true
+    schedule: weekly
+    sort: stars
+    order: desc
+    partition:
+      by: none
+      max_depth: 0
+    queries:
+      - text: codex in:name
+        fork: false
+        archived: false
+      - text: opencode in:name
+        fork: false
+        archived: false
+      - text: langgraph in:name
+        fork: false
+        archived: false
+      - text: ollama in:name
+        fork: false
+        archived: false
+      - text: mem0 in:name
+        fork: false
+        archived: false
+
+manual:
+  files:
+    - config/watchlist.example.yaml
+
+legacy:
+  # Set this on the import host or pass an explicit CLI path.
+  database_path: ""

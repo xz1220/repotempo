@@ -1,0 +1,11 @@
+version: 1
+repositories:
+  - full_name: openai/codex
+    focus: true
+    monitoring_status: active
+    topics: [ai-agent, harness]
+    note: Mature benchmark; resolve and verify its permanent repository ID via GitHub.
+  - full_name: ollama/ollama
+    focus: true
+    monitoring_status: active
+    topics: [ai-infrastructure]
