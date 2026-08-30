@@ -79,7 +79,11 @@ func (service Service) Run(ctx context.Context, evidence map[int64]OSSEvidence) 
 			return report, fmt.Errorf("read today's snapshot for %s: %w", repository.FullName, err)
 		}
 
-		result, fetchErr := service.GitHub.FetchRepositoryByID(ctx, repository.GitHubRepoID, repository.GitHubETag)
+		etag, etagErr := service.safeETag(ctx, repository, date)
+		if etagErr != nil {
+			return report, fmt.Errorf("prepare conditional snapshot for %s: %w", repository.FullName, etagErr)
+		}
+		result, fetchErr := service.GitHub.FetchRepositoryByID(ctx, repository.GitHubRepoID, etag)
 		if fetchErr != nil {
 			failure := classifyFailure(repository, result, fetchErr)
 			if putErr := service.putFailure(ctx, now, date, repository.GitHubRepoID, evidence[repository.GitHubRepoID], failure); putErr != nil {
@@ -133,6 +137,27 @@ func (service Service) Run(ctx context.Context, evidence map[int64]OSSEvidence) 
 		}
 	}
 	return report, nil
+}
+
+func (service Service) safeETag(ctx context.Context, repository domain.Repository, date domain.Date) (string, error) {
+	if repository.GitHubETag == "" {
+		return "", nil
+	}
+	previousDate, err := date.AddDays(-1)
+	if err != nil {
+		return "", err
+	}
+	_, err = service.Store.GetLatestSuccessfulSnapshot(ctx, repository.GitHubRepoID, previousDate)
+	if errors.Is(err, corestore.ErrNotFound) {
+		// An imported metadata ETag without an absolute-star baseline could
+		// produce a 304 whose value cannot be reconstructed. Force one full
+		// response before conditional requests begin.
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return repository.GitHubETag, nil
 }
 
 func (service Service) starCountForResult(ctx context.Context, repository domain.Repository, date domain.Date, result github.RepositoryResult) (int64, error) {

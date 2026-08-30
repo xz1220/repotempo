@@ -171,6 +171,26 @@ func TestRunRecordsFailureWhenNotModifiedHasNoBaseline(t *testing.T) {
 	}
 }
 
+func TestRunDoesNotSendImportedETagWithoutStarBaseline(t *testing.T) {
+	store := newFakeSnapshotStore(testRepository())
+	stars := int64(123)
+	var receivedETag string
+	service := Service{
+		Store: store,
+		GitHub: fetcherFunc(func(_ context.Context, _ int64, etag string) (github.RepositoryResult, error) {
+			receivedETag = etag
+			return github.RepositoryResult{HTTPStatus: 200, Repository: source.Repository{ID: 42, FullName: "owner/repo", AbsoluteStars: &stars}}, nil
+		}),
+		Now: func() time.Time { return time.Date(2026, 8, 30, 1, 0, 0, 0, time.UTC) },
+	}
+	if _, err := service.Run(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if receivedETag != "" {
+		t.Fatalf("sent ETag %q without a successful star baseline", receivedETag)
+	}
+}
+
 func TestRunRepairsSameDayFailureOnSuccessfulRetry(t *testing.T) {
 	store := newFakeSnapshotStore(testRepository())
 	attempt := 0
