@@ -25,15 +25,20 @@ github-radar import-legacy --csv /tmp/github-radar-feishu.csv
 The bridge paginates serially in batches of 200 until `has_more=false`. It reads
 the project fields `项目`, `GitHub`, `语言`, `分类`, `首次出现`, `最后观察`,
 `累计 Stars`, and `人工收藏`, plus the daily fields `项目`, `GitHub`, `日期`,
-`累计 Stars`, `今日排名`, and `今日 Stars 增量`.
+`累计 Stars`, and `今日排名`.
 
 Base rows do not contain GitHub repository ID. The bridge therefore resolves
 each `owner/name` through GitHub before writing a CSV row, and the Go importer
 performs the same ID check again before persistence. An unresolved repository is
 reported and skipped. The Base is never modified.
 
+If any repository cannot be resolved, the bridge still writes the verified
+rows but exits with code 3 for partial success. A schema mismatch or an export
+with no usable rows exits with code 1. Feishu datetime values are accepted as
+either ISO strings or epoch milliseconds, and fields are mapped by name rather
+than column position.
+
 Only dated cumulative-star values become observations. Missing days remain
 missing. Project-table values without a real `最后观察` timestamp are imported
 as project metadata only. Daily rows are written before project-summary rows so
 same-day duplicates keep the daily rank evidence.
-

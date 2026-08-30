@@ -58,9 +58,11 @@ project_rows=$temporary_directory/projects.jsonl
 daily_rows=$temporary_directory/daily.jsonl
 identity_rows=$temporary_directory/identities.jsonl
 identity_map=$temporary_directory/identities.json
+unresolved_rows=$temporary_directory/unresolved.txt
 : >"$project_rows"
 : >"$daily_rows"
 : >"$identity_rows"
+: >"$unresolved_rows"
 
 offset=0
 while :; do
@@ -79,11 +81,26 @@ while :; do
     --limit 200 \
     --format json \
     --as user)
-  printf '%s\n' "$page" | "$JQ_BIN" -c '.data.data[] | {
-    full_name: .[0], language: (.[2] // ""), categories: (.[3] // []),
-    first_seen_at: (.[4] // ""), observed_at: (.[5] // ""),
-    star_count: .[6], is_focus: (.[7] // false)
-  }' >>"$project_rows"
+  printf '%s\n' "$page" | "$JQ_BIN" -c '
+    def timestamp:
+      if . == null then ""
+      elif type == "number" then ((if . > 100000000000 then . / 1000 else . end) | todateiso8601)
+      elif type == "string" then .
+      else error("unsupported datetime value") end;
+    .data as $page |
+    ($page.fields | to_entries | map({key:.value,value:.key}) | from_entries) as $field |
+    if ($field["项目"] == null or $field["语言"] == null or $field["分类"] == null or
+        $field["首次出现"] == null or $field["最后观察"] == null or
+        $field["累计 Stars"] == null or $field["人工收藏"] == null)
+    then error("project table does not match the required Feishu schema")
+    else $page.data[] | {
+      full_name: .[$field["项目"]], language: (.[$field["语言"]] // ""),
+      categories: (.[$field["分类"]] // []),
+      first_seen_at: (.[$field["首次出现"]] | timestamp),
+      observed_at: (.[$field["最后观察"]] | timestamp),
+      star_count: .[$field["累计 Stars"]], is_focus: (.[$field["人工收藏"]] // false)
+    } end
+  ' >>"$project_rows"
   count=$(printf '%s\n' "$page" | "$JQ_BIN" -r '.data.data | length')
   has_more=$(printf '%s\n' "$page" | "$JQ_BIN" -r '.data.has_more')
   [ "$count" -gt 0 ] || break
@@ -101,15 +118,26 @@ while :; do
     --field-id "日期" \
     --field-id "累计 Stars" \
     --field-id "今日排名" \
-    --field-id "今日 Stars 增量" \
     --offset "$offset" \
     --limit 200 \
     --format json \
     --as user)
-  printf '%s\n' "$page" | "$JQ_BIN" -c '.data.data[] | {
-    full_name: .[0], observed_at: (.[2] // ""), star_count: .[3],
-    oss_today_rank: .[4], oss_window_stars: .[5]
-  }' >>"$daily_rows"
+  printf '%s\n' "$page" | "$JQ_BIN" -c '
+    def timestamp:
+      if . == null then ""
+      elif type == "number" then ((if . > 100000000000 then . / 1000 else . end) | todateiso8601)
+      elif type == "string" then .
+      else error("unsupported datetime value") end;
+    .data as $page |
+    ($page.fields | to_entries | map({key:.value,value:.key}) | from_entries) as $field |
+    if ($field["项目"] == null or $field["日期"] == null or
+        $field["累计 Stars"] == null or $field["今日排名"] == null)
+    then error("daily table does not match the required Feishu schema")
+    else $page.data[] | {
+      full_name: .[$field["项目"]], observed_at: (.[$field["日期"]] | timestamp),
+      star_count: .[$field["累计 Stars"]], oss_today_rank: .[$field["今日排名"]]
+    } end
+  ' >>"$daily_rows"
   count=$(printf '%s\n' "$page" | "$JQ_BIN" -r '.data.data | length')
   has_more=$(printf '%s\n' "$page" | "$JQ_BIN" -r '.data.has_more')
   [ "$count" -gt 0 ] || break
@@ -126,6 +154,7 @@ done
       '{full_name:$full_name,id:$repository.id,html_url:$repository.html_url}' >>"$identity_rows"
   else
     echo "warning: GitHub identity could not be resolved for $full_name; rows skipped" >&2
+    printf '%s\n' "$full_name" >>"$unresolved_rows"
   fi
 done
 
@@ -141,7 +170,7 @@ printf '%s\n' 'github_repo_id,full_name,html_url,primary_language,first_seen_at,
   select($identity != null and .observed_at != "" and .star_count != null) |
   [$identity.id, .full_name, $identity.html_url, "", "", .observed_at,
    (.observed_at[0:10]), .star_count, "legacy", false, "", false,
-   (.oss_today_rank // ""), (.oss_window_stars // "")] | @csv
+   (.oss_today_rank // ""), ""] | @csv
 ' "$daily_rows" >>"$temporary_output"
 
 "$JQ_BIN" -r --slurpfile identities "$identity_map" '
@@ -160,7 +189,16 @@ printf '%s\n' 'github_repo_id,full_name,html_url,primary_language,first_seen_at,
 ' "$project_rows" >>"$temporary_output"
 
 mv "$temporary_output" "$output_path"
+row_count=$(( $(wc -l <"$output_path") - 1 ))
+unresolved_count=$(wc -l <"$unresolved_rows")
 trap - EXIT HUP INT TERM
 rm -rf "$temporary_directory"
 echo "$output_path"
-
+if [ "$row_count" -le 0 ]; then
+  echo "error: Feishu Base export produced no importable rows" >&2
+  exit 1
+fi
+if [ "$unresolved_count" -gt 0 ]; then
+  echo "partial: $unresolved_count GitHub repositories were unresolved" >&2
+  exit 3
+fi
