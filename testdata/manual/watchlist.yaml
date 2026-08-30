@@ -1,0 +1,11 @@
+version: 1
+repositories:
+  - full_name: owner/repo
+    github_repo_id: 42
+    focus: true
+    note: benchmark
+    monitoring_status: active
+    topics: [ai-agent]
+  - full_name: owner/fork
+    monitoring_status: paused
+    topics: [tools]
