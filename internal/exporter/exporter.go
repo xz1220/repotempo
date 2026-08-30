@@ -205,8 +205,11 @@ func writeCSV(path string, header []string, records [][]string) error {
 	}
 	writer := csv.NewWriter(file)
 	err = writer.Write(header)
-	if err == nil {
-		err = writer.WriteAll(records)
+	for _, record := range records {
+		if err != nil {
+			break
+		}
+		err = writer.Write(safeCSVRecord(record))
 	}
 	writer.Flush()
 	if err == nil {
@@ -220,6 +223,20 @@ func writeCSV(path string, header []string, records [][]string) error {
 		return fmt.Errorf("close CSV export %s: %w", filepath.Base(path), closeErr)
 	}
 	return nil
+}
+
+func safeCSVRecord(record []string) []string {
+	result := append([]string(nil), record...)
+	for index, value := range result {
+		if value == "" {
+			continue
+		}
+		switch value[0] {
+		case '=', '+', '-', '@', '\t', '\r':
+			result[index] = "'" + value
+		}
+	}
+	return result
 }
 
 func repositoryHeader() []string {

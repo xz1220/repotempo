@@ -44,6 +44,7 @@ func TestWriteJSONContainsAllFiveTables(t *testing.T) {
 
 func TestWriteCSVDirectoryPreservesNullFailureStar(t *testing.T) {
 	dataset := sampleDataset()
+	dataset.Repositories[0].Description = "=HYPERLINK(\"https://invalid.example\")"
 	dataset.DailySnapshots[0].FetchStatus = domain.FetchFailed
 	dataset.DailySnapshots[0].StarCount = nil
 	path := filepath.Join(t.TempDir(), "csv-export")
@@ -66,5 +67,17 @@ func TestWriteCSVDirectoryPreservesNullFailureStar(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(path, name)); err != nil {
 			t.Fatalf("missing %s: %v", name, err)
 		}
+	}
+	repositoryFile, err := os.Open(filepath.Join(path, "repositories.csv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repositoryFile.Close()
+	repositoryRows, err := csv.NewReader(repositoryFile).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := repositoryRows[1][4]; len(got) == 0 || got[0] != '\'' {
+		t.Fatalf("formula-like CSV description was not neutralized: %q", got)
 	}
 }
