@@ -61,6 +61,17 @@ Cron file rather than editing the existing Python task.
 
 ## Recheck gate
 
-The reviewed revision failed. A follow-up Kimi recheck is required after the
-fixes above and before deployment or release. P0 and P1 must both be zero.
+The reviewed revision failed. The same Kimi session then rechecked the fixed
+HEAD, repeated gofmt, vet, test, race, and binary provenance checks, and verified
+all nine P1 items against their new tests.
 
+- Recheck P0: **0**
+- Recheck P1: **0**
+- Binary revision: matched HEAD with `vcs.modified=false`
+- Release Candidate Gate: **PASS**
+
+The recheck left only P2 follow-ups. Before release, the main agent additionally
+made config-watchlist topics unable to undo manual vetoes, protected already
+paused search-discovered repositories on their first config load, added negative
+schedule/dry-run tests, required positive core and Search intervals, tested the
+Feishu partial exit path, and documented install, upgrade, and rollback.
