@@ -29,6 +29,6 @@ build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -trimpath -ldflags "-s -w" -o $(BINARY)-linux-amd64 ./cmd/github-radar
 
 security:
-	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
 ci: fmt-check vet test race build-linux

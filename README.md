@@ -52,7 +52,7 @@ See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
 
 ## Requirements
 
-- Go 1.26 or Go 1.27 to build from source.
+- Go 1.27 or newer to build from source.
 - A GitHub token for useful API capacity. Fine-grained read-only repository
   metadata access is sufficient for public repositories.
 - Linux for the included Cron and systemd deployment files.
