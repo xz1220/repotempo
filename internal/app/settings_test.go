@@ -3,7 +3,7 @@ package app
 import "testing"
 
 func TestLoadSettingsDoesNotExposeToken(t *testing.T) {
-	t.Setenv("GITHUB_RADAR_GITHUB_TOKEN", "github_pat_example_secret_value")
+	t.Setenv("GITHUB_RADAR_GITHUB_TOKEN", "test-token-not-a-secret")
 	settings, err := LoadSettings()
 	if err != nil {
 		t.Fatal(err)
