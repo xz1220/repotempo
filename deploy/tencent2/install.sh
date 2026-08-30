@@ -22,6 +22,10 @@ install -d -o github-radar -g github-radar -m 0750 \
   /var/lib/github-radar/exports \
   /var/lib/github-radar/backups \
   /var/log/github-radar
+if [ -x /opt/github-radar/github-radar ]; then
+  install -o root -g root -m 0755 /opt/github-radar/github-radar \
+    /opt/github-radar/github-radar.previous
+fi
 install -o root -g root -m 0755 "$release_binary" /opt/github-radar/github-radar
 
 if [ ! -f /etc/github-radar/github-radar.env ]; then

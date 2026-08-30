@@ -17,3 +17,7 @@ missing or failed observation, but it may not overwrite an existing success.
 Historical imports keep only real observations. GitHub does not expose exact
 daily star history for dates before monitoring began, so gaps remain gaps.
 
+A confirmed manual assignment with confidence `0` is a negative topic decision.
+It remains in raw exports as an auditable veto, is excluded from topic views and
+aggregates, and prevents later automatic discovery from silently restoring a
+topic the user removed. A later explicit manual assignment replaces the veto.
