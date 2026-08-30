@@ -62,6 +62,9 @@ func TestImportRealLegacySchema(t *testing.T) {
 	if result.Candidates[0].Metadata["etag"] != "etag-1" || result.Candidates[1].Repository.GitHubStatus != "archived" {
 		t.Fatalf("legacy GitHub state not retained: %+v", result.Candidates)
 	}
+	if result.Candidates[1].MonitorStatus != "" || result.Candidates[1].Metadata["legacy_is_active"] != "false" {
+		t.Fatalf("legacy trend membership incorrectly became a monitoring pause: %+v", result.Candidates[1])
+	}
 	for _, candidate := range result.Candidates {
 		if candidate.Repository.AbsoluteStars != nil {
 			t.Fatalf("undated repos.github_stars imported: %+v", candidate)

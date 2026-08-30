@@ -60,6 +60,9 @@ func TestRegistryPreservesLegacyGitHubStatus(t *testing.T) {
 	if got := store.observations[0].GitHubStatus; got != domain.GitHubDeleted {
 		t.Fatalf("GitHub status = %s", got)
 	}
+	if got := store.observations[0].MonitoringStatus; got != domain.MonitoringStopped {
+		t.Fatalf("deleted repository monitoring status = %s", got)
+	}
 }
 
 func TestRegistryAllowsManualForkAndPausesArchivedDiscovery(t *testing.T) {

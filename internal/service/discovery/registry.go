@@ -82,9 +82,20 @@ func (registry Registry) Merge(ctx context.Context, candidates []source.Candidat
 		switch {
 		case candidate.Repository.Private:
 			githubStatus = domain.GitHubPrivate
+			if candidate.MonitorStatus == "" && discoverySource != domain.DiscoverySourceManual {
+				monitoring = domain.MonitoringPaused
+			}
 		case candidate.Repository.Archived:
 			githubStatus = domain.GitHubArchived
 			if candidate.MonitorStatus == "" && discoverySource != domain.DiscoverySourceManual {
+				monitoring = domain.MonitoringPaused
+			}
+		case githubStatus == domain.GitHubDeleted:
+			if candidate.MonitorStatus == "" {
+				monitoring = domain.MonitoringStopped
+			}
+		case githubStatus == domain.GitHubUnreachable:
+			if candidate.MonitorStatus == "" {
 				monitoring = domain.MonitoringPaused
 			}
 		}

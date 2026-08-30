@@ -169,14 +169,11 @@ func readRepositories(ctx context.Context, database *sql.DB, catalog map[int64]c
 			warnings = append(warnings, source.Warning{Row: rowNumber, Code: "invalid_last_seen_at", Message: lastErr.Error()})
 		}
 		topics := parseStringList(topicsJSON)
-		monitorStatus := "active"
-		if active == 0 {
-			monitorStatus = "paused"
-		}
 		metadata := map[string]string{
 			"legacy_github_status": githubStatus,
 			"legacy_etag":          etag,
 			"etag":                 etag,
+			"legacy_is_active":     strconv.FormatBool(active != 0),
 		}
 		if lastSeen != nil {
 			metadata["legacy_last_seen_at"] = lastSeen.UTC().Format(time.RFC3339)
@@ -205,10 +202,13 @@ func readRepositories(ctx context.Context, database *sql.DB, catalog map[int64]c
 				// repos.github_stars has no trustworthy observation timestamp.
 				AbsoluteStars: nil,
 			},
-			Source:        "legacy",
-			DiscoveredAt:  discoveredAt,
-			IsFocus:       isCatalog || favorite != 0,
-			MonitorStatus: monitorStatus,
+			Source:       "legacy",
+			DiscoveredAt: discoveredAt,
+			IsFocus:      isCatalog || favorite != 0,
+			// The legacy is_active flag meant "currently present in a trend
+			// window or manually favored", not "pause future monitoring".
+			// Import every reachable repository into the fixed panel.
+			MonitorStatus: "",
 			Metadata:      metadata,
 		}
 		candidates = append(candidates, candidate)
@@ -368,6 +368,8 @@ func normalizeGitHubStatus(value string, archived bool) string {
 	switch value {
 	case "active", "archived", "deleted", "private", "unreachable":
 		return value
+	case "not_found":
+		return "unreachable"
 	}
 	if archived {
 		return "archived"
