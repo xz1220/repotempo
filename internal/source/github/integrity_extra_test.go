@@ -130,3 +130,25 @@ func TestSearchWaitsForCachedResourceResetWhenRemainingIsZero(t *testing.T) {
 		t.Fatalf("clock after wait = %v, want %v", got, want)
 	}
 }
+
+func TestSearchEmptyIntermediatePageIsExplicitlyIncomplete(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		if page == 1 {
+			writeSearch(t, w, 200, false, []githubRepository{repoItem(1, 100)})
+			return
+		}
+		writeSearch(t, w, 200, false, nil)
+	}))
+	defer server.Close()
+
+	client := githubTestClient(t, server, nil)
+	result, err := client.SearchProfile(context.Background(), profileWith(config.SearchQuery{Text: "radar"}), time.Now())
+	var integrity *SearchIntegrityError
+	if !errors.As(err, &integrity) || !integrity.Incomplete {
+		t.Fatalf("error = %#v, want incomplete SearchIntegrityError", err)
+	}
+	if !result.IncompleteResults || len(result.Hits) != 1 || !result.Reports[0].IncompleteResults {
+		t.Fatalf("result = %#v", result)
+	}
+}

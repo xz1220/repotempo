@@ -26,6 +26,8 @@ type fakeSnapshotStore struct {
 	upserts      []domain.RepositoryObservation
 	monitoring   map[int64]domain.MonitoringStatus
 	githubStatus map[int64]domain.GitHubStatus
+	putErrors    map[int64]error
+	upsertError  error
 }
 
 func newFakeSnapshotStore(repository domain.Repository) *fakeSnapshotStore {
@@ -35,6 +37,7 @@ func newFakeSnapshotStore(repository domain.Repository) *fakeSnapshotStore {
 		latest:       map[int64]domain.DailySnapshot{},
 		monitoring:   map[int64]domain.MonitoringStatus{},
 		githubStatus: map[int64]domain.GitHubStatus{},
+		putErrors:    map[int64]error{},
 	}
 }
 
@@ -57,12 +60,18 @@ func (store *fakeSnapshotStore) GetLatestSuccessfulSnapshot(_ context.Context, i
 }
 
 func (store *fakeSnapshotStore) PutDailySnapshot(_ context.Context, snapshot domain.DailySnapshot) (domain.SnapshotWriteResult, error) {
+	if err := store.putErrors[snapshot.RepositoryID]; err != nil {
+		return domain.SnapshotWriteResult{}, err
+	}
 	store.writes = append(store.writes, snapshot)
 	store.today[snapshot.RepositoryID] = snapshot
 	return domain.SnapshotWriteResult{Disposition: domain.SnapshotInserted, Snapshot: snapshot}, nil
 }
 
 func (store *fakeSnapshotStore) UpsertRepository(_ context.Context, observation domain.RepositoryObservation) (domain.Repository, bool, error) {
+	if store.upsertError != nil {
+		return domain.Repository{}, false, store.upsertError
+	}
 	store.upserts = append(store.upserts, observation)
 	return domain.Repository{GitHubRepoID: observation.GitHubRepoID, FullName: observation.FullName}, false, nil
 }
@@ -276,5 +285,60 @@ func TestRunStopsRepositoryOnIdentityMismatch(t *testing.T) {
 	}
 	if report.FailureCount != 1 || store.monitoring[42] != domain.MonitoringStopped {
 		t.Fatalf("identity mismatch did not stop monitoring: %#v", report)
+	}
+}
+
+func TestRunContinuesAfterOneRepositorySnapshotWriteFails(t *testing.T) {
+	first := testRepository()
+	first.GitHubRepoID = 1
+	first.FullName = "owner/first"
+	second := testRepository()
+	second.GitHubRepoID = 2
+	second.FullName = "owner/second"
+	store := newFakeSnapshotStore(first)
+	store.repositories = []domain.Repository{first, second}
+	store.putErrors[1] = errors.New("disk write failed")
+	stars := int64(50)
+	service := Service{
+		Store: store,
+		GitHub: fetcherFunc(func(_ context.Context, id int64, _ string) (github.RepositoryResult, error) {
+			name := "owner/first"
+			if id == 2 {
+				name = "owner/second"
+			}
+			return github.RepositoryResult{HTTPStatus: 200, ETag: `"new"`, Repository: source.Repository{ID: id, FullName: name, AbsoluteStars: &stars}}, nil
+		}),
+	}
+	report, err := service.Run(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.TargetCount != 2 || report.SuccessCount != 1 || report.FailureCount != 1 {
+		t.Fatalf("unexpected report: %#v", report)
+	}
+	if len(store.upserts) != 1 || store.upserts[0].GitHubRepoID != 2 {
+		t.Fatalf("ETag updates = %#v; failed write must not advance repository 1", store.upserts)
+	}
+}
+
+func TestRunKeepsSuccessfulSnapshotWhenMetadataUpdateFails(t *testing.T) {
+	store := newFakeSnapshotStore(testRepository())
+	store.upsertError = errors.New("metadata unavailable")
+	stars := int64(77)
+	service := Service{
+		Store: store,
+		GitHub: fetcherFunc(func(context.Context, int64, string) (github.RepositoryResult, error) {
+			return github.RepositoryResult{HTTPStatus: 200, ETag: `"new"`, Repository: source.Repository{ID: 42, FullName: "owner/repo", AbsoluteStars: &stars}}, nil
+		}),
+	}
+	report, err := service.Run(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.SuccessCount != 1 || report.FailureCount != 0 || report.MetadataFailureCount != 1 {
+		t.Fatalf("unexpected report: %#v", report)
+	}
+	if snapshotValue := store.today[42]; snapshotValue.StarCount == nil || *snapshotValue.StarCount != stars {
+		t.Fatalf("successful star snapshot was lost: %#v", snapshotValue)
 	}
 }

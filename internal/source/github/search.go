@@ -207,6 +207,12 @@ func (c *Client) fetchQuery(ctx context.Context, state *searchState, query Query
 			state.result.Reports[reportIndex].IncompleteResults = true
 		}
 		if len(next.Items) == 0 {
+			// A page before the computed end becoming empty usually means the
+			// search index changed while paging. Keep prior hits, but never mark
+			// the query complete or advance its successful schedule timestamp.
+			state.result.IncompleteResults = true
+			state.integrity[queryText] = struct{}{}
+			state.result.Reports[reportIndex].IncompleteResults = true
 			break
 		}
 		c.addPageHits(state, query, next, pageNumber)

@@ -99,7 +99,9 @@ type SnapshotCommandReport struct {
 	DryRun bool `json:"dry_run"`
 }
 
-func (report SnapshotCommandReport) Partial() bool { return report.FailureCount > 0 }
+func (report SnapshotCommandReport) Partial() bool {
+	return report.FailureCount > 0 || report.MetadataFailureCount > 0
+}
 
 type ImportOptions struct {
 	LegacyPath string   `json:"legacy_path,omitempty"`

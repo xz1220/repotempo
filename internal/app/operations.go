@@ -40,7 +40,7 @@ func (runtime *Runtime) Snapshot(ctx context.Context, dryRun bool) (SnapshotComm
 	if runErr != nil {
 		status = domain.JobFailed
 		errorSummary = runErr.Error()
-	} else if report.FailureCount > 0 {
+	} else if report.FailureCount > 0 || report.MetadataFailureCount > 0 {
 		status = domain.JobPartial
 		errorSummary = fmt.Sprintf("%d repository snapshots failed", report.FailureCount)
 	}
@@ -48,7 +48,7 @@ func (runtime *Runtime) Snapshot(ctx context.Context, dryRun bool) (SnapshotComm
 		Status:       status,
 		TargetCount:  report.TargetCount,
 		SuccessCount: report.SuccessCount,
-		FailureCount: report.FailureCount,
+		FailureCount: report.FailureCount + report.MetadataFailureCount,
 		SkippedCount: report.SkippedCount,
 		Details: map[string]any{
 			"date": report.Date, "failures": report.Failures,

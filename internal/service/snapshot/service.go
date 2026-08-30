@@ -40,12 +40,13 @@ type Failure struct {
 }
 
 type Report struct {
-	Date         domain.Date `json:"date"`
-	TargetCount  int         `json:"target_count"`
-	SuccessCount int         `json:"success_count"`
-	FailureCount int         `json:"failure_count"`
-	SkippedCount int         `json:"skipped_count"`
-	Failures     []Failure   `json:"failures"`
+	Date                 domain.Date `json:"date"`
+	TargetCount          int         `json:"target_count"`
+	SuccessCount         int         `json:"success_count"`
+	FailureCount         int         `json:"failure_count"`
+	MetadataFailureCount int         `json:"metadata_failure_count"`
+	SkippedCount         int         `json:"skipped_count"`
+	Failures             []Failure   `json:"failures"`
 }
 
 type Service struct {
@@ -76,18 +77,21 @@ func (service Service) Run(ctx context.Context, evidence map[int64]OSSEvidence) 
 			report.SkippedCount++
 			continue
 		} else if err != nil && !errors.Is(err, corestore.ErrNotFound) {
-			return report, fmt.Errorf("read today's snapshot for %s: %w", repository.FullName, err)
+			service.appendPersistenceFailure(&report, repository, "snapshot_lookup_failed", err)
+			continue
 		}
 
 		etag, etagErr := service.safeETag(ctx, repository, date)
 		if etagErr != nil {
-			return report, fmt.Errorf("prepare conditional snapshot for %s: %w", repository.FullName, etagErr)
+			service.appendPersistenceFailure(&report, repository, "snapshot_baseline_failed", etagErr)
+			continue
 		}
 		result, fetchErr := service.GitHub.FetchRepositoryByID(ctx, repository.GitHubRepoID, etag)
 		if fetchErr != nil {
 			failure := classifyFailure(repository, result, fetchErr)
 			if putErr := service.putFailure(ctx, now, date, repository.GitHubRepoID, evidence[repository.GitHubRepoID], failure); putErr != nil {
-				return report, fmt.Errorf("record failed snapshot for %s: %w", repository.FullName, putErr)
+				failure.ErrorCode = "snapshot_persist_failed"
+				failure.Message = putErr.Error()
 			}
 			service.updateFailureState(ctx, repository.GitHubRepoID, fetchErr)
 			report.FailureCount++
@@ -99,44 +103,60 @@ func (service Service) Run(ctx context.Context, evidence map[int64]OSSEvidence) 
 		if successErr != nil {
 			failure := classifyFailure(repository, result, successErr)
 			if putErr := service.putFailure(ctx, now, date, repository.GitHubRepoID, evidence[repository.GitHubRepoID], failure); putErr != nil {
-				return report, fmt.Errorf("record failed snapshot for %s: %w", repository.FullName, putErr)
+				failure.ErrorCode = "snapshot_persist_failed"
+				failure.Message = putErr.Error()
 			}
 			report.FailureCount++
 			report.Failures = append(report.Failures, failure)
 			continue
 		}
 
-		if err := service.updateRepository(ctx, repository, result, now); err != nil {
-			failure := Failure{RepositoryID: repository.GitHubRepoID, FullName: repository.FullName, ErrorCode: "repository_update_failed", Message: err.Error()}
-			if putErr := service.putFailure(ctx, now, date, repository.GitHubRepoID, evidence[repository.GitHubRepoID], failure); putErr != nil {
-				return report, fmt.Errorf("record repository update failure for %s: %w", repository.FullName, putErr)
-			}
-			report.FailureCount++
-			report.Failures = append(report.Failures, failure)
-			continue
-		}
-
-		httpStatus := result.HTTPStatus
 		snapshot := domain.DailySnapshot{
 			RepositoryID: repository.GitHubRepoID,
 			SnapshotDate: date,
 			CapturedAt:   now,
 			StarCount:    &starCount,
 			FetchStatus:  domain.FetchSuccess,
-			HTTPStatus:   &httpStatus,
+		}
+		if result.HTTPStatus > 0 {
+			httpStatus := result.HTTPStatus
+			snapshot.HTTPStatus = &httpStatus
 		}
 		attachEvidence(&snapshot, evidence[repository.GitHubRepoID])
 		write, err := service.Store.PutDailySnapshot(ctx, snapshot)
 		if err != nil {
-			return report, fmt.Errorf("record successful snapshot for %s: %w", repository.FullName, err)
+			service.appendPersistenceFailure(&report, repository, "snapshot_persist_failed", err)
+			continue
 		}
 		if write.Disposition == domain.SnapshotSuccessProtected {
 			report.SkippedCount++
 		} else {
 			report.SuccessCount++
 		}
+		// Persist ETag/name/status only after the corresponding star value is
+		// durable. A failed snapshot write must never advance the condition used
+		// by tomorrow's request.
+		if err := service.updateRepository(ctx, repository, result, now); err != nil {
+			report.MetadataFailureCount++
+			report.Failures = append(report.Failures, Failure{
+				RepositoryID: repository.GitHubRepoID,
+				FullName:     repository.FullName,
+				ErrorCode:    "repository_update_failed",
+				Message:      err.Error(),
+			})
+		}
 	}
 	return report, nil
+}
+
+func (service Service) appendPersistenceFailure(report *Report, repository domain.Repository, code string, err error) {
+	report.FailureCount++
+	report.Failures = append(report.Failures, Failure{
+		RepositoryID: repository.GitHubRepoID,
+		FullName:     repository.FullName,
+		ErrorCode:    code,
+		Message:      err.Error(),
+	})
 }
 
 func (service Service) safeETag(ctx context.Context, repository domain.Repository, date domain.Date) (string, error) {

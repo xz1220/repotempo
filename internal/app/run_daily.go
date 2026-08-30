@@ -116,7 +116,7 @@ func (runtime *Runtime) RunDaily(ctx context.Context, dryRun bool) (DailyReport,
 		Status:       status,
 		TargetCount:  report.Snapshot.TargetCount,
 		SuccessCount: report.Snapshot.SuccessCount,
-		FailureCount: report.Snapshot.FailureCount,
+		FailureCount: report.Snapshot.FailureCount + report.Snapshot.MetadataFailureCount,
 		SkippedCount: report.Snapshot.SkippedCount,
 		Details:      details,
 		ErrorSummary: summarizeDailyErrors(report),
@@ -224,7 +224,7 @@ func dailyDetails(report DailyReport, client *github.Client) DailyJobDetails {
 }
 
 func summarizeDailyErrors(report DailyReport) string {
-	count := len(report.Failures) + report.Discovery.FailureCount + report.Snapshot.FailureCount
+	count := len(report.Failures) + report.Discovery.FailureCount + report.Snapshot.FailureCount + report.Snapshot.MetadataFailureCount
 	if count == 0 {
 		return ""
 	}
