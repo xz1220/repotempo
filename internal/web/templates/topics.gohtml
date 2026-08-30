@@ -1,11 +1,8 @@
 {{define "content"}}
-  <section aria-labelledby="topic-list">
-    <div class="section-heading result-heading">
-      <div><h2 id="topic-list">{{tf "topics.count" (formatInt (len .Topics.Items))}}</h2><p>{{t "topics.boundary_help"}}</p></div>
-    </div>
+  <section class="page-primary-view" aria-labelledby="topic-ranking">
     <div class="topic-ranking-header">
       <div>
-        <h3>{{t "topics.ranking_title"}}</h3>
+        <h2 id="topic-ranking">{{t "topics.ranking_title"}}</h2>
         <p>{{tf "topics.ranking_help" .TopicRanking.PeriodLabel}}</p>
       </div>
       <nav class="period-switch" aria-label="{{t "topics.ranking_period"}}">
@@ -18,7 +15,7 @@
           <li>
             <span class="topic-rank-number" aria-hidden="true">{{.Rank}}</span>
             <div class="topic-rank-identity">
-              <a class="topic-name" href="/topics/{{.Slug}}">{{.Name}}</a>
+              <a class="topic-name" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>
               <p>{{tf "topics.ranking_meta" (formatIntPtr .CurrentStars) (formatInt .RepositoryCount)}}</p>
             </div>
             <strong class="topic-rank-delta">{{formatSigned .Delta}}</strong>
@@ -33,6 +30,12 @@
     {{else}}
       <div class="empty-state compact-empty topic-ranking-empty"><h3>{{t "topics.no_ranking"}}</h3><p>{{tf "topics.no_ranking_help" .TopicRanking.PeriodLabel}}</p></div>
     {{end}}
+  </section>
+
+  <section class="page-drilldown" aria-labelledby="topic-list">
+    <div class="section-heading result-heading">
+      <div><h2 id="topic-list">{{tf "topics.count" (formatInt (len .Topics.Items))}}</h2><p>{{t "topics.boundary_help"}}</p></div>
+    </div>
     {{if .Topics.Items}}
       <div class="table-scroll" role="region" aria-label="{{t "topics.metrics_region"}}" tabindex="0">
         <table class="data-table topic-table">
@@ -40,8 +43,8 @@
           <tbody>
             {{range .Topics.Items}}
               <tr>
-                <td><a class="topic-name" href="/topics/{{.Slug}}">{{.Name}}</a>{{if .Description}}<p class="cell-description">{{.Description}}</p>{{end}}</td>
-                <td>{{if .ParentName}}<a class="text-link" href="/topics/{{.ParentSlug}}">{{.ParentName}}</a>{{else}}<span class="muted">{{t "topics.top_level"}}</span>{{end}}</td>
+                <td><a class="topic-name" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>{{if .Description}}<p class="cell-description">{{.Description}}</p>{{end}}</td>
+                <td>{{if .ParentName}}<a class="text-link" href="/topics/{{.ParentSlug}}" translate="no">{{.ParentName}}</a>{{else}}<span class="muted">{{t "topics.top_level"}}</span>{{end}}</td>
                 <td class="numeric">{{formatInt .RepositoryCount}}</td>
                 <td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td>
                 <td class="numeric metric-delta">{{formatSigned .Delta1D}}</td>

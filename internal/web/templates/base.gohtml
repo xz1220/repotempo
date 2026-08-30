@@ -7,39 +7,47 @@
   <meta name="description" content="{{.Meta.Description}}">
   <meta name="color-scheme" content="light">
   <title>{{.Meta.Title}} · {{.Meta.SiteName}}</title>
+  <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/app.css">
   <script defer src="/static/app.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">{{t "nav.skip"}}</a>
   <header class="app-header">
-    <div class="header-inner">
-      <a class="brand" href="/" aria-label="{{tf "nav.brand_overview" .Meta.SiteName}}">
-        <span class="brand-mark" aria-hidden="true">GR</span>
-        <span>{{.Meta.SiteName}}</span>
-      </a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" data-nav-toggle>
-        <span class="sr-only">{{t "nav.toggle"}}</span>
-        <span aria-hidden="true">{{t "nav.menu"}}</span>
-      </button>
-      <nav id="primary-navigation" class="primary-nav" aria-label="{{t "nav.primary"}}" data-navigation>
+    <div class="utility-row">
+      <div class="header-inner">
+        <a class="brand" href="/" aria-label="{{tf "nav.brand_overview" .Meta.SiteName}}">
+          <span class="brand-mark" aria-hidden="true">GR</span>
+          <span>{{.Meta.SiteName}}</span>
+        </a>
+        <div class="header-utilities">
+          <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" data-nav-toggle>
+            <span class="sr-only">{{t "nav.toggle"}}</span>
+            <span aria-hidden="true">{{t "nav.menu"}}</span>
+          </button>
+          <nav class="language-switch" aria-label="{{t "language.label"}}">
+            <a href="{{.Meta.ChineseURL}}" lang="zh-CN" {{if eq .Meta.Locale "zh-CN"}}aria-current="true"{{end}}>{{t "language.chinese"}}</a>
+            <a href="{{.Meta.EnglishURL}}" lang="en" {{if eq .Meta.Locale "en"}}aria-current="true"{{end}}>{{t "language.english"}}</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+    <div class="primary-row">
+      <nav id="primary-navigation" class="primary-nav primary-nav-inner" aria-label="{{t "nav.primary"}}" data-navigation>
         <a class="nav-link {{if eq .Meta.ActiveNav "overview"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "overview"}}aria-current="page"{{end}}>{{t "nav.overview"}}</a>
         <a class="nav-link {{if eq .Meta.ActiveNav "repositories"}}is-active{{end}}" href="/repositories" {{if eq .Meta.ActiveNav "repositories"}}aria-current="page"{{end}}>{{t "nav.repositories"}}</a>
         <a class="nav-link {{if eq .Meta.ActiveNav "topics"}}is-active{{end}}" href="/topics" {{if eq .Meta.ActiveNav "topics"}}aria-current="page"{{end}}>{{t "nav.topics"}}</a>
         <a class="nav-link {{if eq .Meta.ActiveNav "discoveries"}}is-active{{end}}" href="/discoveries" {{if eq .Meta.ActiveNav "discoveries"}}aria-current="page"{{end}}>{{t "nav.discoveries"}}</a>
         <a class="nav-link {{if eq .Meta.ActiveNav "runs"}}is-active{{end}}" href="/runs" {{if eq .Meta.ActiveNav "runs"}}aria-current="page"{{end}}>{{t "nav.runs"}}</a>
       </nav>
-      <nav class="language-switch" aria-label="{{t "language.label"}}">
-        <a href="{{.Meta.ChineseURL}}" lang="zh-CN" {{if eq .Meta.Locale "zh-CN"}}aria-current="true"{{end}}>{{t "language.chinese"}}</a>
-        <a href="{{.Meta.EnglishURL}}" lang="en" {{if eq .Meta.Locale "en"}}aria-current="true"{{end}}>{{t "language.english"}}</a>
-      </nav>
     </div>
   </header>
 
   <main id="main-content" class="page-shell">
     <header class="page-heading">
-      <div>
-        <h1>{{.Meta.Title}}</h1>
+      <div class="page-heading-copy">
+        {{block "page-meta" .}}{{end}}
+        <h1 class="{{if eq .Meta.TitleKind "repository"}}entity-title-repository{{else if eq .Meta.TitleKind "topic"}}entity-title-topic{{end}}" {{if .Meta.TitleKind}}translate="no"{{end}}>{{.Meta.Title}}</h1>
         <p>{{.Meta.Description}}</p>
       </div>
       <p class="as-of">{{tf "page.as_of" .Meta.AsOfLabel}}</p>
@@ -95,6 +103,17 @@
         <h3>{{t "chart.no_points"}}</h3>
         <p>{{t "chart.no_points_help"}}</p>
       </div>
+    {{end}}
+    {{if .Observations}}
+      <details class="chart-details">
+        <summary>{{t "chart.exact_values"}}</summary>
+        <div class="table-scroll" role="region" aria-label="{{t "chart.exact_values_region"}}" tabindex="0">
+          <table class="data-table compact-table">
+            <thead><tr><th scope="col">{{t "chart.observation"}}</th><th scope="col" class="numeric">{{t "chart.value"}}</th></tr></thead>
+            <tbody>{{range .Observations}}<tr><td class="mono-value">{{.Label}}</td><td class="numeric">{{if .Missing}}<span class="muted">{{t "chart.missing"}}</span>{{else}}{{.Value}}{{end}}</td></tr>{{end}}</tbody>
+          </table>
+        </div>
+      </details>
     {{end}}
   </section>
 {{end}}

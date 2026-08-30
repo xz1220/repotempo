@@ -1,10 +1,16 @@
+{{define "page-meta"}}
+  <nav class="breadcrumb" aria-label="{{t "breadcrumb.label"}}">
+    <a class="breadcrumb-link" href="/topics"><span aria-hidden="true">←</span><span>{{t "nav.topics"}}</span></a>
+  </nav>
+{{end}}
+
 {{define "content"}}
   <section aria-labelledby="topic-summary">
     <div class="section-heading entity-section-heading">
       <div>
         <h2 id="topic-summary" class="sr-only">{{t "topic.summary"}}</h2>
         {{if .Topic.Topic.Description}}<p class="entity-description">{{.Topic.Topic.Description}}</p>{{end}}
-        {{if .Topic.Topic.ParentName}}<p class="parent-link">{{t "topic.part_of"}} <a class="text-link" href="/topics/{{.Topic.Topic.ParentSlug}}">{{.Topic.Topic.ParentName}}</a></p>{{end}}
+        {{if .Topic.Topic.ParentName}}<p class="parent-link">{{t "topic.part_of"}} <a class="text-link" href="/topics/{{.Topic.Topic.ParentSlug}}" translate="no">{{.Topic.Topic.ParentName}}</a></p>{{end}}
       </div>
       <form class="leader-toggle" method="get" action="/topics/{{.Topic.Topic.Slug}}">
         <label><input type="checkbox" name="exclude_leader" value="true" {{if .Topic.ExcludeLeader}}checked{{end}} data-submit-on-change> {{t "topic.exclude_leader"}}</label>
@@ -30,7 +36,7 @@
       <div class="table-scroll" role="region" aria-label="{{t "topic.metrics_region"}}" tabindex="0">
         <table class="data-table">
           <thead><tr><th scope="col">{{t "repositories.repository"}}</th><th scope="col" class="numeric">{{t "repositories.stars"}}</th><th scope="col" class="numeric">{{t "metric.one_day"}}</th><th scope="col" class="numeric">{{t "metric.seven_days"}}</th><th scope="col" class="numeric">{{t "metric.thirty_days"}}</th><th scope="col">{{t "repositories.monitoring"}}</th></tr></thead>
-          <tbody>{{range .Topic.Repositories}}<tr><td><a class="repo-name" href="/repositories/{{.ID}}">{{.FullName}}</a>{{if .Description}}<p class="cell-description">{{.Description}}</p>{{end}}</td><td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td><td class="numeric metric-delta">{{formatSigned .Delta1D}}</td><td class="numeric metric-delta">{{formatSigned .Delta7D}}</td><td class="numeric metric-delta">{{formatSigned .Delta30D}}</td><td><span class="status-badge {{statusClass .MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .MonitoringStatus}}</span></td></tr>{{end}}</tbody>
+          <tbody>{{range .Topic.Repositories}}<tr><td><a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>{{if .Description}}<p class="cell-description">{{.Description}}</p>{{end}}</td><td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td><td class="numeric metric-delta">{{formatSigned .Delta1D}}</td><td class="numeric metric-delta">{{formatSigned .Delta7D}}</td><td class="numeric metric-delta">{{formatSigned .Delta30D}}</td><td><span class="status-badge {{statusClass .MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .MonitoringStatus}}</span></td></tr>{{end}}</tbody>
         </table>
       </div>
     {{else}}

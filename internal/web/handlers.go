@@ -27,6 +27,7 @@ type pageMeta struct {
 	Locale      string
 	EnglishURL  string
 	ChineseURL  string
+	TitleKind   string
 }
 
 type pageView struct {
@@ -114,8 +115,10 @@ func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
+	meta := h.metaText(localized, data.Repository.FullName, localized.Text("meta.repository.description"), "repositories", data.Warnings)
+	meta.TitleKind = "repository"
 	view := pageView{
-		Meta:       h.metaText(localized, data.Repository.FullName, localized.Text("meta.repository.description"), "repositories", data.Warnings),
+		Meta:       meta,
 		Repository: data,
 		StarChart:  snapshotStarChart(data.History, localized),
 		RankChart:  snapshotRankChart(data.History, localized),
@@ -164,8 +167,10 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
+	meta := h.metaText(localized, data.Topic.Name, localized.Text("meta.topic.description"), "topics", data.Warnings)
+	meta.TitleKind = "topic"
 	view := pageView{
-		Meta:       h.metaText(localized, data.Topic.Name, localized.Text("meta.topic.description"), "topics", data.Warnings),
+		Meta:       meta,
 		Topic:      data,
 		TopicChart: trendChart(data.History, localized.Text("chart.topic_history"), localized.Text("chart.topic_history_help")),
 	}

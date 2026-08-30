@@ -91,7 +91,8 @@ func TestMainRoutesRender(t *testing.T) {
 		{path: "/topics/ai-agent", wantStatus: http.StatusOK, wantContent: "Top repository share"},
 		{path: "/discoveries", wantStatus: http.StatusOK, wantContent: "GitHub Search profiles"},
 		{path: "/runs", wantStatus: http.StatusOK, wantContent: "Recent job runs"},
-		{path: "/static/app.css", wantStatus: http.StatusOK, wantContent: "--accent:"},
+		{path: "/static/tokens.css", wantStatus: http.StatusOK, wantContent: "--color-accent:"},
+		{path: "/static/app.css", wantStatus: http.StatusOK, wantContent: "Research Workbench"},
 		{path: "/static/app.js", wantStatus: http.StatusOK, wantContent: "data-nav-toggle"},
 		{path: "/healthz", wantStatus: http.StatusOK, wantContent: "ok"},
 		{path: "/readyz", wantStatus: http.StatusOK, wantContent: "ready"},
@@ -107,6 +108,26 @@ func TestMainRoutesRender(t *testing.T) {
 				t.Fatalf("body does not contain %q: %s", test.wantContent, response.Body.String())
 			}
 		})
+	}
+}
+
+func TestStaticAssetsRevalidateWithETag(t *testing.T) {
+	handler := newTestHandler(t, populatedFake())
+	first := request(t, handler, "/static/app.css")
+	etag := first.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("static asset response is missing an ETag")
+	}
+	if cacheControl := first.Header().Get("Cache-Control"); cacheControl != "public, max-age=0, must-revalidate" {
+		t.Fatalf("Cache-Control = %q", cacheControl)
+	}
+
+	requestWithETag := httptest.NewRequest(http.MethodGet, "/static/app.css", nil)
+	requestWithETag.Header.Set("If-None-Match", etag)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, requestWithETag)
+	if response.Code != http.StatusNotModified {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusNotModified)
 	}
 }
 
@@ -187,6 +208,51 @@ func TestLanguageQueryPersistsCookieAndPreservesLocation(t *testing.T) {
 	handler.ServeHTTP(cookieResponse, requestWithCookie)
 	if !strings.Contains(cookieResponse.Body.String(), "最近任务运行") {
 		t.Fatalf("locale cookie was not honored: %s", cookieResponse.Body.String())
+	}
+}
+
+func TestResearchWorkbenchShellAndDetailOrientationRender(t *testing.T) {
+	handler := newTestHandler(t, populatedFake())
+	home := request(t, handler, "/").Body.String()
+	for _, want := range []string{
+		`href="/static/tokens.css"`,
+		`class="utility-row"`,
+		`class="primary-row"`,
+		`>Projects<`,
+		`>New discoveries<`,
+		`>Collection status<`,
+		`class="home-primary-grid"`,
+	} {
+		if !strings.Contains(home, want) {
+			t.Errorf("home does not contain %q: %s", want, home)
+		}
+	}
+
+	projects := request(t, handler, "/repositories").Body.String()
+	for _, want := range []string{
+		`class="repository-record"`,
+		`class="table-scroll repository-table-scroll"`,
+		`class="repository-record-list"`,
+		`class="repository-mobile-metrics"`,
+	} {
+		if !strings.Contains(projects, want) {
+			t.Errorf("projects does not contain %q: %s", want, projects)
+		}
+	}
+
+	repository := request(t, handler, "/repositories/101").Body.String()
+	if !strings.Contains(repository, `class="breadcrumb"`) ||
+		!strings.Contains(repository, `aria-label="Breadcrumb"`) ||
+		!strings.Contains(repository, `href="/repositories"`) ||
+		!strings.Contains(repository, `class="entity-title-repository" translate="no"`) {
+		t.Fatalf("repository breadcrumb is missing: %s", repository)
+	}
+
+	topic := request(t, handler, "/topics/ai-agent").Body.String()
+	if !strings.Contains(topic, `class="breadcrumb"`) ||
+		!strings.Contains(topic, `href="/topics"`) ||
+		!strings.Contains(topic, `class="entity-title-topic" translate="no"`) {
+		t.Fatalf("topic breadcrumb is missing: %s", topic)
 	}
 }
 
@@ -407,6 +473,37 @@ func TestDashboardGrowthChartNeedsAComparablePoint(t *testing.T) {
 	}
 	if !strings.Contains(body, "No comparable daily history yet") {
 		t.Fatalf("all-missing history did not render the empty state: %s", body)
+	}
+	if !strings.Contains(body, "View exact daily values") || !strings.Contains(body, ">N/A<") {
+		t.Fatalf("all-missing history did not preserve its exact-value table: %s", body)
+	}
+}
+
+func TestLineChartExactValuesKeepMissingObservations(t *testing.T) {
+	value := int64(42)
+	chart := makeChart([]chartInput{
+		{Date: mustDate("2026-08-28"), Value: &value},
+		{Date: mustDate("2026-08-29")},
+	}, false, "History", "History with a gap")
+	if len(chart.Points) != 1 || len(chart.Observations) != 2 {
+		t.Fatalf("chart points=%d observations=%d", len(chart.Points), len(chart.Observations))
+	}
+	if !chart.Observations[1].Missing || chart.Observations[1].Label != "2026-08-29" {
+		t.Fatalf("missing observation = %#v", chart.Observations[1])
+	}
+}
+
+func TestAllMissingLineChartStillRendersExactValues(t *testing.T) {
+	queryer := populatedFake()
+	queryer.topic.History = []TrendPoint{{Date: mustDate("2026-08-30")}}
+	body := request(t, newTestHandler(t, queryer), "/topics/ai-agent").Body.String()
+	if strings.Contains(body, `class="line-chart"`) {
+		t.Fatal("all-missing topic history rendered a line chart")
+	}
+	if !strings.Contains(body, "No valid points yet") ||
+		!strings.Contains(body, "View exact values") ||
+		!strings.Contains(body, ">Missing<") {
+		t.Fatalf("all-missing topic history did not preserve exact values: %s", body)
 	}
 }
 

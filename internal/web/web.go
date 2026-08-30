@@ -1,6 +1,7 @@
 package web
 
 import (
+	"crypto/sha256"
 	"embed"
 	"errors"
 	"fmt"
@@ -112,6 +113,7 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /runs", h.runs)
 	h.mux.HandleFunc("GET /healthz", h.health)
 	h.mux.HandleFunc("GET /readyz", h.ready)
+	h.mux.HandleFunc("GET /static/tokens.css", h.staticAsset("tokens.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/app.css", h.staticAsset("app.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/app.js", h.staticAsset("app.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /", h.notFound)
@@ -167,8 +169,15 @@ func (h *Handler) staticAsset(name, contentType string) http.HandlerFunc {
 			h.notFound(w, r)
 			return
 		}
-		w.Header().Set("Cache-Control", "public, max-age=3600")
+		checksum := sha256.Sum256(contents)
+		etag := fmt.Sprintf(`"%x"`, checksum[:8])
+		w.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
+		w.Header().Set("ETag", etag)
 		w.Header().Set("Content-Type", contentType)
+		if r.Header.Get("If-None-Match") == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
 		_, _ = w.Write(contents)
 	}
 }

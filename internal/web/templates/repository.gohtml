@@ -1,3 +1,9 @@
+{{define "page-meta"}}
+  <nav class="breadcrumb" aria-label="{{t "breadcrumb.label"}}">
+    <a class="breadcrumb-link" href="/repositories"><span aria-hidden="true">←</span><span>{{t "nav.repositories"}}</span></a>
+  </nav>
+{{end}}
+
 {{define "content"}}
   <section class="entity-header" aria-labelledby="repository-overview">
     <div>
@@ -23,19 +29,19 @@
       <dl class="definition-list">
         <div><dt>{{t "repository.first_seen"}}</dt><dd>{{formatDateTime .Repository.Repository.FirstSeenAt}}</dd></div>
         <div><dt>{{t "repository.first_source"}}</dt><dd>{{sourceLabel .Repository.Repository.FirstSeenSource}}</dd></div>
-        <div><dt>{{t "repository.first_profile"}}</dt><dd>{{if .Repository.Repository.FirstSeenProfile}}{{.Repository.Repository.FirstSeenProfile}}{{else}}{{t "page.not_available"}}{{end}}</dd></div>
+        <div><dt>{{t "repository.first_profile"}}</dt><dd {{if .Repository.Repository.FirstSeenProfile}}translate="no"{{end}}>{{if .Repository.Repository.FirstSeenProfile}}{{.Repository.Repository.FirstSeenProfile}}{{else}}{{t "page.not_available"}}{{end}}</dd></div>
         <div><dt>{{t "repository.valid_history"}}</dt><dd>{{formatDatePtr .Repository.ValidFrom}}</dd></div>
         <div><dt>{{t "repository.primary_language"}}</dt><dd>{{if .Repository.Repository.PrimaryLanguage}}{{.Repository.Repository.PrimaryLanguage}}{{else}}{{t "page.not_available"}}{{end}}</dd></div>
         <div>
           <dt>{{t "repository.topics"}}</dt>
-          <dd><div class="tag-list">{{range .Repository.Repository.Topics}}<a class="tag" href="/topics/{{.Slug}}">{{.Name}}</a>{{else}}<span class="muted">{{t "repositories.unassigned"}}</span>{{end}}</div></dd>
+          <dd><div class="tag-list">{{range .Repository.Repository.Topics}}<a class="tag" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>{{else}}<span class="muted">{{t "repositories.unassigned"}}</span>{{end}}</div></dd>
         </div>
       </dl>
     </div>
     <div>
       <div class="section-heading compact"><div><h2>{{t "repository.name_history"}}</h2><p>{{t "repository.name_history_help"}}</p></div></div>
       {{if .Repository.PreviousNames}}
-        <ul class="plain-list mono-list">{{range .Repository.PreviousNames}}<li>{{.}}</li>{{end}}</ul>
+        <ul class="plain-list mono-list" translate="no">{{range .Repository.PreviousNames}}<li>{{.}}</li>{{end}}</ul>
       {{else}}
         <p class="empty-inline">{{t "repository.no_name_history"}}</p>
       {{end}}
@@ -43,7 +49,9 @@
   </section>
 
   {{template "chart" .StarChart}}
-  {{template "chart" .RankChart}}
+  <div class="supporting-chart">
+    {{template "chart" .RankChart}}
+  </div>
 
   <div class="split-layout detail-sections">
     <section aria-labelledby="failed-observations">

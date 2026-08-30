@@ -1,5 +1,5 @@
 {{define "content"}}
-  <section aria-labelledby="run-health">
+  <section class="page-summary" aria-labelledby="run-health">
     <div class="section-heading"><div><h2 id="run-health">{{t "runs.collection_health"}}</h2><p>{{t "runs.collection_health_help"}}</p></div></div>
     <dl class="metric-strip run-metrics">
       <div><dt>{{t "runs.last_successful_date"}}</dt><dd class="date-value">{{formatDatePtr .Runs.LastSuccessfulSnapshotDate}}</dd></div>
@@ -9,7 +9,7 @@
     </dl>
   </section>
 
-  <section aria-labelledby="run-history">
+  <section class="page-primary-view" aria-labelledby="run-history">
     <div class="section-heading result-heading"><div><h2 id="run-history">{{t "runs.recent"}}</h2><p>{{t "runs.recent_help"}}</p></div></div>
     {{if .Runs.Items}}
       <div class="run-list">
@@ -17,21 +17,21 @@
           <article class="run-row">
             <div class="run-row-main">
               <span class="status-badge {{statusClass .Status}}"><span aria-hidden="true"></span>{{statusLabel .Status}}</span>
-              <div class="run-identity"><h3>{{.JobType}}</h3><p class="mono-value">{{.RunID}}</p></div>
+              <div class="run-identity"><h3>{{.JobType}}</h3><p class="mono-value" translate="no">{{.RunID}}</p></div>
               <dl class="run-counts">
                 <div><dt>{{t "runs.target"}}</dt><dd>{{formatInt .TargetCount}}</dd></div>
                 <div><dt>{{t "runs.success"}}</dt><dd>{{formatInt .SuccessCount}}</dd></div>
                 <div><dt>{{t "runs.failed"}}</dt><dd class="{{if gt .FailureCount 0}}value-danger{{end}}">{{formatInt .FailureCount}}</dd></div>
                 <div><dt>{{t "runs.skipped"}}</dt><dd>{{formatInt .SkippedCount}}</dd></div>
               </dl>
-              <div class="run-time"><time>{{formatDateTime .StartedAt}}</time><span>{{formatDuration .StartedAt .FinishedAt}}</span></div>
+              <div class="run-time"><time datetime="{{.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{formatDateTime .StartedAt}}</time><span>{{formatDuration .StartedAt .FinishedAt}}</span></div>
             </div>
-            <details class="run-details">
+            <details class="run-details page-drilldown-inline">
               <summary>{{t "runs.inspect"}}</summary>
               <div class="run-detail-grid">
                 <div><h4>{{t "runs.api_quota"}}</h4><dl class="definition-list compact-definitions"><div><dt>{{t "runs.search_api"}}</dt><dd>{{if .SearchRateRemaining}}{{.SearchRateRemaining}}{{else}}{{t "page.not_available"}}{{end}}</dd></div><div><dt>{{t "runs.core_api"}}</dt><dd>{{if .CoreRateRemaining}}{{.CoreRateRemaining}}{{else}}{{t "page.not_available"}}{{end}}</dd></div></dl></div>
                 <div><h4>{{t "runs.search_integrity"}}</h4><p>{{if .SearchIncomplete}}{{t "runs.incomplete_results"}}{{else}}{{t "runs.no_incomplete_flag"}}{{end}}</p><p>{{tf "runs.query_splits" (formatInt .SearchSplitCount)}}</p></div>
-                <div><h4>{{t "runs.failures"}}</h4>{{if .FailureRepositories}}<ul class="plain-list mono-list">{{range .FailureRepositories}}<li>{{.}}</li>{{end}}</ul>{{else}}<p>{{t "runs.no_failed_repositories"}}</p>{{end}}{{if .ErrorSummary}}<p class="error-summary">{{.ErrorSummary}}</p>{{end}}</div>
+                <div><h4>{{t "runs.failures"}}</h4>{{if .FailureRepositories}}<ul class="plain-list mono-list" translate="no">{{range .FailureRepositories}}<li>{{.}}</li>{{end}}</ul>{{else}}<p>{{t "runs.no_failed_repositories"}}</p>{{end}}{{if .ErrorSummary}}<p class="error-summary">{{.ErrorSummary}}</p>{{end}}</div>
               </div>
             </details>
           </article>

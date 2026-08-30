@@ -1,17 +1,17 @@
 {{define "content"}}
-  <section aria-labelledby="repository-filters">
+  <section class="page-controls" aria-labelledby="repository-filters">
     <h2 id="repository-filters" class="sr-only">{{t "repositories.filters"}}</h2>
     <form class="filter-bar" method="get" action="/repositories" role="search">
       <div class="field field-search">
         <label for="repository-search">{{t "repositories.search"}}</label>
-        <input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="{{t "repositories.search_placeholder"}}" autocomplete="off">
+        <input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="{{t "repositories.search_placeholder"}}" autocomplete="off" spellcheck="false">
       </div>
       <div class="field">
         <label for="topic-filter">{{t "repositories.topic"}}</label>
         <select id="topic-filter" name="topic" data-submit-on-change>
           <option value="">{{t "repositories.all_topics"}}</option>
           {{range .Repositories.Topics}}
-            <option value="{{.Slug}}" {{if eq $.Repositories.Filter.TopicSlug .Slug}}selected{{end}}>{{.Name}}</option>
+            <option value="{{.Slug}}" {{if eq $.Repositories.Filter.TopicSlug .Slug}}selected{{end}} translate="no">{{.Name}}</option>
           {{end}}
         </select>
       </div>
@@ -42,7 +42,7 @@
     </form>
   </section>
 
-  <section aria-labelledby="repository-results">
+  <section class="page-primary-view" aria-labelledby="repository-results">
     <div class="section-heading result-heading">
       <div>
         <h2 id="repository-results">{{tf "repositories.count" (formatInt .Repositories.Total)}}</h2>
@@ -50,47 +50,66 @@
       </div>
     </div>
     {{if .Repositories.Items}}
-      <div class="table-scroll" role="region" aria-label="{{t "repositories.metrics_region"}}" tabindex="0">
+      <div class="table-scroll repository-table-scroll" role="region" aria-label="{{t "repositories.metrics_region"}}" tabindex="0">
         <table class="data-table repository-table">
           <thead>
             <tr>
-              <th scope="col">{{t "repositories.repository"}}</th>
-              <th scope="col" class="numeric">{{t "repositories.stars"}}</th>
-              <th scope="col" class="numeric">{{t "metric.one_day"}}</th>
-              <th scope="col" class="numeric">{{t "metric.seven_days"}}</th>
-              <th scope="col" class="numeric">{{t "metric.thirty_days"}}</th>
-              <th scope="col">{{t "metric.topics"}}</th>
-              <th scope="col">{{t "repositories.first_seen"}}</th>
-              <th scope="col">{{t "repositories.monitoring"}}</th>
+              <th scope="col" class="repository-column repository-column--identity">{{t "repositories.repository"}}</th>
+              <th scope="col" class="repository-column repository-column--stars numeric">{{t "metric.current_stars"}}</th>
+              <th scope="col" class="repository-column repository-column--delta-1d numeric">{{t "metric.one_day"}}</th>
+              <th scope="col" class="repository-column repository-column--delta-7d numeric">{{t "metric.seven_days"}}</th>
+              <th scope="col" class="repository-column repository-column--delta-30d numeric">{{t "metric.thirty_days"}}</th>
+              <th scope="col" class="repository-column repository-column--topics">{{t "metric.topics"}}</th>
+              <th scope="col" class="repository-column repository-column--first-seen">{{t "repositories.first_seen"}}</th>
+              <th scope="col" class="repository-column repository-column--status">{{t "repositories.monitoring"}}</th>
             </tr>
           </thead>
           <tbody>
-            {{range .Repositories.Items}}
-              <tr>
-                <td class="repo-cell">
-                  <a class="repo-name" href="/repositories/{{.ID}}">{{.FullName}}</a>
-                  {{with githubURL .HTMLURL}}<a class="external-link" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="{{t "repositories.open_github"}}">GitHub</a>{{end}}
-                  {{if .Description}}<p>{{.Description}}</p>{{end}}
+            {{range $repository := .Repositories.Items}}
+              <tr class="repository-record">
+                <td class="repo-cell repository-cell repository-cell--identity mobile-essential" data-label="{{t "repositories.repository"}}">
+                  <a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>
+                  {{with githubURL .HTMLURL}}<a class="external-link" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="{{tf "repositories.open_github_for" $repository.FullName}}">GitHub</a>{{end}}
+                  {{if .Description}}<p class="repository-description">{{.Description}}</p>{{end}}
                 </td>
-                <td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td>
-                <td class="numeric metric-delta">{{formatSigned .Delta1D}}</td>
-                <td class="numeric metric-delta">{{formatSigned .Delta7D}}</td>
-                <td class="numeric metric-delta">{{formatSigned .Delta30D}}</td>
-                <td>
+                <td class="repository-cell repository-cell--stars mobile-essential numeric metric-value" data-label="{{t "metric.current_stars"}}">{{formatIntPtr .CurrentStars}}</td>
+                <td class="repository-cell repository-cell--delta-1d numeric metric-delta" data-label="{{t "metric.one_day"}}">{{formatSigned .Delta1D}}</td>
+                <td class="repository-cell repository-cell--delta-7d mobile-essential numeric metric-delta" data-label="{{t "metric.seven_days"}}">{{formatSigned .Delta7D}}</td>
+                <td class="repository-cell repository-cell--delta-30d numeric metric-delta" data-label="{{t "metric.thirty_days"}}">{{formatSigned .Delta30D}}</td>
+                <td class="repository-cell repository-cell--topics mobile-essential" data-label="{{t "metric.topics"}}">
                   <div class="tag-list">
-                    {{range .Topics}}<a class="tag" href="/topics/{{.Slug}}">{{.Name}}</a>{{else}}<span class="muted">{{t "repositories.unassigned"}}</span>{{end}}
+                    {{range .Topics}}<a class="tag" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>{{else}}<span class="muted">{{t "repositories.unassigned"}}</span>{{end}}
                   </div>
                 </td>
-                <td>
+                <td class="repository-cell repository-cell--first-seen mobile-essential" data-label="{{t "repositories.first_seen"}}">
                   <span>{{sourceLabel .FirstSeenSource}}</span>
-                  <time class="cell-secondary">{{formatDate .FirstSeenAt}}</time>
+                  <time class="cell-secondary" datetime="{{.FirstSeenAt.Format "2006-01-02"}}">{{formatDate .FirstSeenAt}}</time>
                 </td>
-                <td><span class="status-badge {{statusClass .MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .MonitoringStatus}}</span></td>
+                <td class="repository-cell repository-cell--status" data-label="{{t "repositories.monitoring"}}"><span class="status-badge {{statusClass .MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .MonitoringStatus}}</span></td>
               </tr>
             {{end}}
           </tbody>
         </table>
       </div>
+      <ol class="repository-record-list" aria-label="{{t "repositories.metrics_region"}}">
+        {{range $repository := .Repositories.Items}}
+          <li>
+            <header class="repository-mobile-header">
+              <div>
+                <a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>
+                {{if .Description}}<p class="repository-description">{{.Description}}</p>{{end}}
+              </div>
+              {{with githubURL .HTMLURL}}<a class="external-link" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="{{tf "repositories.open_github_for" $repository.FullName}}">GitHub</a>{{end}}
+            </header>
+            <dl class="repository-mobile-metrics">
+              <div><dt>{{t "metric.current_stars"}}</dt><dd class="metric-value">{{formatIntPtr .CurrentStars}}</dd></div>
+              <div><dt>{{t "metric.seven_days"}}</dt><dd class="metric-delta">{{formatSigned .Delta7D}}</dd></div>
+              <div class="repository-mobile-wide"><dt>{{t "metric.topics"}}</dt><dd><div class="tag-list">{{range .Topics}}<a class="tag" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>{{else}}<span class="muted">{{t "repositories.unassigned"}}</span>{{end}}</div></dd></div>
+              <div class="repository-mobile-wide"><dt>{{t "repositories.first_seen"}}</dt><dd><span>{{sourceLabel .FirstSeenSource}}</span><time class="cell-secondary" datetime="{{.FirstSeenAt.Format "2006-01-02"}}">{{formatDate .FirstSeenAt}}</time></dd></div>
+            </dl>
+          </li>
+        {{end}}
+      </ol>
       {{template "pagination" .Pagination}}
     {{else}}
       <div class="empty-state">

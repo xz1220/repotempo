@@ -1,5 +1,5 @@
 {{define "content"}}
-  <section aria-labelledby="source-coverage">
+  <section class="page-primary-view" aria-labelledby="source-coverage">
     <div class="section-heading"><div><h2 id="source-coverage">{{t "discoveries.source_coverage"}}</h2><p>{{t "discoveries.source_coverage_help"}}</p></div></div>
     {{if .DiscoveryMix.HasData}}
       <figure class="source-mix-figure">
@@ -7,7 +7,7 @@
           <title id="source-mix-title">{{t "discoveries.source_mix_title"}}</title>
           <desc id="source-mix-description">{{t "discoveries.source_mix_description"}}</desc>
           <rect class="source-mix-track" x="0" y="0" width="1000" height="40" rx="6"></rect>
-          {{range .DiscoveryMix.Segments}}{{if gt .RepositoryCount 0}}<rect class="{{.ColorClass}}" x="{{.X}}" y="0" width="{{.Width}}" height="40" role="img" tabindex="0" aria-label="{{.Tooltip}}"><title>{{.Tooltip}}</title></rect>{{end}}{{end}}
+          {{range .DiscoveryMix.Segments}}{{if gt .RepositoryCount 0}}<rect class="{{.ColorClass}}" x="{{.X}}" y="0" width="{{.Width}}" height="40"><title>{{.Tooltip}}</title></rect>{{end}}{{end}}
         </svg>
         <figcaption>
           <p>{{tf "discoveries.source_mix_total" (formatInt .DiscoveryMix.Total)}}</p>
@@ -27,7 +27,7 @@
     {{end}}
   </section>
 
-  <section aria-labelledby="search-profiles">
+  <section class="page-drilldown" aria-labelledby="search-profiles">
     <div class="section-heading"><div><h2 id="search-profiles">{{t "discoveries.search_profiles"}}</h2><p>{{t "discoveries.search_profiles_help"}}</p></div></div>
     {{if .Discoveries.Profiles}}
       <div class="table-scroll" role="region" aria-label="{{t "discoveries.profile_outcomes"}}" tabindex="0">
@@ -35,7 +35,7 @@
           <thead><tr><th scope="col">{{t "discoveries.profile"}}</th><th scope="col" class="numeric">{{t "discoveries.new_valid"}}</th><th scope="col" class="numeric">{{t "discoveries.candidates"}}</th><th scope="col">{{t "discoveries.completeness"}}</th><th scope="col" class="numeric">{{t "discoveries.query_splits"}}</th><th scope="col">{{t "discoveries.last_run_column"}}</th></tr></thead>
           <tbody>
             {{range .Discoveries.Profiles}}
-              <tr><td class="mono-value">{{.Name}}</td><td class="numeric metric-value">{{formatInt .NewRepositories}}</td><td class="numeric">{{formatInt .CandidateCount}}</td><td>{{if .IncompleteResults}}<span class="status-badge status-warning"><span aria-hidden="true"></span>{{t "discoveries.incomplete"}}</span>{{else}}<span class="status-badge status-success"><span aria-hidden="true"></span>{{t "discoveries.complete"}}</span>{{end}}</td><td class="numeric">{{formatInt .QuerySplitCount}}</td><td>{{formatTimePtr .LastRunAt}}</td></tr>
+              <tr><td class="mono-value" translate="no">{{.Name}}</td><td class="numeric metric-value">{{formatInt .NewRepositories}}</td><td class="numeric">{{formatInt .CandidateCount}}</td><td>{{if .IncompleteResults}}<span class="status-badge status-warning"><span aria-hidden="true"></span>{{t "discoveries.incomplete"}}</span>{{else}}<span class="status-badge status-success"><span aria-hidden="true"></span>{{t "discoveries.complete"}}</span>{{end}}</td><td class="numeric">{{formatInt .QuerySplitCount}}</td><td>{{formatTimePtr .LastRunAt}}</td></tr>
             {{end}}
           </tbody>
         </table>

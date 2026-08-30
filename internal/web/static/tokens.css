@@ -1,0 +1,98 @@
+/* Hallmark · tokens: Research Workbench · source: DESIGN.md */
+:root {
+  color-scheme: light;
+
+  --color-paper: oklch(0.995 0.006 255);
+  --color-surface: oklch(0.975 0.006 255);
+  --color-surface-strong: oklch(0.94 0.008 255);
+  --color-ink: oklch(0.23 0.035 255);
+  --color-ink-strong: oklch(0.14 0.025 255);
+  --color-muted: oklch(0.44 0.03 255);
+  --color-faint: oklch(0.49 0.025 255);
+  --color-rule: oklch(0.875 0.012 255);
+  --color-rule-strong: oklch(0.77 0.025 255);
+  --color-accent: oklch(0.48 0.19 258);
+  --color-accent-hover: oklch(0.42 0.19 258);
+  --color-accent-soft: oklch(0.95 0.028 258);
+  --color-accent-ink: oklch(0.31 0.145 258);
+  --color-positive: oklch(0.43 0.105 150);
+  --color-positive-soft: oklch(0.95 0.025 150);
+  --color-warning: oklch(0.49 0.13 75);
+  --color-warning-soft: oklch(0.95 0.035 80);
+  --color-negative: oklch(0.48 0.17 25);
+  --color-negative-soft: oklch(0.95 0.03 25);
+  --color-information: oklch(0.48 0.12 220);
+  --color-information-soft: oklch(0.95 0.025 220);
+  --color-focus: oklch(0.58 0.2 258);
+  --color-data-1: oklch(0.48 0.19 258);
+  --color-data-2: oklch(0.43 0.105 150);
+  --color-data-3: oklch(0.49 0.13 75);
+  --color-data-4: oklch(0.46 0.15 315);
+  --color-data-5: oklch(0.45 0.1 205);
+  --color-data-6: oklch(0.44 0.03 255);
+
+  --font-body: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-data: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-ui: 180ms;
+
+  --rule: 1px solid var(--color-rule);
+  --rule-strong: 1px solid var(--color-rule-strong);
+  --radius-control: 6px;
+  --radius-surface: 8px;
+  --radius-large: 10px;
+  --content-width: 1440px;
+  --z-sticky: 20;
+
+  /* Compatibility aliases for existing production components. */
+  --bg: var(--color-paper);
+  --surface: var(--color-surface);
+  --surface-strong: var(--color-surface-strong);
+  --ink: var(--color-ink);
+  --ink-strong: var(--color-ink-strong);
+  --muted: var(--color-muted);
+  --faint: var(--color-faint);
+  --border: var(--color-rule);
+  --border-strong: var(--color-rule-strong);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --accent-soft: var(--color-accent-soft);
+  --accent-ink: var(--color-accent-ink);
+  --success: var(--color-positive);
+  --success-soft: var(--color-positive-soft);
+  --warning: var(--color-warning);
+  --warning-soft: var(--color-warning-soft);
+  --danger: var(--color-negative);
+  --danger-soft: var(--color-negative-soft);
+  --info: var(--color-information);
+  --info-soft: var(--color-information-soft);
+  --focus: var(--color-focus);
+  --viz-1: var(--color-data-1);
+  --viz-2: var(--color-data-2);
+  --viz-3: var(--color-data-3);
+  --viz-4: var(--color-data-4);
+  --viz-5: var(--color-data-5);
+  --viz-6: var(--color-data-6);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-data);
+  --radius: var(--radius-surface);
+}

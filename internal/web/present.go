@@ -11,16 +11,17 @@ import (
 )
 
 type chart struct {
-	ID          string
-	Title       string
-	Description string
-	HasData     bool
-	Segments    []chartSegment
-	Points      []chartPoint
-	StartLabel  string
-	EndLabel    string
-	MinLabel    string
-	MaxLabel    string
+	ID           string
+	Title        string
+	Description  string
+	HasData      bool
+	Segments     []chartSegment
+	Points       []chartPoint
+	Observations []chartObservation
+	StartLabel   string
+	EndLabel     string
+	MinLabel     string
+	MaxLabel     string
 }
 
 type chartSegment struct {
@@ -32,6 +33,12 @@ type chartPoint struct {
 	Y     string
 	Label string
 	Value string
+}
+
+type chartObservation struct {
+	Label   string
+	Value   string
+	Missing bool
 }
 
 type chartInput struct {
@@ -467,6 +474,11 @@ func makeChart(input []chartInput, inverse bool, title, description string) char
 	var minValue, maxValue int64
 	valid := 0
 	for _, point := range input {
+		observation := chartObservation{Label: point.Date.Format("2006-01-02"), Missing: point.Value == nil}
+		if point.Value != nil {
+			observation.Value = formatInt(*point.Value)
+		}
+		result.Observations = append(result.Observations, observation)
 		if point.Value == nil {
 			continue
 		}
