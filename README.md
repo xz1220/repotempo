@@ -291,6 +291,9 @@ SQL/CSV/JSON/Web consistency checks, desktop and mobile browser screenshots,
 a clean-clone build, secret scanning, and independent review. See
 [testing](docs/testing.md).
 
+The first production acceptance evidence is in
+[docs/acceptance-2026-08-30.md](docs/acceptance-2026-08-30.md).
+
 ## Privacy and security
 
 GitHub Radar stores public repository metadata, discovery provenance, topics,
