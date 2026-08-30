@@ -38,28 +38,28 @@ type chartInput struct {
 	Value *int64
 }
 
-func snapshotStarChart(history []SnapshotPoint) chart {
+func snapshotStarChart(history []SnapshotPoint, localized localizer) chart {
 	input := make([]chartInput, 0, len(history))
 	for _, point := range history {
 		input = append(input, chartInput{Date: point.Date, Value: point.Stars})
 	}
-	return makeChart(input, false, "Star history", "Successful daily snapshots. Gaps mark dates without a valid star observation.")
+	return makeChart(input, false, localized.Text("chart.star_history"), localized.Text("chart.star_history_help"))
 }
 
-func snapshotRankChart(history []SnapshotPoint) chart {
+func snapshotRankChart(history []SnapshotPoint, localized localizer) chart {
 	input := make([]chartInput, 0, len(history))
 	for _, point := range history {
 		input = append(input, chartInput{Date: point.Date, Value: point.OSSRank})
 	}
-	return makeChart(input, true, "OSS Insight Today rank", "Recorded Today ranks only. Rank 1 appears at the top.")
+	return makeChart(input, true, localized.Text("chart.oss_rank"), localized.Text("chart.oss_rank_help"))
 }
 
-func trendChart(history []TrendPoint, title string) chart {
+func trendChart(history []TrendPoint, title, description string) chart {
 	input := make([]chartInput, 0, len(history))
 	for _, point := range history {
 		input = append(input, chartInput{Date: point.Date, Value: point.Stars})
 	}
-	return makeChart(input, false, title, "Aggregated successful snapshots. Missing observations are not replaced with zero.")
+	return makeChart(input, false, title, description)
 }
 
 func makeChart(input []chartInput, inverse bool, title, description string) chart {
@@ -199,15 +199,23 @@ func formatInt(value any) string {
 }
 
 func formatIntPtr(value *int64) string {
+	return formatIntPtrLocalized(value, "N/A")
+}
+
+func formatIntPtrLocalized(value *int64, unavailable string) string {
 	if value == nil {
-		return "N/A"
+		return unavailable
 	}
 	return formatInt(*value)
 }
 
 func formatSigned(value *int64) string {
+	return formatSignedLocalized(value, "N/A")
+}
+
+func formatSignedLocalized(value *int64, unavailable string) string {
 	if value == nil {
-		return "N/A"
+		return unavailable
 	}
 	if *value > 0 {
 		return "+" + formatInt(*value)
@@ -216,29 +224,41 @@ func formatSigned(value *int64) string {
 }
 
 func formatDate(value time.Time, location *time.Location) string {
+	return formatDateLocalized(value, location, "N/A")
+}
+
+func formatDateLocalized(value time.Time, location *time.Location, unavailable string) string {
 	if value.IsZero() {
-		return "N/A"
+		return unavailable
 	}
 	return value.In(location).Format("2006-01-02")
 }
 
 func formatDatePtr(value *time.Time, location *time.Location) string {
+	return formatDatePtrLocalized(value, location, "N/A")
+}
+
+func formatDatePtrLocalized(value *time.Time, location *time.Location, unavailable string) string {
 	if value == nil {
-		return "N/A"
+		return unavailable
 	}
-	return formatDate(*value, location)
+	return formatDateLocalized(*value, location, unavailable)
 }
 
 func formatDateTime(value time.Time, location *time.Location) string {
+	return formatDateTimeLocalized(value, location, "N/A")
+}
+
+func formatDateTimeLocalized(value time.Time, location *time.Location, unavailable string) string {
 	if value.IsZero() {
-		return "N/A"
+		return unavailable
 	}
 	return value.In(location).Format("2006-01-02 15:04 MST")
 }
 
-func formatTimePtr(value *time.Time, location *time.Location) string {
+func formatTimePtr(value *time.Time, location *time.Location, runningLabel string) string {
 	if value == nil {
-		return "Running"
+		return runningLabel
 	}
 	return formatDateTime(*value, location)
 }
@@ -254,19 +274,23 @@ func coveragePercent(value SnapshotCoverage) float64 {
 }
 
 func formatPercent(value *float64) string {
+	return formatPercentLocalized(value, "N/A")
+}
+
+func formatPercentLocalized(value *float64, unavailable string) string {
 	if value == nil {
-		return "N/A"
+		return unavailable
 	}
 	return fmt.Sprintf("%.1f%%", *value)
 }
 
-func formatDuration(start time.Time, finish *time.Time) string {
+func formatDuration(start time.Time, finish *time.Time, runningLabel, unavailable string) string {
 	if finish == nil || start.IsZero() {
-		return "Running"
+		return runningLabel
 	}
 	duration := finish.Sub(start)
 	if duration < 0 {
-		return "N/A"
+		return unavailable
 	}
 	if duration < time.Minute {
 		return fmt.Sprintf("%ds", int(duration.Round(time.Second).Seconds()))
@@ -275,38 +299,6 @@ func formatDuration(start time.Time, finish *time.Time) string {
 		return fmt.Sprintf("%dm %ds", int(duration/time.Minute), int((duration % time.Minute).Round(time.Second).Seconds()))
 	}
 	return fmt.Sprintf("%dh %dm", int(duration/time.Hour), int((duration%time.Hour)/time.Minute))
-}
-
-func statusLabel(value string) string {
-	switch strings.ToLower(value) {
-	case "active":
-		return "Active"
-	case "paused":
-		return "Paused"
-	case "stopped":
-		return "Stopped"
-	case "archived":
-		return "Archived"
-	case "deleted":
-		return "Deleted"
-	case "private":
-		return "Private"
-	case "unreachable":
-		return "Unreachable"
-	case "running":
-		return "Running"
-	case "success":
-		return "Success"
-	case "partial":
-		return "Partial"
-	case "failed", "failure":
-		return "Failed"
-	default:
-		if value == "" {
-			return "Unknown"
-		}
-		return value
-	}
 }
 
 func statusClass(value string) string {
@@ -321,24 +313,6 @@ func statusClass(value string) string {
 		return "status-info"
 	default:
 		return "status-neutral"
-	}
-}
-
-func sourceLabel(value string) string {
-	switch strings.ToLower(value) {
-	case "ossinsight":
-		return "OSS Insight"
-	case "github_search":
-		return "GitHub Search"
-	case "legacy":
-		return "Legacy import"
-	case "manual":
-		return "Manual"
-	default:
-		if value == "" {
-			return "Unknown"
-		}
-		return value
 	}
 }
 

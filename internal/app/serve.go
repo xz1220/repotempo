@@ -18,6 +18,7 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 		Now:      runtime.now,
 		Location: domain.ShanghaiLocation(),
 		SiteName: "GitHub Radar",
+		Locale:   runtime.settings.Locale,
 	})
 	if err != nil {
 		return err

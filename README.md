@@ -38,7 +38,7 @@ monthly coverage is present but disabled until the operator checks Search
 - Two-level topic taxonomy with manual assignments taking precedence.
 - Legacy SQLite, CSV, YAML, JSON, and manual-watchlist input paths.
 - CSV, JSON, and SQLite exports.
-- Embedded server-rendered dashboard with no frontend build chain.
+- Embedded Chinese/English server-rendered dashboard with no frontend build chain.
 - One static Go binary, SQLite WAL, Cron collection, and systemd Web service.
 
 ## Architecture
@@ -98,6 +98,7 @@ export GITHUB_RADAR_GITHUB_TOKEN
 export GITHUB_RADAR_DB_PATH="$PWD/github-radar.db"
 export GITHUB_RADAR_DISCOVERY_CONFIG="$PWD/discovery.yaml"
 export GITHUB_RADAR_TOPICS_CONFIG="$PWD/topics.yaml"
+export GITHUB_RADAR_LOCALE=zh-CN
 ```
 
 Do not place a real token in a tracked file, a Cron line, a systemd unit, a
@@ -204,6 +205,11 @@ history, topic stock and growth, concentration with optional leader exclusion,
 discovery evidence, task runs, and explicit failure dates. Health endpoints are
 available at `/healthz` and `/readyz`.
 
+Set `GITHUB_RADAR_LOCALE=zh-CN` for Chinese or
+`GITHUB_RADAR_LOCALE=en` for English. The Tencent Cloud deployment defaults to
+Chinese. Visitors can switch languages in the page header; the choice is kept
+in a same-site cookie while the current page and filters are preserved.
+
 The service binds to loopback by default. Publish it through an HTTPS reverse
 proxy; never expose the SQLite directory as static content.
 
@@ -265,14 +271,19 @@ interpolates missing dates.
 Deployment assets for the Tencent Cloud host are in `deploy/tencent2`. They use:
 
 - `/opt/github-radar/github-radar`
-- `/var/lib/github-radar/github-radar.db`
-- `/var/lib/github-radar/exports`
-- `/var/lib/github-radar/backups`
+- `/home/xingzheng/data/github-radar/github-radar.db`
+- `/home/xingzheng/data/github-radar/exports`
+- `/home/xingzheng/data/github-radar/backups`
+- `/home/xingzheng/data/github-radar/import`
 - `/etc/github-radar/github-radar.env`
 
-The collector runs at 09:15 Asia/Shanghai with `flock`. This avoids overlap with
-the existing 09:00 Python Feishu digest, which remains unchanged. The Web server
-runs as a low-privilege systemd service. See [operations](docs/operations.md).
+The business data lives on the dedicated disk mounted at
+`/home/xingzheng/data`; the binary and configuration remain on the system disk.
+Both systemd and Cron fail closed when that mount is absent, so the service
+cannot silently create a fresh database on the system disk. The collector runs
+at 09:15 Asia/Shanghai with `flock`. This avoids overlap with the existing 09:00
+Python Feishu digest, which remains unchanged. The Web server runs as a
+low-privilege systemd service. See [operations](docs/operations.md).
 
 ## Tests and release gates
 

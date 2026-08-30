@@ -21,6 +21,7 @@ type Options struct {
 	Now      func() time.Time
 	Location *time.Location
 	SiteName string
+	Locale   string
 }
 
 type Handler struct {
@@ -29,7 +30,8 @@ type Handler struct {
 	now       func() time.Time
 	location  *time.Location
 	siteName  string
-	templates map[string]*template.Template
+	locale    string
+	templates map[string]map[string]*template.Template
 	mux       *http.ServeMux
 	static    fs.FS
 }
@@ -68,6 +70,7 @@ func New(queryer Queryer, options Options) (*Handler, error) {
 		now:      options.Now,
 		location: options.Location,
 		siteName: options.SiteName,
+		locale:   normalizeLocale(options.Locale),
 		static:   staticAssets,
 		mux:      http.NewServeMux(),
 	}
@@ -79,6 +82,18 @@ func New(queryer Queryer, options Options) (*Handler, error) {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if locale, ok := requestedLocale(r.URL.Query().Get("lang")); ok {
+		cookie := &http.Cookie{
+			Name:     localeCookieName,
+			Value:    locale,
+			Path:     "/",
+			MaxAge:   365 * 24 * 60 * 60,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			Secure:   r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https"),
+		}
+		http.SetCookie(w, cookie)
+	}
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'")
 	w.Header().Set("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -103,35 +118,44 @@ func (h *Handler) routes() {
 }
 
 func (h *Handler) parseTemplates() error {
-	h.templates = make(map[string]*template.Template)
-	funcs := template.FuncMap{
-		"formatInt":       formatInt,
-		"formatIntPtr":    formatIntPtr,
-		"formatSigned":    formatSigned,
-		"formatDate":      func(value time.Time) string { return formatDate(value, h.location) },
-		"formatDatePtr":   func(value *time.Time) string { return formatDatePtr(value, h.location) },
-		"formatDateTime":  func(value time.Time) string { return formatDateTime(value, h.location) },
-		"formatTimePtr":   func(value *time.Time) string { return formatTimePtr(value, h.location) },
-		"formatPercent":   formatPercent,
-		"coveragePercent": coveragePercent,
-		"formatDuration":  formatDuration,
-		"statusLabel":     statusLabel,
-		"statusClass":     statusClass,
-		"sourceLabel":     sourceLabel,
-		"githubURL":       githubURL,
-		"join":            strings.Join,
-		"lower":           strings.ToLower,
-	}
-	for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "discoveries", "runs", "error"} {
-		tmpl, err := template.New("base.gohtml").Funcs(funcs).ParseFS(
-			assets,
-			"templates/base.gohtml",
-			"templates/"+page+".gohtml",
-		)
-		if err != nil {
-			return fmt.Errorf("web: parse %s template: %w", page, err)
+	h.templates = make(map[string]map[string]*template.Template, 2)
+	for _, locale := range []string{localeEnglish, localeChinese} {
+		localized := newLocalizer(locale)
+		unavailable := localized.Text("page.not_available")
+		funcs := template.FuncMap{
+			"formatInt":       formatInt,
+			"formatIntPtr":    func(value *int64) string { return formatIntPtrLocalized(value, unavailable) },
+			"formatSigned":    func(value *int64) string { return formatSignedLocalized(value, unavailable) },
+			"formatDate":      func(value time.Time) string { return formatDateLocalized(value, h.location, unavailable) },
+			"formatDatePtr":   func(value *time.Time) string { return formatDatePtrLocalized(value, h.location, unavailable) },
+			"formatDateTime":  func(value time.Time) string { return formatDateTimeLocalized(value, h.location, unavailable) },
+			"formatTimePtr":   func(value *time.Time) string { return formatTimePtr(value, h.location, localized.Text("time.running")) },
+			"formatPercent":   func(value *float64) string { return formatPercentLocalized(value, unavailable) },
+			"coveragePercent": coveragePercent,
+			"formatDuration": func(start time.Time, finish *time.Time) string {
+				return formatDuration(start, finish, localized.Text("time.running"), unavailable)
+			},
+			"statusLabel": localized.StatusLabel,
+			"statusClass": statusClass,
+			"sourceLabel": localized.SourceLabel,
+			"t":           localized.Text,
+			"tf":          localized.Textf,
+			"githubURL":   githubURL,
+			"join":        strings.Join,
+			"lower":       strings.ToLower,
 		}
-		h.templates[page] = tmpl
+		h.templates[locale] = make(map[string]*template.Template)
+		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "discoveries", "runs", "error"} {
+			tmpl, err := template.New("base.gohtml").Funcs(funcs).ParseFS(
+				assets,
+				"templates/base.gohtml",
+				"templates/"+page+".gohtml",
+			)
+			if err != nil {
+				return fmt.Errorf("web: parse %s template for %s: %w", page, locale, err)
+			}
+			h.templates[locale][page] = tmpl
+		}
 	}
 	return nil
 }

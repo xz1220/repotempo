@@ -16,6 +16,7 @@ const (
 	defaultTopicsConfig    = "config/topics.yaml"
 	defaultListenAddress   = "127.0.0.1:8787"
 	defaultTimezone        = "Asia/Shanghai"
+	defaultLocale          = "en"
 )
 
 // Settings contains runtime configuration. Secret values are deliberately
@@ -28,6 +29,7 @@ type Settings struct {
 	TopicsConfig       string
 	ListenAddress      string
 	Timezone           string
+	Locale             string
 	LogFormat          string
 	LogLevel           string
 	GitHubToken        string
@@ -47,6 +49,7 @@ func LoadSettings() (Settings, error) {
 		TopicsConfig:       envOr("GITHUB_RADAR_TOPICS_CONFIG", defaultTopicsConfig),
 		ListenAddress:      envOr("GITHUB_RADAR_LISTEN_ADDR", defaultListenAddress),
 		Timezone:           envOr("GITHUB_RADAR_TIMEZONE", defaultTimezone),
+		Locale:             envOr("GITHUB_RADAR_LOCALE", defaultLocale),
 		LogFormat:          envOr("GITHUB_RADAR_LOG_FORMAT", "text"),
 		LogLevel:           envOr("GITHUB_RADAR_LOG_LEVEL", "info"),
 		GitHubToken:        strings.TrimSpace(os.Getenv("GITHUB_RADAR_GITHUB_TOKEN")),
@@ -68,6 +71,9 @@ func LoadSettings() (Settings, error) {
 	if settings.Timezone != defaultTimezone {
 		return Settings{}, fmt.Errorf("GITHUB_RADAR_TIMEZONE must be %s in v0.1.0", defaultTimezone)
 	}
+	if settings.Locale != "en" && settings.Locale != "zh-CN" {
+		return Settings{}, fmt.Errorf("GITHUB_RADAR_LOCALE must be en or zh-CN")
+	}
 	return settings, nil
 }
 
@@ -80,6 +86,7 @@ func (settings Settings) DiagnosticFields() map[string]any {
 		"topics_config":           cleanPath(settings.TopicsConfig),
 		"listen_address":          settings.ListenAddress,
 		"timezone":                settings.Timezone,
+		"locale":                  settings.Locale,
 		"log_format":              settings.LogFormat,
 		"github_token_configured": settings.GitHubToken != "",
 	}

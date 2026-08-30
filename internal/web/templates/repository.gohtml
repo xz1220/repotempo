@@ -1,43 +1,43 @@
 {{define "content"}}
   <section class="entity-header" aria-labelledby="repository-overview">
     <div>
-      <h2 id="repository-overview" class="sr-only">Repository overview</h2>
+      <h2 id="repository-overview" class="sr-only">{{t "repository.overview"}}</h2>
       <div class="entity-actions">
-        {{with githubURL .Repository.Repository.HTMLURL}}<a class="button button-secondary" href="{{.}}" target="_blank" rel="noopener noreferrer">Open on GitHub</a>{{end}}
+        {{with githubURL .Repository.Repository.HTMLURL}}<a class="button button-secondary" href="{{.}}" target="_blank" rel="noopener noreferrer">{{t "repository.open_github"}}</a>{{end}}
         <span class="status-badge {{statusClass .Repository.Repository.MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .Repository.Repository.MonitoringStatus}}</span>
-        {{if ne .Repository.Repository.GitHubStatus "active"}}<span class="status-badge {{statusClass .Repository.Repository.GitHubStatus}}"><span aria-hidden="true"></span>GitHub: {{statusLabel .Repository.Repository.GitHubStatus}}</span>{{end}}
+        {{if ne .Repository.Repository.GitHubStatus "active"}}<span class="status-badge {{statusClass .Repository.Repository.GitHubStatus}}"><span aria-hidden="true"></span>{{tf "repository.github_status" (statusLabel .Repository.Repository.GitHubStatus)}}</span>{{end}}
       </div>
       {{if .Repository.Repository.Description}}<p class="entity-description">{{.Repository.Repository.Description}}</p>{{end}}
     </div>
     <dl class="metric-strip repository-metrics">
-      <div><dt>Current stars</dt><dd>{{formatIntPtr .Repository.Repository.CurrentStars}}</dd></div>
-      <div><dt>1 day</dt><dd>{{formatSigned .Repository.Repository.Delta1D}}</dd></div>
-      <div><dt>7 days</dt><dd>{{formatSigned .Repository.Repository.Delta7D}}</dd></div>
-      <div><dt>30 days</dt><dd>{{formatSigned .Repository.Repository.Delta30D}}</dd></div>
+      <div><dt>{{t "metric.current_stars"}}</dt><dd>{{formatIntPtr .Repository.Repository.CurrentStars}}</dd></div>
+      <div><dt>{{t "metric.one_day"}}</dt><dd>{{formatSigned .Repository.Repository.Delta1D}}</dd></div>
+      <div><dt>{{t "metric.seven_days"}}</dt><dd>{{formatSigned .Repository.Repository.Delta7D}}</dd></div>
+      <div><dt>{{t "metric.thirty_days"}}</dt><dd>{{formatSigned .Repository.Repository.Delta30D}}</dd></div>
     </dl>
   </section>
 
   <section class="evidence-grid" aria-labelledby="collection-evidence">
     <div>
-      <div class="section-heading compact"><div><h2 id="collection-evidence">Collection evidence</h2><p>Provenance and the trustworthy history boundary.</p></div></div>
+      <div class="section-heading compact"><div><h2 id="collection-evidence">{{t "repository.collection_evidence"}}</h2><p>{{t "repository.collection_evidence_help"}}</p></div></div>
       <dl class="definition-list">
-        <div><dt>First seen</dt><dd>{{formatDateTime .Repository.Repository.FirstSeenAt}}</dd></div>
-        <div><dt>First source</dt><dd>{{sourceLabel .Repository.Repository.FirstSeenSource}}</dd></div>
-        <div><dt>First profile</dt><dd>{{if .Repository.Repository.FirstSeenProfile}}{{.Repository.Repository.FirstSeenProfile}}{{else}}N/A{{end}}</dd></div>
-        <div><dt>Valid history starts</dt><dd>{{formatDatePtr .Repository.ValidFrom}}</dd></div>
-        <div><dt>Primary language</dt><dd>{{if .Repository.Repository.PrimaryLanguage}}{{.Repository.Repository.PrimaryLanguage}}{{else}}N/A{{end}}</dd></div>
+        <div><dt>{{t "repository.first_seen"}}</dt><dd>{{formatDateTime .Repository.Repository.FirstSeenAt}}</dd></div>
+        <div><dt>{{t "repository.first_source"}}</dt><dd>{{sourceLabel .Repository.Repository.FirstSeenSource}}</dd></div>
+        <div><dt>{{t "repository.first_profile"}}</dt><dd>{{if .Repository.Repository.FirstSeenProfile}}{{.Repository.Repository.FirstSeenProfile}}{{else}}{{t "page.not_available"}}{{end}}</dd></div>
+        <div><dt>{{t "repository.valid_history"}}</dt><dd>{{formatDatePtr .Repository.ValidFrom}}</dd></div>
+        <div><dt>{{t "repository.primary_language"}}</dt><dd>{{if .Repository.Repository.PrimaryLanguage}}{{.Repository.Repository.PrimaryLanguage}}{{else}}{{t "page.not_available"}}{{end}}</dd></div>
         <div>
-          <dt>Topics</dt>
-          <dd><div class="tag-list">{{range .Repository.Repository.Topics}}<a class="tag" href="/topics/{{.Slug}}">{{.Name}}</a>{{else}}<span class="muted">Unassigned</span>{{end}}</div></dd>
+          <dt>{{t "repository.topics"}}</dt>
+          <dd><div class="tag-list">{{range .Repository.Repository.Topics}}<a class="tag" href="/topics/{{.Slug}}">{{.Name}}</a>{{else}}<span class="muted">{{t "repositories.unassigned"}}</span>{{end}}</div></dd>
         </div>
       </dl>
     </div>
     <div>
-      <div class="section-heading compact"><div><h2>Name history</h2><p>Previous owner and repository names linked to this GitHub ID.</p></div></div>
+      <div class="section-heading compact"><div><h2>{{t "repository.name_history"}}</h2><p>{{t "repository.name_history_help"}}</p></div></div>
       {{if .Repository.PreviousNames}}
         <ul class="plain-list mono-list">{{range .Repository.PreviousNames}}<li>{{.}}</li>{{end}}</ul>
       {{else}}
-        <p class="empty-inline">No rename history recorded.</p>
+        <p class="empty-inline">{{t "repository.no_name_history"}}</p>
       {{end}}
     </div>
   </section>
@@ -47,29 +47,29 @@
 
   <div class="split-layout detail-sections">
     <section aria-labelledby="failed-observations">
-      <div class="section-heading compact"><div><h2 id="failed-observations">Failed observations</h2><p>Dates with an explicit failed fetch outcome.</p></div></div>
+      <div class="section-heading compact"><div><h2 id="failed-observations">{{t "repository.failed_observations"}}</h2><p>{{t "repository.failed_observations_help"}}</p></div></div>
       {{if .Repository.FailedDates}}
-        <div class="table-scroll" role="region" aria-label="Failed observations" tabindex="0">
+        <div class="table-scroll" role="region" aria-label="{{t "repository.failed_observations_region"}}" tabindex="0">
           <table class="data-table compact-table">
-            <thead><tr><th scope="col">Date</th><th scope="col">HTTP</th><th scope="col">Error</th></tr></thead>
-            <tbody>{{range .Repository.FailedDates}}<tr><td>{{formatDate .Date}}</td><td>{{if .HTTPStatus}}{{.HTTPStatus}}{{else}}N/A{{end}}</td><td>{{if .ErrorCode}}{{.ErrorCode}}{{else}}{{statusLabel .FetchStatus}}{{end}}</td></tr>{{end}}</tbody>
+            <thead><tr><th scope="col">{{t "repository.date"}}</th><th scope="col">HTTP</th><th scope="col">{{t "repository.error"}}</th></tr></thead>
+            <tbody>{{range .Repository.FailedDates}}<tr><td>{{formatDate .Date}}</td><td>{{if .HTTPStatus}}{{.HTTPStatus}}{{else}}{{t "page.not_available"}}{{end}}</td><td>{{if .ErrorCode}}{{.ErrorCode}}{{else}}{{statusLabel .FetchStatus}}{{end}}</td></tr>{{end}}</tbody>
           </table>
         </div>
       {{else}}
-        <p class="empty-inline success-inline">No failed observations recorded.</p>
+        <p class="empty-inline success-inline">{{t "repository.no_failed"}}</p>
       {{end}}
     </section>
     <section aria-labelledby="recent-snapshots">
-      <div class="section-heading compact"><div><h2 id="recent-snapshots">Recent snapshots</h2><p>Latest stored outcomes, including missing values.</p></div></div>
+      <div class="section-heading compact"><div><h2 id="recent-snapshots">{{t "repository.recent_snapshots"}}</h2><p>{{t "repository.recent_snapshots_help"}}</p></div></div>
       {{if .Repository.History}}
-        <div class="table-scroll" role="region" aria-label="Recent snapshots" tabindex="0">
+        <div class="table-scroll" role="region" aria-label="{{t "repository.recent_snapshots_region"}}" tabindex="0">
           <table class="data-table compact-table">
-            <thead><tr><th scope="col">Date</th><th scope="col" class="numeric">Stars</th><th scope="col" class="numeric">OSS rank</th><th scope="col">Outcome</th></tr></thead>
+            <thead><tr><th scope="col">{{t "repository.date"}}</th><th scope="col" class="numeric">{{t "repositories.stars"}}</th><th scope="col" class="numeric">{{t "repository.oss_rank"}}</th><th scope="col">{{t "repository.outcome"}}</th></tr></thead>
             <tbody>{{range .Repository.History}}<tr><td>{{formatDate .Date}}</td><td class="numeric">{{formatIntPtr .Stars}}</td><td class="numeric">{{formatIntPtr .OSSRank}}</td><td><span class="status-badge {{statusClass .FetchStatus}}"><span aria-hidden="true"></span>{{statusLabel .FetchStatus}}</span></td></tr>{{end}}</tbody>
           </table>
         </div>
       {{else}}
-        <p class="empty-inline">No snapshots recorded yet.</p>
+        <p class="empty-inline">{{t "repository.no_snapshots"}}</p>
       {{end}}
     </section>
   </div>

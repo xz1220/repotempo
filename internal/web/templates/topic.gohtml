@@ -2,39 +2,39 @@
   <section aria-labelledby="topic-summary">
     <div class="section-heading entity-section-heading">
       <div>
-        <h2 id="topic-summary" class="sr-only">Topic summary</h2>
+        <h2 id="topic-summary" class="sr-only">{{t "topic.summary"}}</h2>
         {{if .Topic.Topic.Description}}<p class="entity-description">{{.Topic.Topic.Description}}</p>{{end}}
-        {{if .Topic.Topic.ParentName}}<p class="parent-link">Part of <a class="text-link" href="/topics/{{.Topic.Topic.ParentSlug}}">{{.Topic.Topic.ParentName}}</a></p>{{end}}
+        {{if .Topic.Topic.ParentName}}<p class="parent-link">{{t "topic.part_of"}} <a class="text-link" href="/topics/{{.Topic.Topic.ParentSlug}}">{{.Topic.Topic.ParentName}}</a></p>{{end}}
       </div>
       <form class="leader-toggle" method="get" action="/topics/{{.Topic.Topic.Slug}}">
-        <label><input type="checkbox" name="exclude_leader" value="true" {{if .Topic.ExcludeLeader}}checked{{end}} data-submit-on-change> Exclude the leading repository</label>
-        <noscript><button class="button button-secondary" type="submit">Update metrics</button></noscript>
+        <label><input type="checkbox" name="exclude_leader" value="true" {{if .Topic.ExcludeLeader}}checked{{end}} data-submit-on-change> {{t "topic.exclude_leader"}}</label>
+        <noscript><button class="button button-secondary" type="submit">{{t "topic.update_metrics"}}</button></noscript>
       </form>
     </div>
-    {{if and .Topic.ExcludeLeader .Topic.ExcludedLeaderFullName}}<p class="filter-note">Metrics exclude {{.Topic.ExcludedLeaderFullName}}.</p>{{end}}
+    {{if and .Topic.ExcludeLeader .Topic.ExcludedLeaderFullName}}<p class="filter-note">{{tf "topic.excludes" .Topic.ExcludedLeaderFullName}}</p>{{end}}
     <dl class="metric-strip topic-metrics">
-      <div><dt>Repositories</dt><dd>{{formatInt .Topic.Topic.RepositoryCount}}</dd></div>
-      <div><dt>Total stars</dt><dd>{{formatIntPtr .Topic.Topic.CurrentStars}}</dd></div>
-      <div><dt>1 day</dt><dd>{{formatSigned .Topic.Topic.Delta1D}}</dd></div>
-      <div><dt>7 days</dt><dd>{{formatSigned .Topic.Topic.Delta7D}}</dd></div>
-      <div><dt>30 days</dt><dd>{{formatSigned .Topic.Topic.Delta30D}}</dd></div>
-      <div><dt>Top repository share</dt><dd>{{formatPercent .Topic.ConcentrationPercent}}</dd></div>
+      <div><dt>{{t "metric.repositories"}}</dt><dd>{{formatInt .Topic.Topic.RepositoryCount}}</dd></div>
+      <div><dt>{{t "metric.total_stars"}}</dt><dd>{{formatIntPtr .Topic.Topic.CurrentStars}}</dd></div>
+      <div><dt>{{t "metric.one_day"}}</dt><dd>{{formatSigned .Topic.Topic.Delta1D}}</dd></div>
+      <div><dt>{{t "metric.seven_days"}}</dt><dd>{{formatSigned .Topic.Topic.Delta7D}}</dd></div>
+      <div><dt>{{t "metric.thirty_days"}}</dt><dd>{{formatSigned .Topic.Topic.Delta30D}}</dd></div>
+      <div><dt>{{t "topic.top_share"}}</dt><dd>{{formatPercent .Topic.ConcentrationPercent}}</dd></div>
     </dl>
   </section>
 
   {{template "chart" .TopicChart}}
 
   <section aria-labelledby="topic-repositories">
-    <div class="section-heading"><div><h2 id="topic-repositories">Fastest repositories</h2><p>Repositories in this topic, ordered by latest daily growth.</p></div></div>
+    <div class="section-heading"><div><h2 id="topic-repositories">{{t "topic.fastest_repositories"}}</h2><p>{{t "topic.fastest_repositories_help"}}</p></div></div>
     {{if .Topic.Repositories}}
-      <div class="table-scroll" role="region" aria-label="Topic repository metrics" tabindex="0">
+      <div class="table-scroll" role="region" aria-label="{{t "topic.metrics_region"}}" tabindex="0">
         <table class="data-table">
-          <thead><tr><th scope="col">Repository</th><th scope="col" class="numeric">Stars</th><th scope="col" class="numeric">1 day</th><th scope="col" class="numeric">7 days</th><th scope="col" class="numeric">30 days</th><th scope="col">Monitoring</th></tr></thead>
+          <thead><tr><th scope="col">{{t "repositories.repository"}}</th><th scope="col" class="numeric">{{t "repositories.stars"}}</th><th scope="col" class="numeric">{{t "metric.one_day"}}</th><th scope="col" class="numeric">{{t "metric.seven_days"}}</th><th scope="col" class="numeric">{{t "metric.thirty_days"}}</th><th scope="col">{{t "repositories.monitoring"}}</th></tr></thead>
           <tbody>{{range .Topic.Repositories}}<tr><td><a class="repo-name" href="/repositories/{{.ID}}">{{.FullName}}</a>{{if .Description}}<p class="cell-description">{{.Description}}</p>{{end}}</td><td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td><td class="numeric metric-delta">{{formatSigned .Delta1D}}</td><td class="numeric metric-delta">{{formatSigned .Delta7D}}</td><td class="numeric metric-delta">{{formatSigned .Delta30D}}</td><td><span class="status-badge {{statusClass .MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .MonitoringStatus}}</span></td></tr>{{end}}</tbody>
         </table>
       </div>
     {{else}}
-      <div class="empty-state"><h3>No repositories in this view</h3><p>Assign a repository to this topic, or include the leader again if it was the only member.</p></div>
+      <div class="empty-state"><h3>{{t "topic.no_repositories"}}</h3><p>{{t "topic.no_repositories_help"}}</p></div>
     {{end}}
   </section>
 {{end}}

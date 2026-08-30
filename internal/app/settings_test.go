@@ -28,6 +28,39 @@ func TestLoadSettingsRejectsInvalidRetention(t *testing.T) {
 	}
 }
 
+func TestLoadSettingsDefaultsToEnglishLocale(t *testing.T) {
+	t.Setenv("GITHUB_RADAR_LOCALE", "")
+	settings, err := LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.Locale != "en" {
+		t.Fatalf("locale = %q, want en", settings.Locale)
+	}
+	if settings.DiagnosticFields()["locale"] != "en" {
+		t.Fatalf("diagnostic locale = %#v, want en", settings.DiagnosticFields()["locale"])
+	}
+}
+
+func TestLoadSettingsAcceptsChineseLocale(t *testing.T) {
+	t.Setenv("GITHUB_RADAR_LOCALE", "zh-CN")
+	settings, err := LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.Locale != "zh-CN" {
+		t.Fatalf("locale = %q, want zh-CN", settings.Locale)
+	}
+}
+
+func TestLoadSettingsRejectsInvalidLocale(t *testing.T) {
+	t.Setenv("GITHUB_RADAR_LOCALE", "zh")
+	_, err := LoadSettings()
+	if err == nil || !strings.Contains(err.Error(), "GITHUB_RADAR_LOCALE must be en or zh-CN") {
+		t.Fatalf("error = %v, want explicit locale validation error", err)
+	}
+}
+
 func TestDefaultSettingsNeverSelectExampleFiles(t *testing.T) {
 	t.Setenv("GITHUB_RADAR_DISCOVERY_CONFIG", "")
 	t.Setenv("GITHUB_RADAR_TOPICS_CONFIG", "")

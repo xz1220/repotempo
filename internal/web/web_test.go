@@ -109,6 +109,118 @@ func TestMainRoutesRender(t *testing.T) {
 	}
 }
 
+func TestChineseLocaleRendersAllDashboardRoutes(t *testing.T) {
+	queryer := populatedFake()
+	queryer.dashboard.Warnings = []string{"Current snapshot coverage is temporarily unavailable."}
+	handler := newTestHandlerWithLocale(t, queryer, localeChinese)
+
+	tests := []struct {
+		path string
+		want string
+	}{
+		{path: "/", want: "监控概况"},
+		{path: "/repositories", want: "项目指标"},
+		{path: "/repositories/101", want: "有效历史起始日"},
+		{path: "/topics", want: "主题指标"},
+		{path: "/topics/ai-agent", want: "头部项目占比"},
+		{path: "/discoveries", want: "GitHub Search 配置"},
+		{path: "/runs", want: "最近任务运行"},
+		{path: "/not-here", want: "页面不存在"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			response := request(t, handler, test.path)
+			if response.Code != http.StatusOK && response.Code != http.StatusNotFound {
+				t.Fatalf("status = %d; body: %s", response.Code, response.Body.String())
+			}
+			body := response.Body.String()
+			if !strings.Contains(body, test.want) {
+				t.Fatalf("body does not contain %q: %s", test.want, body)
+			}
+			if !strings.Contains(body, `<html lang="zh-CN">`) {
+				t.Fatalf("page language is not zh-CN: %s", body)
+			}
+		})
+	}
+
+	home := request(t, handler, "/").Body.String()
+	for _, want := range []string{"当前快照覆盖率暂不可用。", "部分成功", "截至 2026-08-30"} {
+		if !strings.Contains(home, want) {
+			t.Errorf("Chinese overview does not contain %q", want)
+		}
+	}
+}
+
+func TestLanguageQueryPersistsCookieAndPreservesLocation(t *testing.T) {
+	handler := newTestHandlerWithLocale(t, populatedFake(), localeEnglish)
+	response := request(t, handler, "/repositories?q=acme+radar&topic=ai-agent&lang=zh-CN")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", response.Code)
+	}
+	if got := response.Header().Get("Content-Language"); got != localeChinese {
+		t.Fatalf("Content-Language = %q, want %q", got, localeChinese)
+	}
+	body := response.Body.String()
+	for _, want := range []string{
+		`<html lang="zh-CN">`,
+		`href="/repositories?lang=en&amp;q=acme&#43;radar&amp;topic=ai-agent"`,
+		`href="/repositories?lang=zh-CN&amp;q=acme&#43;radar&amp;topic=ai-agent"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body does not contain %q: %s", want, body)
+		}
+	}
+	cookies := response.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("cookies = %#v, want one locale cookie", cookies)
+	}
+	cookie := cookies[0]
+	if cookie.Name != localeCookieName || cookie.Value != localeChinese || !cookie.HttpOnly || cookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("locale cookie = %#v", cookie)
+	}
+
+	requestWithCookie := httptest.NewRequest(http.MethodGet, "/runs", nil)
+	requestWithCookie.AddCookie(cookie)
+	cookieResponse := httptest.NewRecorder()
+	handler.ServeHTTP(cookieResponse, requestWithCookie)
+	if !strings.Contains(cookieResponse.Body.String(), "最近任务运行") {
+		t.Fatalf("locale cookie was not honored: %s", cookieResponse.Body.String())
+	}
+}
+
+func TestUnsupportedLocaleFallsBackToEnglish(t *testing.T) {
+	handler := newTestHandlerWithLocale(t, populatedFake(), "fr-FR")
+	response := request(t, handler, "/?lang=fr-FR")
+	if !strings.Contains(response.Body.String(), `<html lang="en">`) || !strings.Contains(response.Body.String(), "Monitoring summary") {
+		t.Fatalf("unsupported locale did not fall back to English: %s", response.Body.String())
+	}
+	if values := response.Header().Values("Set-Cookie"); len(values) != 0 {
+		t.Fatalf("unsupported locale set a cookie: %v", values)
+	}
+}
+
+func TestTranslationCatalogsStayInSync(t *testing.T) {
+	english := messageCatalog[localeEnglish]
+	chinese := messageCatalog[localeChinese]
+	for key, value := range english {
+		if strings.TrimSpace(value) == "" {
+			t.Errorf("English translation %q is empty", key)
+		}
+		if _, ok := chinese[key]; !ok {
+			t.Errorf("Chinese catalog is missing %q", key)
+		}
+	}
+	for key, value := range chinese {
+		if strings.TrimSpace(value) == "" {
+			t.Errorf("Chinese translation %q is empty", key)
+		}
+		if _, ok := english[key]; !ok {
+			t.Errorf("English catalog is missing %q", key)
+		}
+	}
+}
+
 func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 	handler := newTestHandler(t, &fakeQueryer{})
 	tests := []struct {
@@ -431,11 +543,16 @@ func populatedFake() *fakeQueryer {
 }
 
 func newTestHandler(t *testing.T, queryer Queryer) http.Handler {
+	return newTestHandlerWithLocale(t, queryer, "")
+}
+
+func newTestHandlerWithLocale(t *testing.T, queryer Queryer, locale string) http.Handler {
 	t.Helper()
 	handler, err := New(queryer, Options{
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Now:      func() time.Time { return mustTime("2026-08-30T03:00:00Z") },
 		Location: time.UTC,
+		Locale:   locale,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)

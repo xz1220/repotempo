@@ -24,6 +24,9 @@ type pageMeta struct {
 	SiteName    string
 	Warnings    []string
 	AsOfLabel   string
+	Locale      string
+	EnglishURL  string
+	ChineseURL  string
 }
 
 type pageView struct {
@@ -53,6 +56,7 @@ type pagination struct {
 }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
+	localized := h.localizerFor(r)
 	asOf := h.asOf()
 	data, err := h.queryer.DashboardSummary(r.Context(), asOf)
 	if err != nil {
@@ -60,12 +64,13 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, http.StatusOK, "home", pageView{
-		Meta:      h.meta("Overview", "Current monitoring coverage and GitHub star movement.", "overview", data.Warnings),
+		Meta:      h.meta(localized, "meta.overview.title", "meta.overview.description", "overview", data.Warnings),
 		Dashboard: data,
 	})
 }
 
 func (h *Handler) repositories(w http.ResponseWriter, r *http.Request) {
+	localized := h.localizerFor(r)
 	filter := RepositoryQuery{
 		AsOf:             h.asOf(),
 		Search:           cleanSearch(r.URL.Query().Get("q")),
@@ -82,7 +87,7 @@ func (h *Handler) repositories(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Filter = filter
 	view := pageView{
-		Meta:         h.meta("Repositories", "Search and compare monitored repositories.", "repositories", data.Warnings),
+		Meta:         h.meta(localized, "meta.repositories.title", "meta.repositories.description", "repositories", data.Warnings),
 		Repositories: data,
 		Pagination:   repositoryPagination(r.URL.Query(), filter.Offset, filter.Limit, data.Total),
 	}
@@ -90,6 +95,7 @@ func (h *Handler) repositories(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
+	localized := h.localizerFor(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
 		h.notFound(w, r)
@@ -105,27 +111,29 @@ func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := pageView{
-		Meta:       h.meta(data.Repository.FullName, "Repository star history and collection evidence.", "repositories", data.Warnings),
+		Meta:       h.metaText(localized, data.Repository.FullName, localized.Text("meta.repository.description"), "repositories", data.Warnings),
 		Repository: data,
-		StarChart:  snapshotStarChart(data.History),
-		RankChart:  snapshotRankChart(data.History),
+		StarChart:  snapshotStarChart(data.History, localized),
+		RankChart:  snapshotRankChart(data.History, localized),
 	}
 	h.render(w, r, http.StatusOK, "repository", view)
 }
 
 func (h *Handler) topics(w http.ResponseWriter, r *http.Request) {
+	localized := h.localizerFor(r)
 	data, err := h.queryer.ListTopicMetrics(r.Context(), h.asOf())
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
 	h.render(w, r, http.StatusOK, "topics", pageView{
-		Meta:   h.meta("Topics", "Two-level taxonomy with aggregated star movement.", "topics", data.Warnings),
+		Meta:   h.meta(localized, "meta.topics.title", "meta.topics.description", "topics", data.Warnings),
 		Topics: data,
 	})
 }
 
 func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
+	localized := h.localizerFor(r)
 	slug := strings.TrimSpace(r.PathValue("slug"))
 	if !validSlug(slug) {
 		h.notFound(w, r)
@@ -142,26 +150,28 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := pageView{
-		Meta:       h.meta(data.Topic.Name, "Topic concentration, history, and fastest repositories.", "topics", data.Warnings),
+		Meta:       h.metaText(localized, data.Topic.Name, localized.Text("meta.topic.description"), "topics", data.Warnings),
 		Topic:      data,
-		TopicChart: trendChart(data.History, "Topic star history"),
+		TopicChart: trendChart(data.History, localized.Text("chart.topic_history"), localized.Text("chart.topic_history_help")),
 	}
 	h.render(w, r, http.StatusOK, "topic", view)
 }
 
 func (h *Handler) discoveries(w http.ResponseWriter, r *http.Request) {
+	localized := h.localizerFor(r)
 	data, err := h.queryer.DiscoverySummary(r.Context())
 	if err != nil {
 		h.serverError(w, r, err)
 		return
 	}
 	h.render(w, r, http.StatusOK, "discoveries", pageView{
-		Meta:        h.meta("Discoveries", "Repository provenance and GitHub Search completeness.", "discoveries", data.Warnings),
+		Meta:        h.meta(localized, "meta.discoveries.title", "meta.discoveries.description", "discoveries", data.Warnings),
 		Discoveries: data,
 	})
 }
 
 func (h *Handler) runs(w http.ResponseWriter, r *http.Request) {
+	localized := h.localizerFor(r)
 	offset := parseOffset(r.URL.Query().Get("offset"))
 	data, err := h.queryer.ListJobRuns(r.Context(), runPageSize, offset)
 	if err != nil {
@@ -171,7 +181,7 @@ func (h *Handler) runs(w http.ResponseWriter, r *http.Request) {
 	data.Limit = runPageSize
 	data.Offset = offset
 	h.render(w, r, http.StatusOK, "runs", pageView{
-		Meta:       h.meta("Runs", "Collector outcomes, coverage, and API quota evidence.", "runs", data.Warnings),
+		Meta:       h.meta(localized, "meta.runs.title", "meta.runs.description", "runs", data.Warnings),
 		Runs:       data,
 		Pagination: basicPagination("/runs", offset, runPageSize, data.Total),
 	})
@@ -197,30 +207,40 @@ func (h *Handler) ready(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) notFound(w http.ResponseWriter, r *http.Request) {
+	localized := h.localizerFor(r)
 	h.render(w, r, http.StatusNotFound, "error", pageView{
-		Meta:         h.meta("Page not found", "The requested dashboard page does not exist.", "", nil),
+		Meta:         h.meta(localized, "error.not_found.title", "error.not_found.description", "", nil),
 		ErrorStatus:  http.StatusNotFound,
-		ErrorTitle:   "Page not found",
-		ErrorMessage: "Check the address or return to the overview.",
+		ErrorTitle:   localized.Text("error.not_found.title"),
+		ErrorMessage: localized.Text("error.not_found.message"),
 	})
 }
 
 func (h *Handler) serverError(w http.ResponseWriter, r *http.Request, err error) {
+	localized := h.localizerFor(r)
 	h.logger.ErrorContext(r.Context(), "web query failed", "path", r.URL.Path, "error", err)
 	h.render(w, r, http.StatusInternalServerError, "error", pageView{
-		Meta:         h.meta("Data unavailable", "The requested dashboard data could not be loaded.", "", nil),
+		Meta:         h.meta(localized, "error.unavailable.title", "error.unavailable.description", "", nil),
 		ErrorStatus:  http.StatusInternalServerError,
-		ErrorTitle:   "Data unavailable",
-		ErrorMessage: "The read-only data source could not answer this request. Try again after the next collector run.",
+		ErrorTitle:   localized.Text("error.unavailable.title"),
+		ErrorMessage: localized.Text("error.unavailable.message"),
 	})
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, name string, data pageView) {
-	tmpl, ok := h.templates[name]
+	locale := h.localeFor(r)
+	templates, ok := h.templates[locale]
+	if !ok {
+		templates = h.templates[localeEnglish]
+	}
+	tmpl, ok := templates[name]
 	if !ok {
 		http.Error(w, "template unavailable", http.StatusInternalServerError)
 		return
 	}
+	data.Meta.Locale = locale
+	data.Meta.EnglishURL = languageURL(r, localeEnglish)
+	data.Meta.ChineseURL = languageURL(r, localeChinese)
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "base", data); err != nil {
 		h.logger.ErrorContext(r.Context(), "web template failed", "template", name, "error", err)
@@ -228,20 +248,52 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, nam
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Language", locale)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = output.WriteTo(w)
 }
 
-func (h *Handler) meta(title, description, active string, warnings []string) pageMeta {
+func (h *Handler) meta(localized localizer, titleKey, descriptionKey, active string, warnings []string) pageMeta {
+	return h.metaText(localized, localized.Text(titleKey), localized.Text(descriptionKey), active, warnings)
+}
+
+func (h *Handler) metaText(localized localizer, title, description, active string, warnings []string) pageMeta {
+	localizedWarnings := make([]string, len(warnings))
+	for index, warning := range warnings {
+		localizedWarnings[index] = localized.WarningText(warning)
+	}
 	return pageMeta{
 		Title:       title,
 		Description: description,
 		ActiveNav:   active,
 		SiteName:    h.siteName,
-		Warnings:    warnings,
+		Warnings:    localizedWarnings,
 		AsOfLabel:   formatDateTime(h.now(), h.location),
 	}
+}
+
+func (h *Handler) localeFor(r *http.Request) string {
+	if locale, ok := requestedLocale(r.URL.Query().Get("lang")); ok {
+		return locale
+	}
+	cookie, err := r.Cookie(localeCookieName)
+	if err == nil {
+		if locale, ok := requestedLocale(cookie.Value); ok {
+			return locale
+		}
+	}
+	return h.locale
+}
+
+func (h *Handler) localizerFor(r *http.Request) localizer {
+	return newLocalizer(h.localeFor(r))
+}
+
+func languageURL(r *http.Request, locale string) string {
+	values := r.URL.Query()
+	values.Set("lang", locale)
+	return queryPath(r.URL.Path, values)
 }
 
 func (h *Handler) asOf() time.Time {

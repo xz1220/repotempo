@@ -1,32 +1,32 @@
 {{define "content"}}
   <section aria-labelledby="source-coverage">
-    <div class="section-heading"><div><h2 id="source-coverage">Source coverage</h2><p>First-discovery provenance across the registry.</p></div></div>
+    <div class="section-heading"><div><h2 id="source-coverage">{{t "discoveries.source_coverage"}}</h2><p>{{t "discoveries.source_coverage_help"}}</p></div></div>
     {{if .Discoveries.Sources}}
       <dl class="source-strip">
         {{range .Discoveries.Sources}}
-          <div><dt>{{sourceLabel .Source}}</dt><dd>{{formatInt .RepositoryCount}}</dd><p>Last run {{formatDatePtr .LastRunAt}}</p></div>
+          <div><dt>{{sourceLabel .Source}}</dt><dd>{{formatInt .RepositoryCount}}</dd><p>{{tf "discoveries.last_run" (formatDatePtr .LastRunAt)}}</p></div>
         {{end}}
       </dl>
     {{else}}
-      <div class="empty-state"><h3>No discoveries recorded</h3><p>Source counts appear after OSS Insight, GitHub Search, a legacy import, or a manual watch adds repositories.</p></div>
+      <div class="empty-state"><h3>{{t "discoveries.no_discoveries"}}</h3><p>{{t "discoveries.no_discoveries_help"}}</p></div>
     {{end}}
   </section>
 
   <section aria-labelledby="search-profiles">
-    <div class="section-heading"><div><h2 id="search-profiles">GitHub Search profiles</h2><p>Incomplete results and query splitting remain visible for audit.</p></div></div>
+    <div class="section-heading"><div><h2 id="search-profiles">{{t "discoveries.search_profiles"}}</h2><p>{{t "discoveries.search_profiles_help"}}</p></div></div>
     {{if .Discoveries.Profiles}}
-      <div class="table-scroll" role="region" aria-label="GitHub Search profile outcomes" tabindex="0">
+      <div class="table-scroll" role="region" aria-label="{{t "discoveries.profile_outcomes"}}" tabindex="0">
         <table class="data-table">
-          <thead><tr><th scope="col">Profile</th><th scope="col" class="numeric">New valid</th><th scope="col" class="numeric">Candidates</th><th scope="col">Completeness</th><th scope="col" class="numeric">Query splits</th><th scope="col">Last run</th></tr></thead>
+          <thead><tr><th scope="col">{{t "discoveries.profile"}}</th><th scope="col" class="numeric">{{t "discoveries.new_valid"}}</th><th scope="col" class="numeric">{{t "discoveries.candidates"}}</th><th scope="col">{{t "discoveries.completeness"}}</th><th scope="col" class="numeric">{{t "discoveries.query_splits"}}</th><th scope="col">{{t "discoveries.last_run_column"}}</th></tr></thead>
           <tbody>
             {{range .Discoveries.Profiles}}
-              <tr><td class="mono-value">{{.Name}}</td><td class="numeric metric-value">{{formatInt .NewRepositories}}</td><td class="numeric">{{formatInt .CandidateCount}}</td><td>{{if .IncompleteResults}}<span class="status-badge status-warning"><span aria-hidden="true"></span>Incomplete</span>{{else}}<span class="status-badge status-success"><span aria-hidden="true"></span>Complete</span>{{end}}</td><td class="numeric">{{formatInt .QuerySplitCount}}</td><td>{{formatTimePtr .LastRunAt}}</td></tr>
+              <tr><td class="mono-value">{{.Name}}</td><td class="numeric metric-value">{{formatInt .NewRepositories}}</td><td class="numeric">{{formatInt .CandidateCount}}</td><td>{{if .IncompleteResults}}<span class="status-badge status-warning"><span aria-hidden="true"></span>{{t "discoveries.incomplete"}}</span>{{else}}<span class="status-badge status-success"><span aria-hidden="true"></span>{{t "discoveries.complete"}}</span>{{end}}</td><td class="numeric">{{formatInt .QuerySplitCount}}</td><td>{{formatTimePtr .LastRunAt}}</td></tr>
             {{end}}
           </tbody>
         </table>
       </div>
     {{else}}
-      <div class="empty-state"><h3>No Search profiles have run</h3><p>Configured profiles appear here after their first scheduled or manual discovery run.</p></div>
+      <div class="empty-state"><h3>{{t "discoveries.no_profiles"}}</h3><p>{{t "discoveries.no_profiles_help"}}</p></div>
     {{end}}
   </section>
 {{end}}

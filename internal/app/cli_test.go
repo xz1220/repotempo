@@ -130,6 +130,21 @@ func TestCLISnapshotDryRunHasHumanOutput(t *testing.T) {
 	}
 }
 
+func TestCLIServeUsesChineseStartupMessage(t *testing.T) {
+	application := &fakeCommandApplication{}
+	cli, stdout, _ := testCLI(application)
+	cli.LoadSettings = func() (Settings, error) {
+		return Settings{DatabasePath: ":memory:", ListenAddress: "127.0.0.1:8787", Locale: "zh-CN"}, nil
+	}
+
+	if code := cli.Run(context.Background(), []string{"serve"}); code != ExitSuccess {
+		t.Fatalf("exit code = %d", code)
+	}
+	if got := stdout.String(); got != "GitHub Radar 正在监听 http://127.0.0.1:8787\n" {
+		t.Fatalf("stdout = %q", got)
+	}
+}
+
 func TestCLIUsesStableUsageExitCode(t *testing.T) {
 	cli, _, stderr := testCLI(&fakeCommandApplication{})
 	code := cli.Run(context.Background(), []string{"topic", "assign", "--repo", "owner/repo"})

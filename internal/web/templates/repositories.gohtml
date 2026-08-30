@@ -1,42 +1,42 @@
 {{define "content"}}
   <section aria-labelledby="repository-filters">
-    <h2 id="repository-filters" class="sr-only">Repository filters</h2>
+    <h2 id="repository-filters" class="sr-only">{{t "repositories.filters"}}</h2>
     <form class="filter-bar" method="get" action="/repositories" role="search">
       <div class="field field-search">
-        <label for="repository-search">Search repositories</label>
-        <input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="owner or repository" autocomplete="off">
+        <label for="repository-search">{{t "repositories.search"}}</label>
+        <input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="{{t "repositories.search_placeholder"}}" autocomplete="off">
       </div>
       <div class="field">
-        <label for="topic-filter">Topic</label>
+        <label for="topic-filter">{{t "repositories.topic"}}</label>
         <select id="topic-filter" name="topic" data-submit-on-change>
-          <option value="">All topics</option>
+          <option value="">{{t "repositories.all_topics"}}</option>
           {{range .Repositories.Topics}}
             <option value="{{.Slug}}" {{if eq $.Repositories.Filter.TopicSlug .Slug}}selected{{end}}>{{.Name}}</option>
           {{end}}
         </select>
       </div>
       <div class="field">
-        <label for="source-filter">First source</label>
+        <label for="source-filter">{{t "repositories.first_source"}}</label>
         <select id="source-filter" name="source" data-submit-on-change>
-          <option value="">All sources</option>
+          <option value="">{{t "repositories.all_sources"}}</option>
           {{range .Repositories.Sources}}
             <option value="{{.}}" {{if eq $.Repositories.Filter.Source .}}selected{{end}}>{{sourceLabel .}}</option>
           {{end}}
         </select>
       </div>
       <div class="field">
-        <label for="status-filter">Monitoring</label>
+        <label for="status-filter">{{t "repositories.monitoring"}}</label>
         <select id="status-filter" name="status" data-submit-on-change>
-          <option value="">All statuses</option>
+          <option value="">{{t "repositories.all_statuses"}}</option>
           {{range .Repositories.MonitoringStatuses}}
             <option value="{{.}}" {{if eq $.Repositories.Filter.MonitoringStatus .}}selected{{end}}>{{statusLabel .}}</option>
           {{end}}
         </select>
       </div>
       <div class="filter-actions">
-        <button class="button button-primary" type="submit">Apply filters</button>
+        <button class="button button-primary" type="submit">{{t "repositories.apply_filters"}}</button>
         {{if or .Repositories.Filter.Search .Repositories.Filter.TopicSlug .Repositories.Filter.Source .Repositories.Filter.MonitoringStatus}}
-          <a class="button button-secondary" href="/repositories">Clear filters</a>
+          <a class="button button-secondary" href="/repositories">{{t "repositories.clear_filters"}}</a>
         {{end}}
       </div>
     </form>
@@ -45,23 +45,23 @@
   <section aria-labelledby="repository-results">
     <div class="section-heading result-heading">
       <div>
-        <h2 id="repository-results">{{formatInt .Repositories.Total}} repositories</h2>
-        <p>Growth compares successful observations. N/A means the period is incomplete.</p>
+        <h2 id="repository-results">{{tf "repositories.count" (formatInt .Repositories.Total)}}</h2>
+        <p>{{t "repositories.growth_help"}}</p>
       </div>
     </div>
     {{if .Repositories.Items}}
-      <div class="table-scroll" role="region" aria-label="Repository metrics" tabindex="0">
+      <div class="table-scroll" role="region" aria-label="{{t "repositories.metrics_region"}}" tabindex="0">
         <table class="data-table repository-table">
           <thead>
             <tr>
-              <th scope="col">Repository</th>
-              <th scope="col" class="numeric">Stars</th>
-              <th scope="col" class="numeric">1 day</th>
-              <th scope="col" class="numeric">7 days</th>
-              <th scope="col" class="numeric">30 days</th>
-              <th scope="col">Topics</th>
-              <th scope="col">First seen</th>
-              <th scope="col">Monitoring</th>
+              <th scope="col">{{t "repositories.repository"}}</th>
+              <th scope="col" class="numeric">{{t "repositories.stars"}}</th>
+              <th scope="col" class="numeric">{{t "metric.one_day"}}</th>
+              <th scope="col" class="numeric">{{t "metric.seven_days"}}</th>
+              <th scope="col" class="numeric">{{t "metric.thirty_days"}}</th>
+              <th scope="col">{{t "metric.topics"}}</th>
+              <th scope="col">{{t "repositories.first_seen"}}</th>
+              <th scope="col">{{t "repositories.monitoring"}}</th>
             </tr>
           </thead>
           <tbody>
@@ -69,7 +69,7 @@
               <tr>
                 <td class="repo-cell">
                   <a class="repo-name" href="/repositories/{{.ID}}">{{.FullName}}</a>
-                  {{with githubURL .HTMLURL}}<a class="external-link" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="Open {{$.Meta.SiteName}} repository on GitHub">GitHub</a>{{end}}
+                  {{with githubURL .HTMLURL}}<a class="external-link" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="{{t "repositories.open_github"}}">GitHub</a>{{end}}
                   {{if .Description}}<p>{{.Description}}</p>{{end}}
                 </td>
                 <td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td>
@@ -78,7 +78,7 @@
                 <td class="numeric metric-delta">{{formatSigned .Delta30D}}</td>
                 <td>
                   <div class="tag-list">
-                    {{range .Topics}}<a class="tag" href="/topics/{{.Slug}}">{{.Name}}</a>{{else}}<span class="muted">Unassigned</span>{{end}}
+                    {{range .Topics}}<a class="tag" href="/topics/{{.Slug}}">{{.Name}}</a>{{else}}<span class="muted">{{t "repositories.unassigned"}}</span>{{end}}
                   </div>
                 </td>
                 <td>
@@ -94,9 +94,9 @@
       {{template "pagination" .Pagination}}
     {{else}}
       <div class="empty-state">
-        <h3>No repositories match</h3>
-        <p>Clear a filter or broaden the search. An empty database is also valid before the first discovery run.</p>
-        <a class="button button-secondary" href="/repositories">Clear filters</a>
+        <h3>{{t "repositories.no_match"}}</h3>
+        <p>{{t "repositories.no_match_help"}}</p>
+        <a class="button button-secondary" href="/repositories">{{t "repositories.clear_filters"}}</a>
       </div>
     {{end}}
   </section>
@@ -104,11 +104,11 @@
 
 {{define "pagination"}}
   {{if gt .Total 0}}
-    <nav class="pagination" aria-label="Pagination">
-      <p>Showing {{formatInt .Start}} to {{formatInt .End}} of {{formatInt .Total}}</p>
+    <nav class="pagination" aria-label="{{t "pagination.label"}}">
+      <p>{{tf "pagination.showing" (formatInt .Start) (formatInt .End) (formatInt .Total)}}</p>
       <div>
-        {{if .PreviousURL}}<a class="button button-secondary" href="{{.PreviousURL}}" rel="prev">Previous page</a>{{end}}
-        {{if .NextURL}}<a class="button button-secondary" href="{{.NextURL}}" rel="next">Next page</a>{{end}}
+        {{if .PreviousURL}}<a class="button button-secondary" href="{{.PreviousURL}}" rel="prev">{{t "pagination.previous"}}</a>{{end}}
+        {{if .NextURL}}<a class="button button-secondary" href="{{.NextURL}}" rel="next">{{t "pagination.next"}}</a>{{end}}
       </div>
     </nav>
   {{end}}

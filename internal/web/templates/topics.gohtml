@@ -1,17 +1,17 @@
 {{define "content"}}
   <section aria-labelledby="topic-list">
     <div class="section-heading result-heading">
-      <div><h2 id="topic-list">{{formatInt (len .Topics.Items)}} topics</h2><p>Parent and child topics use the same successful snapshot boundary.</p></div>
+      <div><h2 id="topic-list">{{tf "topics.count" (formatInt (len .Topics.Items))}}</h2><p>{{t "topics.boundary_help"}}</p></div>
     </div>
     {{if .Topics.Items}}
-      <div class="table-scroll" role="region" aria-label="Topic metrics" tabindex="0">
+      <div class="table-scroll" role="region" aria-label="{{t "topics.metrics_region"}}" tabindex="0">
         <table class="data-table topic-table">
-          <thead><tr><th scope="col">Topic</th><th scope="col">Parent</th><th scope="col" class="numeric">Repositories</th><th scope="col" class="numeric">Stars</th><th scope="col" class="numeric">1 day</th><th scope="col" class="numeric">7 days</th><th scope="col" class="numeric">30 days</th></tr></thead>
+          <thead><tr><th scope="col">{{t "topics.topic"}}</th><th scope="col">{{t "topics.parent"}}</th><th scope="col" class="numeric">{{t "metric.repositories"}}</th><th scope="col" class="numeric">{{t "repositories.stars"}}</th><th scope="col" class="numeric">{{t "metric.one_day"}}</th><th scope="col" class="numeric">{{t "metric.seven_days"}}</th><th scope="col" class="numeric">{{t "metric.thirty_days"}}</th></tr></thead>
           <tbody>
             {{range .Topics.Items}}
               <tr>
                 <td><a class="topic-name" href="/topics/{{.Slug}}">{{.Name}}</a>{{if .Description}}<p class="cell-description">{{.Description}}</p>{{end}}</td>
-                <td>{{if .ParentName}}<a class="text-link" href="/topics/{{.ParentSlug}}">{{.ParentName}}</a>{{else}}<span class="muted">Top level</span>{{end}}</td>
+                <td>{{if .ParentName}}<a class="text-link" href="/topics/{{.ParentSlug}}">{{.ParentName}}</a>{{else}}<span class="muted">{{t "topics.top_level"}}</span>{{end}}</td>
                 <td class="numeric">{{formatInt .RepositoryCount}}</td>
                 <td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td>
                 <td class="numeric metric-delta">{{formatSigned .Delta1D}}</td>
@@ -23,7 +23,7 @@
         </table>
       </div>
     {{else}}
-      <div class="empty-state"><h3>No topics configured</h3><p>Topic metrics appear after a taxonomy is imported and repositories are assigned.</p></div>
+      <div class="empty-state"><h3>{{t "topics.no_topics"}}</h3><p>{{t "topics.no_topics_help"}}</p></div>
     {{end}}
   </section>
 {{end}}

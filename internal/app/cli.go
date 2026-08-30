@@ -377,7 +377,11 @@ func (cli *CLI) runServe(ctx context.Context, settings Settings, jsonOutput bool
 	if jsonOutput {
 		cli.writeJSON(outputEnvelope{Command: "serve", Status: "running", Result: map[string]string{"listen_address": listenAddress}})
 	} else {
-		_, _ = fmt.Fprintf(cli.Stdout, "GitHub Radar is listening on http://%s\n", listenAddress)
+		message := "GitHub Radar is listening on http://%s\n"
+		if settings.Locale == "zh-CN" {
+			message = "GitHub Radar 正在监听 http://%s\n"
+		}
+		_, _ = fmt.Fprintf(cli.Stdout, message, listenAddress)
 	}
 	serveErr := application.Serve(ctx, listenAddress)
 	closeErr := application.Close()
