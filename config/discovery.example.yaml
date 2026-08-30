@@ -134,7 +134,7 @@ profiles:
       - text: codex in:name user:openai
         fork: false
         archived: false
-      - text: opencode in:name user:sst
+      - text: opencode in:name user:anomalyco
         fork: false
         archived: false
       - text: langgraph in:name user:langchain-ai
