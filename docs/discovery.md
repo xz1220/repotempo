@@ -18,3 +18,11 @@ and rate state.
 All sources resolve to a GitHub repository ID before persistence. Multiple
 source hits merge into one registry row while discovery provenance remains in
 the repository JSON fields and the job run details.
+
+## Authoritative API references
+
+- [GitHub Search repositories](https://docs.github.com/en/rest/search/search#search-repositories)
+- [GitHub repository search qualifiers](https://docs.github.com/en/search-github/searching-on-github/searching-for-repositories)
+- [GitHub REST rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
+- [GitHub REST best practices](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api)
+- [GitHub REST API versions](https://docs.github.com/en/rest/about-the-rest-api/api-versions)
