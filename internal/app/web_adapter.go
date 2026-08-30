@@ -304,11 +304,34 @@ func applyJobDetails(target *web.JobRun, raw json.RawMessage) {
 		CoreRateRemaining   *int     `json:"core_rate_remaining"`
 		IncompleteResults   bool     `json:"incomplete_results"`
 		QuerySplitCount     int      `json:"query_split_count"`
+		Failures            []struct {
+			Target   string `json:"target"`
+			FullName string `json:"full_name"`
+		} `json:"failures"`
+		Snapshot struct {
+			Failures []struct {
+				FullName string `json:"full_name"`
+			} `json:"failures"`
+		} `json:"snapshot"`
 	}
 	if json.Unmarshal(raw, &details) != nil {
 		return
 	}
-	target.FailureRepositories = details.FailureRepositories
+	target.FailureRepositories = append([]string(nil), details.FailureRepositories...)
+	for _, failure := range details.Failures {
+		name := failure.FullName
+		if name == "" {
+			name = failure.Target
+		}
+		if name != "" {
+			target.FailureRepositories = append(target.FailureRepositories, name)
+		}
+	}
+	for _, failure := range details.Snapshot.Failures {
+		if failure.FullName != "" {
+			target.FailureRepositories = append(target.FailureRepositories, failure.FullName)
+		}
+	}
 	target.SearchRateRemaining = details.SearchRateRemaining
 	target.CoreRateRemaining = details.CoreRateRemaining
 	target.SearchIncomplete = details.IncompleteResults
@@ -327,21 +350,43 @@ func applyDiscoveryRunDetails(profiles []web.DiscoveryProfile, runs []domain.Job
 			CreatedCount      int    `json:"created_count"`
 			IncompleteResults bool   `json:"incomplete_results"`
 			QuerySplitCount   int    `json:"query_split_count"`
+			Profiles          []struct {
+				Name              string `json:"name"`
+				HitCount          int    `json:"hit_count"`
+				IncompleteResults bool   `json:"incomplete_results"`
+				Truncated         bool   `json:"truncated"`
+				SplitCount        int    `json:"split_count"`
+			} `json:"profiles"`
 		}
-		if json.Unmarshal(run.Details, &details) != nil || details.Profile == "" {
+		if json.Unmarshal(run.Details, &details) != nil {
 			continue
 		}
-		profile, ok := byName[details.Profile]
-		if !ok {
-			continue
+		updates := details.Profiles
+		if details.Profile != "" {
+			updates = append(updates, struct {
+				Name              string `json:"name"`
+				HitCount          int    `json:"hit_count"`
+				IncompleteResults bool   `json:"incomplete_results"`
+				Truncated         bool   `json:"truncated"`
+				SplitCount        int    `json:"split_count"`
+			}{
+				Name: details.Profile, HitCount: details.CandidateCount,
+				IncompleteResults: details.IncompleteResults, SplitCount: details.QuerySplitCount,
+			})
 		}
-		if profile.LastRunAt == nil || run.StartedAt.After(*profile.LastRunAt) {
+		for _, update := range updates {
+			profile, ok := byName[update.Name]
+			if !ok || (profile.LastRunAt != nil && !run.StartedAt.After(*profile.LastRunAt)) {
+				continue
+			}
 			when := run.StartedAt
 			profile.LastRunAt = &when
-			profile.CandidateCount = details.CandidateCount
-			profile.NewRepositories = details.CreatedCount
-			profile.IncompleteResults = details.IncompleteResults
-			profile.QuerySplitCount = details.QuerySplitCount
+			profile.CandidateCount = update.HitCount
+			if details.Profile == update.Name && details.CreatedCount > 0 {
+				profile.NewRepositories = details.CreatedCount
+			}
+			profile.IncompleteResults = update.IncompleteResults || update.Truncated
+			profile.QuerySplitCount = update.SplitCount
 		}
 	}
 	sort.SliceStable(profiles, func(i, j int) bool { return profiles[i].Name < profiles[j].Name })
