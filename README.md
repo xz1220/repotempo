@@ -88,7 +88,8 @@ cp deploy/tencent2/github-radar.env.example .env.example.local
 At minimum, set:
 
 ```sh
-export GITHUB_RADAR_GITHUB_TOKEN='replace-with-a-read-only-token'
+read -r -s GITHUB_RADAR_GITHUB_TOKEN
+export GITHUB_RADAR_GITHUB_TOKEN
 export GITHUB_RADAR_DB_PATH="$PWD/github-radar.db"
 export GITHUB_RADAR_DISCOVERY_CONFIG="$PWD/discovery.yaml"
 export GITHUB_RADAR_TOPICS_CONFIG="$PWD/topics.yaml"
