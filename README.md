@@ -202,6 +202,26 @@ available at `/healthz` and `/readyz`.
 The service binds to loopback by default. Publish it through an HTTPS reverse
 proxy; never expose the SQLite directory as static content.
 
+## Screenshots
+
+Desktop overview:
+
+![GitHub Radar desktop overview](docs/screenshots/dashboard-desktop.jpg)
+
+Mobile overview and navigation:
+
+![GitHub Radar mobile overview](docs/screenshots/dashboard-mobile.jpg)
+
+Repository filtering and Star history:
+
+![GitHub Radar repository list](docs/screenshots/repositories-desktop.jpg)
+
+![GitHub Radar repository Star chart](docs/screenshots/repository-chart.jpg)
+
+Collection run evidence:
+
+![GitHub Radar run status](docs/screenshots/runs-desktop.jpg)
+
 ## Command reference
 
 ```text

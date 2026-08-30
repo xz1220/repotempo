@@ -18,3 +18,7 @@ opens every main page in a real desktop and mobile browser, scans for secrets,
 and rebuilds from a clean public clone. Live checks are reported separately from
 fixture-based tests.
 
+The v0.1.0 browser evidence is stored under `docs/screenshots/` and covers a
+desktop overview, mobile overview/menu, repository filters, repository detail
+and charts, and run status. Browser verification also opened Topics,
+Discoveries, health, and readiness routes over the public HTTPS endpoint.

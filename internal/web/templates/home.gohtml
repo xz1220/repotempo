@@ -47,6 +47,7 @@
       </div>
       <progress max="100" value="{{printf "%.1f" (coveragePercent .Dashboard.Coverage)}}">{{printf "%.1f%%" (coveragePercent .Dashboard.Coverage)}}</progress>
     </div>
+    <p class="muted">Growth compares real successful observations. After a missing date, the next delta spans the gap; no daily value is interpolated.</p>
   </section>
 
   <div class="split-layout home-sections">

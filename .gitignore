@@ -11,6 +11,9 @@ coverage.out
 exports/
 backups/
 screenshots/
+!docs/screenshots/
+!docs/screenshots/*.png
+!docs/screenshots/*.jpg
 
 # Environment and secrets
 .env
@@ -31,4 +34,3 @@ credentials.json
 *.log
 *.tmp
 *.cache
-
