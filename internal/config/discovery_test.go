@@ -19,8 +19,11 @@ func TestLoadDiscoveryExample(t *testing.T) {
 	if got, want := len(config.Profiles), 6; got != want {
 		t.Fatalf("profiles = %d, want %d", got, want)
 	}
-	if config.Profiles[0].Queries[0].Stars.Min == nil || *config.Profiles[0].Queries[0].Stars.Min != 10000 {
+	if config.Profiles[0].Queries[0].Stars.Min == nil || *config.Profiles[0].Queries[0].Stars.Min != 20000 {
 		t.Fatal("global star threshold was not loaded from YAML")
+	}
+	if config.Profiles[4].IsEnabled() {
+		t.Fatal("monthly coverage must be explicit opt-in in the single-host example")
 	}
 	if got := config.GitHub.SearchInterval.Value(); got != 2*time.Second {
 		t.Fatalf("search interval = %s, want 2s", got)

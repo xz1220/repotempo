@@ -19,6 +19,17 @@ All sources resolve to a GitHub repository ID before persistence. Multiple
 source hits merge into one registry row while discovery provenance remains in
 the repository JSON fields and the job run details.
 
+## Capacity boundary
+
+Authenticated GitHub Core REST capacity is normally 5,000 requests per hour.
+Because a complete panel needs roughly one Core request per active repository,
+the configured discovery population must fit that budget with headroom for
+retries and other API users. The example keeps mature and recently active
+thresholds at 20,000 Stars and leaves monthly broad coverage disabled until the
+operator explicitly checks `total_count` and available Core capacity. Search
+can discover more projects than a single token can snapshot; it must not be
+allowed to silently grow the active panel beyond its collection budget.
+
 ## Authoritative API references
 
 - [GitHub Search repositories](https://docs.github.com/en/rest/search/search#search-repositories)

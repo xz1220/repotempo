@@ -23,6 +23,11 @@ inside a rolling window. GitHub Search complements it with mature high-star
 projects, topic leaders, recent movers, and benchmark repositories. Neither
 source is treated as a complete enumeration of GitHub.
 
+The default single-host configuration keeps the active population below the
+authenticated GitHub Core API budget (normally 5,000 requests/hour). Broad
+monthly coverage is present but disabled until the operator checks Search
+`total_count` and snapshot capacity.
+
 ## Features
 
 - Immutable GitHub repository ID deduplication across renames and transfers.

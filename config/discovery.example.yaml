@@ -42,7 +42,9 @@ profiles:
       max_depth: 24
     queries:
       - stars:
-          min: 10000
+          # Keeps the default single-host panel inside the GitHub Core API
+          # budget after legacy and Topic sources are merged.
+          min: 20000
         fork: false
         archived: false
 
@@ -102,14 +104,16 @@ profiles:
       max_depth: 16
     queries:
       - stars:
-          min: 1000
+          min: 20000
         pushed:
           since_days: 90
         fork: false
         archived: false
 
   - name: monthly-coverage
-    enabled: true
+    # Opt in only after checking that the resulting active population fits the
+    # Core API budget for a complete same-day snapshot.
+    enabled: false
     schedule: monthly
     sort: stars
     order: desc
@@ -118,7 +122,7 @@ profiles:
       max_depth: 24
     queries:
       - stars:
-          min: 1000
+          min: 20000
         fork: false
         archived: false
 
