@@ -28,6 +28,9 @@ func TestImportCSVPreservesOnlyRealObservations(t *testing.T) {
 	if observation.RepositoryID != 1 || observation.StarCount != 10 || observation.FixedPanel {
 		t.Fatalf("observation = %+v", observation)
 	}
+	if observation.Metadata["oss_today_rank"] != "5" || observation.Metadata["oss_window_stars"] != "22" {
+		t.Fatalf("OSS evidence was not retained: %+v", observation.Metadata)
+	}
 	if result.Candidates[0].Repository.AbsoluteStars != nil {
 		t.Fatal("CSV observation must not also become repository current stars")
 	}

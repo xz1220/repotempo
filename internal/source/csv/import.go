@@ -173,6 +173,16 @@ func Import(reader io.Reader, options Options) (Result, error) {
 		if observationSource == "" {
 			observationSource = sourceName
 		}
+		observationMetadata := map[string]string{"csv_row": strconv.Itoa(rowNumber)}
+		for key, raw := range map[string]string{
+			"oss_today_rank":   value("oss_today_rank"),
+			"oss_window_stars": value("oss_window_stars"),
+			"oss_total_score":  value("oss_total_score"),
+		} {
+			if raw != "" {
+				observationMetadata[key] = raw
+			}
+		}
 		result.Observations = append(result.Observations, source.Observation{
 			RepositoryID: repoID,
 			SnapshotDate: snapshotDate,
@@ -180,7 +190,7 @@ func Import(reader io.Reader, options Options) (Result, error) {
 			StarCount:    stars,
 			Source:       observationSource,
 			FixedPanel:   fixedPanel,
-			Metadata:     map[string]string{"csv_row": strconv.Itoa(rowNumber)},
+			Metadata:     observationMetadata,
 		})
 	}
 	result.Candidates = source.MergeCandidates(candidates)

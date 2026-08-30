@@ -147,6 +147,24 @@ Other candidates can be added with:
 Manual entries are resolved through GitHub before persistence so the immutable
 repository ID remains the identity key.
 
+### Feishu Base
+
+The repository includes a read-only bridge for the existing Feishu project and
+daily-record tables. It paginates the Base through an authenticated `lark-cli`,
+resolves permanent repository IDs through `gh`, and produces a CSV that the Go
+importer verifies again:
+
+```sh
+scripts/export-feishu-base.sh \
+  <base-token> <project-table-id> <daily-table-id> \
+  /tmp/github-radar-feishu.csv
+
+./bin/github-radar import-legacy --csv /tmp/github-radar-feishu.csv
+```
+
+The Go service never receives a Feishu credential, and the Base remains
+unchanged. See [Feishu Base import](docs/feishu-base-import.md).
+
 ## Topics
 
 ```sh

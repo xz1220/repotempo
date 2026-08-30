@@ -1,4 +1,4 @@
-github_repo_id,full_name,observed_at,snapshot_date,github_stars,source,is_focus,previous_names
-1,new/name,2026-08-28T01:00:00Z,2026-08-28,10,legacy,true,old/name
-1,new/name,,,,legacy,true,old/name
-2,other/repo,,2026-08-28,0,legacy,false,
+github_repo_id,full_name,observed_at,snapshot_date,github_stars,source,is_focus,previous_names,oss_today_rank,oss_window_stars
+1,new/name,2026-08-28T01:00:00Z,2026-08-28,10,legacy,true,old/name,5,22
+1,new/name,,,,legacy,true,old/name,,
+2,other/repo,,2026-08-28,0,legacy,false,,,
