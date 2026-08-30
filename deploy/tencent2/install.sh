@@ -31,8 +31,6 @@ fi
 
 if ! id github-radar >/dev/null 2>&1; then
   useradd --system --home-dir "$data_root" --shell /usr/sbin/nologin github-radar
-else
-  usermod --home "$data_root" github-radar
 fi
 
 install -d -o root -g root -m 0755 /opt/github-radar /etc/github-radar
