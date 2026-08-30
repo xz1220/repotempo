@@ -33,6 +33,7 @@ func (adapter WebAdapter) DashboardSummary(ctx context.Context, asOf time.Time) 
 		NewStars1D:            value.Growth.Day,
 		NewStars7D:            value.Growth.SevenDay,
 		NewStars30D:           value.Growth.ThirtyDay,
+		GrowthHistory:         mapGrowthHistory(value.GrowthHistory),
 		FastestRepositories:   mapRepositoryMetrics(value.Fastest),
 		RecentRuns:            mapJobRuns(value.RecentRuns),
 	}, nil
@@ -139,16 +140,14 @@ func (adapter WebAdapter) DiscoverySummary(ctx context.Context) (web.DiscoverySu
 	if err != nil {
 		return web.DiscoverySummary{}, mapWebError(err)
 	}
-	sources := make([]web.DiscoverySource, 0, len(value.Sources))
-	for _, source := range value.Sources {
-		sources = append(sources, web.DiscoverySource{Source: string(source.Source), RepositoryCount: source.RepositoryCount})
-	}
+	sources := mapDiscoverySources(value.Sources)
+	firstSeenSources := mapDiscoverySources(value.FirstSeenSources)
 	profiles := make([]web.DiscoveryProfile, 0, len(value.Profiles))
 	for _, profile := range value.Profiles {
 		profiles = append(profiles, web.DiscoveryProfile{Name: profile.Profile, NewRepositories: profile.RepositoryCount, CandidateCount: profile.RepositoryCount})
 	}
 	applyDiscoveryRunDetails(profiles, value.Runs)
-	return web.DiscoverySummary{Sources: sources, Profiles: profiles}, nil
+	return web.DiscoverySummary{Sources: sources, FirstSeenSources: firstSeenSources, Profiles: profiles}, nil
 }
 
 func (adapter WebAdapter) ListJobRuns(ctx context.Context, limit, offset int) (web.RunsPage, error) {
@@ -273,6 +272,30 @@ func mapCoverage(value domain.CoverageMetric) web.SnapshotCoverage {
 	if value.TargetCount > 0 {
 		percent := value.Percent
 		result.Percent = &percent
+	}
+	return result
+}
+
+func mapGrowthHistory(values []domain.GrowthHistoryPoint) []web.GrowthPoint {
+	result := make([]web.GrowthPoint, 0, len(values))
+	for _, value := range values {
+		result = append(result, web.GrowthPoint{
+			Date:                       dateTime(value.Date),
+			Delta:                      value.Delta,
+			ComparableRepositoryCount:  value.ComparableRepositoryCount,
+			GapSpanningRepositoryCount: value.GapSpanningRepositoryCount,
+		})
+	}
+	return result
+}
+
+func mapDiscoverySources(values []domain.DiscoverySourceCount) []web.DiscoverySource {
+	result := make([]web.DiscoverySource, 0, len(values))
+	for _, value := range values {
+		result = append(result, web.DiscoverySource{
+			Source:          string(value.Source),
+			RepositoryCount: value.RepositoryCount,
+		})
 	}
 	return result
 }

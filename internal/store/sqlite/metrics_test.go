@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/xz1220/github-radar/internal/domain"
 )
@@ -183,5 +184,159 @@ func TestRepositoryMetricsRequireARealBaselineAndApplyFilters(t *testing.T) {
 	})
 	if err != nil || len(injection) != 0 {
 		t.Fatalf("parameterized search = (%+v, %v), want no matches", injection, err)
+	}
+}
+
+func TestDashboardGrowthHistoryUsesContinuousCalendarAndRealComparisons(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	for id, name := range []string{
+		"owner/steady",
+		"owner/gapped",
+		"owner/paused",
+		"owner/first-only",
+		"owner/failed-current",
+	} {
+		addRepository(t, store, int64(id+1), name)
+	}
+	if err := store.SetRepositoryMonitoringStatus(ctx, 3, domain.MonitoringPaused); err != nil {
+		t.Fatalf("pause repository: %v", err)
+	}
+
+	// Repository one supplies a non-zero comparison, a real zero, and a
+	// comparison that spans two missing calendar dates. A failed observation
+	// between successful observations is retained but ignored as a baseline.
+	putSuccess(t, store, 1, "2026-07-31", 10)
+	putSuccess(t, store, 1, "2026-08-01", 12)
+	putSuccess(t, store, 1, "2026-08-02", 12)
+	putFailure(t, store, 1, "2026-08-04")
+	putSuccess(t, store, 1, "2026-08-05", 17)
+
+	// Repository two's first snapshot is not comparable. Its next success spans
+	// a failed date, then its following success is an ordinary daily delta.
+	putSuccess(t, store, 2, "2026-08-01", 100)
+	putFailure(t, store, 2, "2026-08-02")
+	putSuccess(t, store, 2, "2026-08-03", 105)
+	putSuccess(t, store, 2, "2026-08-04", 108)
+
+	// Later monitoring-status changes must not rewrite already recorded history.
+	putSuccess(t, store, 3, "2026-07-31", 0)
+	putSuccess(t, store, 3, "2026-08-01", 1000)
+	// A lone first success and a failed current observation both leave nil days.
+	putSuccess(t, store, 4, "2026-08-06", 50)
+	putSuccess(t, store, 5, "2026-07-31", 70)
+	putFailure(t, store, 5, "2026-08-07")
+
+	summary, err := store.DashboardSummary(ctx, date("2026-08-30"))
+	if err != nil {
+		t.Fatalf("dashboard summary: %v", err)
+	}
+	if len(summary.GrowthHistory) != 30 {
+		t.Fatalf("growth history length = %d, want 30", len(summary.GrowthHistory))
+	}
+	if summary.GrowthHistory[0].Date != date("2026-08-01") ||
+		summary.GrowthHistory[29].Date != date("2026-08-30") {
+		t.Fatalf("growth history range = %s..%s, want 2026-08-01..2026-08-30",
+			summary.GrowthHistory[0].Date, summary.GrowthHistory[29].Date)
+	}
+
+	assertGrowthHistoryPoint(t, summary.GrowthHistory[0], "2026-08-01", pointer(int64(1002)), 2, 0)
+	assertGrowthHistoryPoint(t, summary.GrowthHistory[1], "2026-08-02", pointer(int64(0)), 1, 0)
+	assertGrowthHistoryPoint(t, summary.GrowthHistory[2], "2026-08-03", pointer(int64(5)), 1, 1)
+	assertGrowthHistoryPoint(t, summary.GrowthHistory[3], "2026-08-04", pointer(int64(3)), 1, 0)
+	assertGrowthHistoryPoint(t, summary.GrowthHistory[4], "2026-08-05", pointer(int64(5)), 1, 1)
+	assertGrowthHistoryPoint(t, summary.GrowthHistory[5], "2026-08-06", nil, 0, 0)
+	assertGrowthHistoryPoint(t, summary.GrowthHistory[6], "2026-08-07", nil, 0, 0)
+	assertGrowthHistoryPoint(t, summary.GrowthHistory[29], "2026-08-30", nil, 0, 0)
+}
+
+func assertGrowthHistoryPoint(
+	t *testing.T,
+	point domain.GrowthHistoryPoint,
+	wantDate string,
+	wantDelta *int64,
+	wantComparable int,
+	wantGapSpanning int,
+) {
+	t.Helper()
+	if point.Date != date(wantDate) || point.ComparableRepositoryCount != wantComparable ||
+		point.GapSpanningRepositoryCount != wantGapSpanning {
+		t.Fatalf("growth history point = %+v, want date=%s comparable=%d gap=%d",
+			point, wantDate, wantComparable, wantGapSpanning)
+	}
+	if wantDelta == nil {
+		if point.Delta != nil {
+			t.Fatalf("growth history delta on %s = %d, want nil", wantDate, *point.Delta)
+		}
+		return
+	}
+	if point.Delta == nil || *point.Delta != *wantDelta {
+		t.Fatalf("growth history delta on %s = %v, want %d", wantDate, point.Delta, *wantDelta)
+	}
+}
+
+func TestDiscoverySummarySeparatesFirstSeenSourcesFromSourceMembership(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	addRepositoryFromSource(t, store, 1, "owner/oss-first", domain.DiscoverySourceOSSInsight, testNow.Add(-2*time.Hour))
+	addRepositoryFromSource(t, store, 1, "owner/oss-first", domain.DiscoverySourceGitHubSearch, testNow.Add(-time.Hour))
+	addRepositoryFromSource(t, store, 2, "owner/search-first", domain.DiscoverySourceGitHubSearch, testNow.Add(-time.Hour))
+	addRepositoryFromSource(t, store, 3, "owner/manual-first", domain.DiscoverySourceManual, testNow.Add(-time.Hour))
+
+	summary, err := store.DiscoverySummary(ctx)
+	if err != nil {
+		t.Fatalf("discovery summary: %v", err)
+	}
+	wantFirstSeen := map[domain.DiscoverySource]int{
+		domain.DiscoverySourceOSSInsight:   1,
+		domain.DiscoverySourceGitHubSearch: 1,
+		domain.DiscoverySourceLegacy:       0,
+		domain.DiscoverySourceManual:       1,
+	}
+	if len(summary.FirstSeenSources) != len(wantFirstSeen) {
+		t.Fatalf("first-seen source count = %d, want %d", len(summary.FirstSeenSources), len(wantFirstSeen))
+	}
+	firstSeenTotal := 0
+	for _, source := range summary.FirstSeenSources {
+		if source.RepositoryCount != wantFirstSeen[source.Source] {
+			t.Fatalf("first-seen source %s = %d, want %d",
+				source.Source, source.RepositoryCount, wantFirstSeen[source.Source])
+		}
+		firstSeenTotal += source.RepositoryCount
+	}
+	if firstSeenTotal != 3 {
+		t.Fatalf("first-seen source total = %d, want repository total 3", firstSeenTotal)
+	}
+
+	memberships := make(map[domain.DiscoverySource]int, len(summary.Sources))
+	for _, source := range summary.Sources {
+		memberships[source.Source] = source.RepositoryCount
+	}
+	if memberships[domain.DiscoverySourceOSSInsight] != 1 ||
+		memberships[domain.DiscoverySourceGitHubSearch] != 2 ||
+		memberships[domain.DiscoverySourceLegacy] != 0 ||
+		memberships[domain.DiscoverySourceManual] != 1 {
+		t.Fatalf("source memberships = %+v", memberships)
+	}
+}
+
+func addRepositoryFromSource(
+	t *testing.T,
+	store *Store,
+	id int64,
+	fullName string,
+	source domain.DiscoverySource,
+	discoveredAt time.Time,
+) {
+	t.Helper()
+	if _, _, err := store.UpsertRepository(context.Background(), domain.RepositoryObservation{
+		GitHubRepoID: id,
+		FullName:     fullName,
+		HTMLURL:      "https://github.com/" + fullName,
+		Source:       source,
+		Profile:      "source-test",
+		DiscoveredAt: discoveredAt,
+	}); err != nil {
+		t.Fatalf("add repository %s from %s: %v", fullName, source, err)
 	}
 }

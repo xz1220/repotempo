@@ -73,8 +73,16 @@ func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 	}
 
 	adapter := WebAdapter{Store: store}
-	if _, err := adapter.DashboardSummary(ctx, now); err != nil {
+	dashboard, err := adapter.DashboardSummary(ctx, now)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if len(dashboard.GrowthHistory) != 30 {
+		t.Fatalf("growth history points = %d, want 30", len(dashboard.GrowthHistory))
+	}
+	latestGrowth := dashboard.GrowthHistory[len(dashboard.GrowthHistory)-1]
+	if latestGrowth.Delta == nil || *latestGrowth.Delta != 25 || latestGrowth.ComparableRepositoryCount != 1 || latestGrowth.GapSpanningRepositoryCount != 0 {
+		t.Fatalf("latest growth history = %#v", latestGrowth)
 	}
 	repositories, err := adapter.ListRepositoryMetrics(ctx, structRepositoryQuery(now))
 	if err != nil || repositories.Total != 2 {
@@ -99,6 +107,17 @@ func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 	discoveries, err := adapter.DiscoverySummary(ctx)
 	if err != nil || len(discoveries.Profiles) == 0 || !discoveries.Profiles[0].IncompleteResults {
 		t.Fatalf("discoveries = (%#v, %v)", discoveries, err)
+	}
+	firstSeenTotal := 0
+	githubSearchFirstSeen := 0
+	for _, source := range discoveries.FirstSeenSources {
+		firstSeenTotal += source.RepositoryCount
+		if source.Source == "github_search" {
+			githubSearchFirstSeen = source.RepositoryCount
+		}
+	}
+	if firstSeenTotal != 2 || githubSearchFirstSeen != 2 {
+		t.Fatalf("first-seen sources = %#v", discoveries.FirstSeenSources)
 	}
 	runs, err := adapter.ListJobRuns(ctx, 50, 0)
 	if err != nil || len(runs.Items) != 1 {

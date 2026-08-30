@@ -37,8 +37,18 @@ type DashboardSummary struct {
 	NewStars1D            *int64
 	NewStars7D            *int64
 	NewStars30D           *int64
+	GrowthHistory         []GrowthPoint
 	FastestRepositories   []RepositoryMetric
 	RecentRuns            []JobRun
+}
+
+// GrowthPoint is one daily, registry-wide Star change. Delta is nil when the
+// day has no trustworthy comparison; a non-nil zero is a real measured value.
+type GrowthPoint struct {
+	Date                       time.Time
+	Delta                      *int64
+	ComparableRepositoryCount  int
+	GapSpanningRepositoryCount int
 }
 
 type SnapshotCoverage struct {
@@ -146,9 +156,10 @@ type TrendPoint struct {
 }
 
 type DiscoverySummary struct {
-	Warnings []string
-	Sources  []DiscoverySource
-	Profiles []DiscoveryProfile
+	Warnings         []string
+	Sources          []DiscoverySource
+	FirstSeenSources []DiscoverySource
+	Profiles         []DiscoveryProfile
 }
 
 type DiscoverySource struct {

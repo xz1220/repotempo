@@ -74,6 +74,18 @@ type TopicHistoryPoint struct {
 	TargetCount   int    `json:"target_count"`
 }
 
+// GrowthHistoryPoint is one calendar day's aggregate growth across repositories
+// with comparable successful observations recorded on that date. Later status
+// changes never rewrite earlier points. Delta is nil when no repository has
+// both a successful observation on Date and an earlier successful observation;
+// a measured aggregate of zero remains a non-nil zero.
+type GrowthHistoryPoint struct {
+	Date                       Date   `json:"date"`
+	Delta                      *int64 `json:"delta"`
+	ComparableRepositoryCount  int    `json:"comparable_repository_count"`
+	GapSpanningRepositoryCount int    `json:"gap_spanning_repository_count"`
+}
+
 type TopicDetail struct {
 	Metric                 TopicMetric         `json:"metric"`
 	Repositories           []RepositoryMetric  `json:"repositories"`
@@ -85,13 +97,14 @@ type TopicDetail struct {
 }
 
 type DashboardSummary struct {
-	RepositoryCount int                `json:"repository_count"`
-	ActiveCount     int                `json:"active_count"`
-	TopicCount      int                `json:"topic_count"`
-	Coverage        CoverageMetric     `json:"coverage"`
-	Growth          GrowthMetric       `json:"growth"`
-	Fastest         []RepositoryMetric `json:"fastest"`
-	RecentRuns      []JobRun           `json:"recent_runs"`
+	RepositoryCount int                  `json:"repository_count"`
+	ActiveCount     int                  `json:"active_count"`
+	TopicCount      int                  `json:"topic_count"`
+	Coverage        CoverageMetric       `json:"coverage"`
+	Growth          GrowthMetric         `json:"growth"`
+	GrowthHistory   []GrowthHistoryPoint `json:"growth_history"`
+	Fastest         []RepositoryMetric   `json:"fastest"`
+	RecentRuns      []JobRun             `json:"recent_runs"`
 }
 
 type DiscoverySourceCount struct {
@@ -105,7 +118,8 @@ type DiscoveryProfileCount struct {
 }
 
 type DiscoverySummary struct {
-	Sources  []DiscoverySourceCount  `json:"sources"`
-	Profiles []DiscoveryProfileCount `json:"profiles"`
-	Runs     []JobRun                `json:"runs"`
+	Sources          []DiscoverySourceCount  `json:"sources"`
+	FirstSeenSources []DiscoverySourceCount  `json:"first_seen_sources"`
+	Profiles         []DiscoveryProfileCount `json:"profiles"`
+	Runs             []JobRun                `json:"runs"`
 }

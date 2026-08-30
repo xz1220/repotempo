@@ -427,6 +427,86 @@ func topicMetric(topic domain.Topic, metrics []domain.RepositoryMetric) domain.T
 	return result
 }
 
+func (store *Store) growthHistory(ctx context.Context, asOf domain.Date) ([]domain.GrowthHistoryPoint, error) {
+	from, err := asOf.AddDays(-29)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := store.db.QueryContext(ctx, `
+WITH RECURSIVE calendar(snapshot_date) AS (
+    SELECT ?
+    UNION ALL
+    SELECT date(snapshot_date, '+1 day')
+    FROM calendar
+    WHERE snapshot_date < ?
+), window_successes AS (
+    SELECT
+        s.repository_id,
+        s.snapshot_date,
+        s.star_count,
+        previous.star_count AS previous_star_count,
+        previous.snapshot_date AS previous_snapshot_date
+    FROM daily_snapshots s
+    JOIN daily_snapshots previous
+      ON previous.repository_id = s.repository_id
+     AND previous.fetch_status = 'success'
+     AND previous.snapshot_date = (
+        SELECT MAX(candidate.snapshot_date)
+        FROM daily_snapshots candidate
+        WHERE candidate.repository_id = s.repository_id
+          AND candidate.fetch_status = 'success'
+          AND candidate.snapshot_date < s.snapshot_date
+     )
+    WHERE s.fetch_status = 'success'
+      AND s.snapshot_date >= ?
+      AND s.snapshot_date <= ?
+)
+SELECT
+    c.snapshot_date,
+    CASE
+        WHEN COUNT(w.repository_id) = 0 THEN NULL
+        ELSE SUM(w.star_count - w.previous_star_count)
+    END,
+    COUNT(w.repository_id),
+    COALESCE(SUM(CASE
+        WHEN julianday(w.snapshot_date) - julianday(w.previous_snapshot_date) > 1 THEN 1
+        ELSE 0
+    END), 0)
+FROM calendar c
+LEFT JOIN window_successes w ON w.snapshot_date = c.snapshot_date
+GROUP BY c.snapshot_date
+ORDER BY c.snapshot_date`, from, asOf, from, asOf)
+	if err != nil {
+		return nil, fmt.Errorf("query growth history: %w", err)
+	}
+	defer rows.Close()
+
+	points := make([]domain.GrowthHistoryPoint, 0, 30)
+	for rows.Next() {
+		var dateText string
+		var delta sql.NullInt64
+		var comparableCount int
+		var gapSpanningCount int
+		if err := rows.Scan(&dateText, &delta, &comparableCount, &gapSpanningCount); err != nil {
+			return nil, fmt.Errorf("scan growth history: %w", err)
+		}
+		date, err := domain.ParseDate(dateText)
+		if err != nil {
+			return nil, fmt.Errorf("parse growth history date: %w", err)
+		}
+		points = append(points, domain.GrowthHistoryPoint{
+			Date:                       date,
+			Delta:                      nullInt64Pointer(delta),
+			ComparableRepositoryCount:  comparableCount,
+			GapSpanningRepositoryCount: gapSpanningCount,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate growth history: %w", err)
+	}
+	return points, nil
+}
+
 func (store *Store) DashboardSummary(ctx context.Context, asOf domain.Date) (domain.DashboardSummary, error) {
 	if asOf == "" {
 		asOf = domain.ShanghaiDate(store.nowUTC())
@@ -472,6 +552,10 @@ WHERE r.monitoring_status = 'active'`, asOf).Scan(
 		return domain.DashboardSummary{}, err
 	}
 	summary.Growth = sumGrowth(allMetrics)
+	summary.GrowthHistory, err = store.growthHistory(ctx, asOf)
+	if err != nil {
+		return domain.DashboardSummary{}, err
+	}
 	summary.Fastest, err = store.ListRepositoryMetrics(ctx, domain.RepositoryMetricQuery{
 		AsOf:             asOf,
 		MonitoringStatus: domain.MonitoringActive,
@@ -636,9 +720,10 @@ WHERE rt.topic_id = ? AND s.snapshot_date <= ?`
 
 func (store *Store) DiscoverySummary(ctx context.Context) (domain.DiscoverySummary, error) {
 	summary := domain.DiscoverySummary{
-		Sources:  make([]domain.DiscoverySourceCount, 0, 4),
-		Profiles: []domain.DiscoveryProfileCount{},
-		Runs:     []domain.JobRun{},
+		Sources:          make([]domain.DiscoverySourceCount, 0, 4),
+		FirstSeenSources: make([]domain.DiscoverySourceCount, 0, 4),
+		Profiles:         []domain.DiscoveryProfileCount{},
+		Runs:             []domain.JobRun{},
 	}
 	for _, source := range []domain.DiscoverySource{
 		domain.DiscoverySourceOSSInsight,
@@ -653,6 +738,15 @@ WHERE EXISTS (SELECT 1 FROM json_each(r.discovery_sources_json) WHERE value = ?)
 			return domain.DiscoverySummary{}, fmt.Errorf("count %s discoveries: %w", source, err)
 		}
 		summary.Sources = append(summary.Sources, domain.DiscoverySourceCount{Source: source, RepositoryCount: count})
+		if err := store.db.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM repositories WHERE first_seen_source = ?", source,
+		).Scan(&count); err != nil {
+			return domain.DiscoverySummary{}, fmt.Errorf("count %s first-seen discoveries: %w", source, err)
+		}
+		summary.FirstSeenSources = append(summary.FirstSeenSources, domain.DiscoverySourceCount{
+			Source:          source,
+			RepositoryCount: count,
+		})
 	}
 	rows, err := store.db.QueryContext(ctx, `
 SELECT first_seen_profile, COUNT(*)
