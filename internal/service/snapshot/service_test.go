@@ -153,6 +153,74 @@ func TestRunUsesSuccessfulBaselineForNotModified(t *testing.T) {
 	}
 }
 
+func TestRunRecordsFailureWhenNotModifiedHasNoBaseline(t *testing.T) {
+	store := newFakeSnapshotStore(testRepository())
+	service := Service{
+		Store: store,
+		GitHub: fetcherFunc(func(context.Context, int64, string) (github.RepositoryResult, error) {
+			return github.RepositoryResult{HTTPStatus: 304, NotModified: true, ETag: `"old"`}, nil
+		}),
+		Now: func() time.Time { return time.Date(2026, 8, 30, 1, 0, 0, 0, time.UTC) },
+	}
+	report, err := service.Run(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.FailureCount != 1 || store.writes[0].ErrorCode != "not_modified_without_baseline" || store.writes[0].StarCount != nil {
+		t.Fatalf("unexpected baseline failure: report=%#v snapshot=%#v", report, store.writes[0])
+	}
+}
+
+func TestRunRepairsSameDayFailureOnSuccessfulRetry(t *testing.T) {
+	store := newFakeSnapshotStore(testRepository())
+	attempt := 0
+	stars := int64(321)
+	service := Service{
+		Store: store,
+		GitHub: fetcherFunc(func(context.Context, int64, string) (github.RepositoryResult, error) {
+			attempt++
+			if attempt == 1 {
+				return github.RepositoryResult{HTTPStatus: 503}, &github.APIError{Code: github.CodeUpstream, StatusCode: 503}
+			}
+			return github.RepositoryResult{HTTPStatus: 200, Repository: source.Repository{ID: 42, FullName: "owner/repo", AbsoluteStars: &stars}}, nil
+		}),
+		Now: func() time.Time { return time.Date(2026, 8, 30, 1, 0, 0, 0, time.UTC) },
+	}
+	first, err := service.Run(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.Run(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.FailureCount != 1 || second.SuccessCount != 1 || store.today[42].StarCount == nil || *store.today[42].StarCount != stars {
+		t.Fatalf("failure was not repaired: first=%#v second=%#v snapshot=%#v", first, second, store.today[42])
+	}
+}
+
+func TestRunNeverUsesOSSWindowStarsAsAbsoluteStars(t *testing.T) {
+	store := newFakeSnapshotStore(testRepository())
+	absolute := int64(1000)
+	window := int64(77)
+	service := Service{
+		Store: store,
+		GitHub: fetcherFunc(func(context.Context, int64, string) (github.RepositoryResult, error) {
+			return github.RepositoryResult{HTTPStatus: 200, Repository: source.Repository{ID: 42, FullName: "owner/repo", AbsoluteStars: &absolute}}, nil
+		}),
+		Now: func() time.Time { return time.Date(2026, 8, 30, 1, 0, 0, 0, time.UTC) },
+	}
+	if _, err := service.Run(context.Background(), map[int64]OSSEvidence{42: {WindowStars: &window}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := *store.writes[0].StarCount; got != absolute {
+		t.Fatalf("absolute stars = %d, expected %d", got, absolute)
+	}
+	if got := *store.writes[0].OSSWindowStars; got != window {
+		t.Fatalf("window stars = %d, expected %d", got, window)
+	}
+}
+
 func TestRunSkipsExistingSuccessWithoutAPICall(t *testing.T) {
 	store := newFakeSnapshotStore(testRepository())
 	stars := int64(100)
@@ -169,7 +237,7 @@ func TestRunSkipsExistingSuccessWithoutAPICall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if called || report.SuccessCount != 1 || report.SkippedCount != 1 {
+	if called || report.SuccessCount != 0 || report.SkippedCount != 1 {
 		t.Fatalf("existing success was not skipped: %#v", report)
 	}
 }

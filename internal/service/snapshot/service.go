@@ -73,7 +73,6 @@ func (service Service) Run(ctx context.Context, evidence map[int64]OSSEvidence) 
 			return report, err
 		}
 		if existing, err := service.Store.GetDailySnapshot(ctx, repository.GitHubRepoID, date); err == nil && existing.FetchStatus == domain.FetchSuccess {
-			report.SuccessCount++
 			report.SkippedCount++
 			continue
 		} else if err != nil && !errors.Is(err, corestore.ErrNotFound) {
@@ -127,9 +126,10 @@ func (service Service) Run(ctx context.Context, evidence map[int64]OSSEvidence) 
 		if err != nil {
 			return report, fmt.Errorf("record successful snapshot for %s: %w", repository.FullName, err)
 		}
-		report.SuccessCount++
 		if write.Disposition == domain.SnapshotSuccessProtected {
 			report.SkippedCount++
+		} else {
+			report.SuccessCount++
 		}
 	}
 	return report, nil
