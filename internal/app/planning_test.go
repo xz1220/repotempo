@@ -135,6 +135,33 @@ topics:
 	}
 }
 
+func TestIncompleteDiscoveryProfileNeverAdvancesScheduleGate(t *testing.T) {
+	now := time.Date(2026, 8, 30, 2, 0, 0, 0, time.UTC)
+	runtime, err := OpenRuntimeWithOptions(context.Background(), Settings{DatabasePath: ":memory:"}, RuntimeOptions{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtime.Close()
+	finished := now.Add(time.Minute)
+	details, _ := json.Marshal(DiscoverReport{Profiles: []SearchProfileReport{{
+		Name: "unstable", Due: true, IncompleteResults: true,
+		Error: "github search returned incomplete_results=true",
+	}}})
+	if err := runtime.store.CreateJobRun(context.Background(), domain.JobRun{
+		RunID: "incomplete", JobType: "discover", StartedAt: now, FinishedAt: &finished,
+		Status: domain.JobPartial, Details: details, CreatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	last, err := runtime.lastProfileSuccess(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := last["unstable"]; ok {
+		t.Fatalf("incomplete profile advanced schedule: %#v", last)
+	}
+}
+
 func fileHash(t *testing.T, path string) [sha256.Size]byte {
 	t.Helper()
 	contents, err := os.ReadFile(path)

@@ -245,8 +245,7 @@ func repositoryFromObservation(observation domain.RepositoryObservation, now tim
 func mergeRepositoryObservation(existing domain.Repository, observation domain.RepositoryObservation, now time.Time) domain.Repository {
 	merged := existing
 	isWatchlistReplay := observation.Source == domain.DiscoverySourceManual &&
-		observation.Profile == "config-watchlist" &&
-		slices.Contains(existing.DiscoverySources, domain.DiscoverySourceManual)
+		observation.Profile == "config-watchlist"
 	isLatestObservation := !observation.DiscoveredAt.Before(existing.LastDiscoveredAt)
 	if observation.GitHubNodeID != "" && (isLatestObservation || merged.GitHubNodeID == "") {
 		merged.GitHubNodeID = observation.GitHubNodeID
@@ -306,7 +305,7 @@ func mergeRepositoryObservation(existing domain.Repository, observation domain.R
 		}
 	}
 	if observation.ManualNote != nil {
-		if (observation.Source == domain.DiscoverySourceManual && !isWatchlistReplay) || (merged.ManualNote == "" && *observation.ManualNote != "") {
+		if !isWatchlistReplay && (observation.Source == domain.DiscoverySourceManual || *observation.ManualNote != "") {
 			merged.ManualNote = *observation.ManualNote
 		}
 	}

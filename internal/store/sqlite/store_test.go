@@ -293,6 +293,35 @@ func TestAutomatedRediscoveryDoesNotEraseManualRegistryState(t *testing.T) {
 	}
 }
 
+func TestFirstConfigWatchlistLoadDoesNotUndoExplicitPause(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	_, _, err := store.UpsertRepository(ctx, domain.RepositoryObservation{
+		GitHubRepoID: 8, FullName: "owner/existing", Source: domain.DiscoverySourceGitHubSearch,
+		DiscoveredAt: testNow.Add(-time.Hour), MonitoringStatus: domain.MonitoringActive,
+		GitHubStatus: domain.GitHubActive,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetRepositoryMonitoringStatus(ctx, 8, domain.MonitoringPaused); err != nil {
+		t.Fatal(err)
+	}
+	focus := true
+	note := "configured default"
+	replayed, _, err := store.UpsertRepository(ctx, domain.RepositoryObservation{
+		GitHubRepoID: 8, FullName: "owner/existing", Source: domain.DiscoverySourceManual,
+		Profile: "config-watchlist", DiscoveredAt: testNow,
+		MonitoringStatus: domain.MonitoringActive, IsFocus: &focus, ManualNote: &note,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replayed.MonitoringStatus != domain.MonitoringPaused || replayed.IsFocus || replayed.ManualNote != "" {
+		t.Fatalf("first config replay overrode explicit registry state: %+v", replayed)
+	}
+}
+
 func TestSnapshotWriteProtectsSuccessAndRepairsFailure(t *testing.T) {
 	store, _ := newTestStore(t)
 	ctx := context.Background()

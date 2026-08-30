@@ -335,7 +335,7 @@ func (runtime *Runtime) assignCandidateTopics(ctx context.Context, candidates []
 		if _, ok := stored[candidate.Repository.ID]; !ok {
 			continue
 		}
-		assignmentSource, confirmed := candidateTopicSource(candidate.Source)
+		assignmentSource, confirmed := candidateTopicSource(candidate)
 		priority := topicSourcePriority(assignmentSource)
 		for _, slug := range candidate.Repository.Topics {
 			slug = strings.TrimSpace(strings.ToLower(slug))
@@ -449,8 +449,11 @@ func candidateDiscoverySource(value string) (domain.DiscoverySource, bool) {
 	}
 }
 
-func candidateTopicSource(value string) (domain.TopicSource, bool) {
-	switch value {
+func candidateTopicSource(candidate source.Candidate) (domain.TopicSource, bool) {
+	if candidate.Profile == "config-watchlist" {
+		return domain.TopicSourceAuto, false
+	}
+	switch candidate.Source {
 	case "manual":
 		return domain.TopicSourceManual, true
 	case "legacy":

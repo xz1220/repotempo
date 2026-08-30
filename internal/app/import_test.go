@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/github-radar/internal/source"
 )
 
 func TestImportCSVRejectsUnverifiedRepositoryIDAndObservation(t *testing.T) {
@@ -74,6 +75,13 @@ legacy:
 	}
 	if !stages["csv-identity"] || !stages["csv-observation"] {
 		t.Fatalf("identity failures were not explicit: %#v", report.Failures)
+	}
+}
+
+func TestConfiguredWatchlistTopicCannotOverrideManualVeto(t *testing.T) {
+	topicSource, confirmed := candidateTopicSource(source.Candidate{Source: "manual", Profile: "config-watchlist"})
+	if topicSource != domain.TopicSourceAuto || confirmed {
+		t.Fatalf("configured topic source = (%s, %t), want unconfirmed auto", topicSource, confirmed)
 	}
 }
 

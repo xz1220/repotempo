@@ -49,6 +49,17 @@ func TestDecodeDiscoveryCapsRetries(t *testing.T) {
 	}
 }
 
+func TestDecodeDiscoveryRequiresPositiveCoreInterval(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "config", "discovery.example.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid := strings.Replace(string(raw), "core_interval: 100ms", "core_interval: 0s", 1)
+	if _, err := DecodeDiscovery(strings.NewReader(invalid)); err == nil || !strings.Contains(err.Error(), "core_interval must be positive") {
+		t.Fatalf("DecodeDiscovery() error = %v, want positive core interval", err)
+	}
+}
+
 func TestDateRangeResolveRelative(t *testing.T) {
 	now := time.Date(2026, 8, 30, 13, 0, 0, 0, time.FixedZone("CST", 8*60*60))
 	from, to, err := (DateRange{SinceDays: 30}).Resolve(now)

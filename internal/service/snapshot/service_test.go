@@ -27,6 +27,8 @@ type fakeSnapshotStore struct {
 	monitoring   map[int64]domain.MonitoringStatus
 	githubStatus map[int64]domain.GitHubStatus
 	putErrors    map[int64]error
+	getErrors    map[int64]error
+	latestErrors map[int64]error
 	upsertError  error
 }
 
@@ -38,6 +40,8 @@ func newFakeSnapshotStore(repository domain.Repository) *fakeSnapshotStore {
 		monitoring:   map[int64]domain.MonitoringStatus{},
 		githubStatus: map[int64]domain.GitHubStatus{},
 		putErrors:    map[int64]error{},
+		getErrors:    map[int64]error{},
+		latestErrors: map[int64]error{},
 	}
 }
 
@@ -46,6 +50,9 @@ func (store *fakeSnapshotStore) ListRepositories(context.Context, domain.Reposit
 }
 
 func (store *fakeSnapshotStore) GetDailySnapshot(_ context.Context, id int64, _ domain.Date) (domain.DailySnapshot, error) {
+	if err := store.getErrors[id]; err != nil {
+		return domain.DailySnapshot{}, err
+	}
 	if snapshot, ok := store.today[id]; ok {
 		return snapshot, nil
 	}
@@ -53,6 +60,9 @@ func (store *fakeSnapshotStore) GetDailySnapshot(_ context.Context, id int64, _ 
 }
 
 func (store *fakeSnapshotStore) GetLatestSuccessfulSnapshot(_ context.Context, id int64, _ domain.Date) (domain.DailySnapshot, error) {
+	if err := store.latestErrors[id]; err != nil {
+		return domain.DailySnapshot{}, err
+	}
 	if snapshot, ok := store.latest[id]; ok {
 		return snapshot, nil
 	}
@@ -340,5 +350,33 @@ func TestRunKeepsSuccessfulSnapshotWhenMetadataUpdateFails(t *testing.T) {
 	}
 	if snapshotValue := store.today[42]; snapshotValue.StarCount == nil || *snapshotValue.StarCount != stars {
 		t.Fatalf("successful star snapshot was lost: %#v", snapshotValue)
+	}
+}
+
+func TestRunContinuesAfterSnapshotLookupAndBaselineErrors(t *testing.T) {
+	first := testRepository()
+	first.GitHubRepoID = 1
+	first.FullName = "owner/lookup"
+	second := testRepository()
+	second.GitHubRepoID = 2
+	second.FullName = "owner/baseline"
+	store := newFakeSnapshotStore(first)
+	store.repositories = []domain.Repository{first, second}
+	store.getErrors[1] = errors.New("lookup unavailable")
+	store.latestErrors[2] = errors.New("baseline unavailable")
+	called := false
+	service := Service{
+		Store: store,
+		GitHub: fetcherFunc(func(context.Context, int64, string) (github.RepositoryResult, error) {
+			called = true
+			return github.RepositoryResult{}, nil
+		}),
+	}
+	report, err := service.Run(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called || report.TargetCount != 2 || report.FailureCount != 2 || len(report.Failures) != 2 {
+		t.Fatalf("unexpected degraded report: %#v", report)
 	}
 }

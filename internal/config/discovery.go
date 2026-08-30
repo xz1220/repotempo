@@ -197,6 +197,12 @@ func (c Discovery) Validate() error {
 	if c.GitHub.Timeout.Value() <= 0 {
 		return errors.New("github.timeout must be positive")
 	}
+	if c.GitHub.CoreInterval.Value() <= 0 {
+		return errors.New("github.core_interval must be positive")
+	}
+	if c.GitHub.SearchInterval.Value() <= 0 {
+		return errors.New("github.search_interval must be positive")
+	}
 	if c.GitHub.SearchInterval.Value() <= 0 {
 		return errors.New("github.search_interval must be positive")
 	}

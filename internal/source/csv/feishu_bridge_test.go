@@ -57,6 +57,45 @@ printf '%s\n' '{"id":42,"html_url":"https://github.com/owner/repo"}'
 	}
 }
 
+func TestFeishuBridgeReturnsPartialWhenOneIdentityIsUnresolved(t *testing.T) {
+	jq, err := exec.LookPath("jq")
+	if err != nil {
+		t.Skip("jq is required for the Feishu bridge")
+	}
+	directory := t.TempDir()
+	lark := filepath.Join(directory, "lark-mock")
+	gh := filepath.Join(directory, "gh-mock")
+	output := filepath.Join(directory, "base.csv")
+	writeExecutable(t, lark, `#!/bin/sh
+case "$*" in
+  *"--table-id project"*)
+    printf '%s\n' '{"data":{"fields":["项目","GitHub","语言","分类","首次出现","最后观察","累计 Stars","人工收藏"],"data":[["owner/repo","", "Go",[],"2026-08-29T00:00:00Z","2026-08-30T00:00:00Z",123,false],["missing/repo","","",[],"2026-08-29T00:00:00Z","2026-08-30T00:00:00Z",10,false]],"has_more":false}}'
+    ;;
+  *"--table-id daily"*)
+    printf '%s\n' '{"data":{"fields":["项目","GitHub","日期","累计 Stars","今日排名"],"data":[["owner/repo","","2026-08-30T00:00:00Z",123,1]],"has_more":false}}'
+    ;;
+  *) exit 1 ;;
+esac
+`)
+	writeExecutable(t, gh, `#!/bin/sh
+case "$2" in
+  repos/owner/repo) printf '%s\n' '{"id":42,"html_url":"https://github.com/owner/repo"}' ;;
+  *) exit 1 ;;
+esac
+`)
+	repositoryRoot := filepath.Join("..", "..", "..")
+	command := exec.Command("sh", filepath.Join(repositoryRoot, "scripts", "export-feishu-base.sh"), "base", "project", "daily", output)
+	command.Env = append(os.Environ(), "LARK_CLI_BIN="+lark, "LARK_CLI_NODE=", "GH_BIN="+gh, "JQ_BIN="+jq)
+	combined, err := command.CombinedOutput()
+	exitError, ok := err.(*exec.ExitError)
+	if !ok || exitError.ExitCode() != 3 {
+		t.Fatalf("bridge error = %v, output = %s", err, combined)
+	}
+	if _, err := os.Stat(output); err != nil {
+		t.Fatalf("verified partial output missing: %v", err)
+	}
+}
+
 func writeExecutable(t *testing.T, path, contents string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(contents), 0o700); err != nil {
