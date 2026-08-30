@@ -18,7 +18,8 @@ business name is `tencent2`; it is not the name of a Cron job.
 The existing Python Feishu digest keeps its 09:00 Asia/Shanghai schedule.
 GitHub Radar runs at 09:15 with `flock`. The Web process runs under systemd,
 binds to `127.0.0.1:8787`, and is published through the existing HTTPS reverse
-proxy.
+proxy as an independent host. Do not mount it under a URL prefix because the
+embedded dashboard intentionally uses root-relative routes and assets.
 
 ## Routine checks
 
@@ -32,4 +33,3 @@ df -h /
 
 Backups and exports use configured retention periods. Repository contents,
 README files, commits, and raw long-lived API responses are not stored.
-

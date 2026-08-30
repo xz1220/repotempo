@@ -29,13 +29,17 @@ if [ ! -f /etc/github-radar/github-radar.env ]; then
     /etc/github-radar/github-radar.env
 fi
 
-install -o root -g root -m 0644 config/discovery.example.yaml /etc/github-radar/discovery.yaml
-install -o root -g root -m 0644 config/topics.example.yaml /etc/github-radar/topics.yaml
+if [ ! -f /etc/github-radar/discovery.yaml ]; then
+  install -o root -g root -m 0644 config/discovery.example.yaml /etc/github-radar/discovery.yaml
+fi
+if [ ! -f /etc/github-radar/topics.yaml ]; then
+  install -o root -g root -m 0644 config/topics.example.yaml /etc/github-radar/topics.yaml
+fi
 install -o root -g root -m 0644 deploy/tencent2/github-radar-web.service \
   /etc/systemd/system/github-radar-web.service
 install -o root -g root -m 0644 deploy/tencent2/github-radar.cron /etc/cron.d/github-radar
 install -o root -g root -m 0644 deploy/tencent2/github-radar.logrotate /etc/logrotate.d/github-radar
 
 systemctl daemon-reload
+systemctl enable github-radar-web.service
 echo "Installed. Add a GitHub token to /etc/github-radar/github-radar.env, then run doctor."
-
