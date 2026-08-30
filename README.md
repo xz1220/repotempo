@@ -54,6 +54,8 @@ manual watchlist --+               +--> topics             +--> SQLite
 
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
 [discovery semantics](docs/discovery.md) for the design details.
+The dashboard redesign is grounded in a documented
+[Agent design Skills review](docs/design-skills-research-2026-08-30.md).
 
 ## Requirements
 
