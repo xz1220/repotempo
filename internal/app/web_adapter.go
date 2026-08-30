@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/xz1220/github-radar/internal/domain"
@@ -289,7 +290,9 @@ func mapJobRuns(values []domain.JobRun) []web.JobRun {
 			SuccessCount: value.SuccessCount,
 			FailureCount: value.FailureCount,
 			SkippedCount: value.SkippedCount,
-			ErrorSummary: value.ErrorSummary,
+		}
+		if value.ErrorSummary != "" {
+			mapped.ErrorSummary = "One or more operations failed. Review the failure targets or server logs."
 		}
 		applyJobDetails(&mapped, value.Details)
 		result = append(result, mapped)
@@ -323,12 +326,12 @@ func applyJobDetails(target *web.JobRun, raw json.RawMessage) {
 		if name == "" {
 			name = failure.Target
 		}
-		if name != "" {
+		if validRepositoryName(name) {
 			target.FailureRepositories = append(target.FailureRepositories, name)
 		}
 	}
 	for _, failure := range details.Snapshot.Failures {
-		if failure.FullName != "" {
+		if validRepositoryName(failure.FullName) {
 			target.FailureRepositories = append(target.FailureRepositories, failure.FullName)
 		}
 	}
@@ -336,6 +339,15 @@ func applyJobDetails(target *web.JobRun, raw json.RawMessage) {
 	target.CoreRateRemaining = details.CoreRateRemaining
 	target.SearchIncomplete = details.IncompleteResults
 	target.SearchSplitCount = details.QuerySplitCount
+}
+
+func validRepositoryName(value string) bool {
+	if strings.HasPrefix(value, "/") || strings.Contains(value, "\\") {
+		return false
+	}
+	parts := strings.Split(value, "/")
+	return len(parts) == 2 && parts[0] != "" && parts[1] != "" &&
+		!strings.Contains(parts[0], ".") && !strings.Contains(parts[1], "/")
 }
 
 func applyDiscoveryRunDetails(profiles []web.DiscoveryProfile, runs []domain.JobRun) {
