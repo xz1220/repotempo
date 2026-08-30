@@ -88,7 +88,9 @@ profiles:
       max_depth: 16
     queries:
       - stars:
-          min: 100
+          # A 500-Star floor keeps fast movers visible without adding every
+          # short-lived launch to the fixed daily panel.
+          min: 500
         created:
           since_days: 30
         fork: false

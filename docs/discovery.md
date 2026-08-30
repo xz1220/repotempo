@@ -29,6 +29,9 @@ thresholds at 20,000 Stars and leaves monthly broad coverage disabled until the
 operator explicitly checks `total_count` and available Core capacity. Search
 can discover more projects than a single token can snapshot; it must not be
 allowed to silently grow the active panel beyond its collection budget.
+The recent-created profile uses a 500-Star floor; the 100-Star example would
+currently add roughly 1,800 repositories in one month and is not a sustainable
+default for a one-token fixed panel.
 
 ## Authoritative API references
 

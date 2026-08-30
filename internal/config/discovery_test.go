@@ -25,6 +25,9 @@ func TestLoadDiscoveryExample(t *testing.T) {
 	if config.Profiles[4].IsEnabled() {
 		t.Fatal("monthly coverage must be explicit opt-in in the single-host example")
 	}
+	if config.Profiles[2].Queries[0].Stars.Min == nil || *config.Profiles[2].Queries[0].Stars.Min != 500 {
+		t.Fatal("recently-created threshold must preserve the Core API budget")
+	}
 	if got := config.GitHub.SearchInterval.Value(); got != 2*time.Second {
 		t.Fatalf("search interval = %s, want 2s", got)
 	}
