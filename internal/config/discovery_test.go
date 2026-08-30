@@ -25,6 +25,12 @@ func TestLoadDiscoveryExample(t *testing.T) {
 	if got := config.GitHub.SearchInterval.Value(); got != 2*time.Second {
 		t.Fatalf("search interval = %s, want 2s", got)
 	}
+	benchmark := config.Profiles[len(config.Profiles)-1]
+	for _, query := range benchmark.Queries {
+		if !strings.Contains(query.Text, " user:") {
+			t.Fatalf("benchmark query is not owner-scoped: %q", query.Text)
+		}
+	}
 }
 
 func TestDecodeDiscoveryRejectsUnknownFields(t *testing.T) {

@@ -131,19 +131,19 @@ profiles:
       by: none
       max_depth: 0
     queries:
-      - text: codex in:name
+      - text: codex in:name user:openai
         fork: false
         archived: false
-      - text: opencode in:name
+      - text: opencode in:name user:sst
         fork: false
         archived: false
-      - text: langgraph in:name
+      - text: langgraph in:name user:langchain-ai
         fork: false
         archived: false
-      - text: ollama in:name
+      - text: ollama in:name user:ollama
         fork: false
         archived: false
-      - text: mem0 in:name
+      - text: mem0 in:name user:mem0ai
         fork: false
         archived: false
 
