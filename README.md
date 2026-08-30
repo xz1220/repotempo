@@ -304,6 +304,8 @@ a clean-clone build, secret scanning, and independent review. See
 
 The first production acceptance evidence is in
 [docs/acceptance-2026-08-30.md](docs/acceptance-2026-08-30.md).
+The dedicated-data-disk migration and Chinese dashboard acceptance are in
+[docs/data-disk-i18n-acceptance-2026-08-30.md](docs/data-disk-i18n-acceptance-2026-08-30.md).
 
 ## Privacy and security
 
