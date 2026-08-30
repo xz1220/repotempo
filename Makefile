@@ -9,7 +9,7 @@ fmt:
 	$(GO) fmt ./...
 
 fmt-check:
-	@test -z "$$($(GO) fmt ./... | tee /dev/stderr)"
+	@files="$$(gofmt -l .)"; test -z "$$files" || { printf '%s\n' "$$files"; exit 1; }
 
 vet:
 	$(GO) vet ./...
@@ -32,4 +32,3 @@ security:
 	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 ci: fmt-check vet test race build-linux
-
