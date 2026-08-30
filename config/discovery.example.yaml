@@ -148,8 +148,8 @@ profiles:
         archived: false
 
 manual:
-  files:
-    - config/watchlist.example.yaml
+  # Add explicit paths after reviewing config/watchlist.example.yaml.
+  files: []
 
 legacy:
   # Set this on the import host or pass an explicit CLI path.

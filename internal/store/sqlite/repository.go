@@ -244,6 +244,9 @@ func repositoryFromObservation(observation domain.RepositoryObservation, now tim
 
 func mergeRepositoryObservation(existing domain.Repository, observation domain.RepositoryObservation, now time.Time) domain.Repository {
 	merged := existing
+	isWatchlistReplay := observation.Source == domain.DiscoverySourceManual &&
+		observation.Profile == "config-watchlist" &&
+		slices.Contains(existing.DiscoverySources, domain.DiscoverySourceManual)
 	isLatestObservation := !observation.DiscoveredAt.Before(existing.LastDiscoveredAt)
 	if observation.GitHubNodeID != "" && (isLatestObservation || merged.GitHubNodeID == "") {
 		merged.GitHubNodeID = observation.GitHubNodeID
@@ -289,8 +292,8 @@ func mergeRepositoryObservation(existing domain.Repository, observation domain.R
 		merged.LastDiscoveredAt = observation.DiscoveredAt
 	}
 	if observation.MonitoringStatus != "" {
-		if observation.Source == domain.DiscoverySourceManual ||
-			monitoringSeverity(observation.MonitoringStatus) >= monitoringSeverity(merged.MonitoringStatus) {
+		if !isWatchlistReplay && (observation.Source == domain.DiscoverySourceManual ||
+			monitoringSeverity(observation.MonitoringStatus) >= monitoringSeverity(merged.MonitoringStatus)) {
 			merged.MonitoringStatus = observation.MonitoringStatus
 		}
 	}
@@ -298,12 +301,12 @@ func mergeRepositoryObservation(existing domain.Repository, observation domain.R
 		merged.GitHubStatus = observation.GitHubStatus
 	}
 	if observation.IsFocus != nil {
-		if observation.Source == domain.DiscoverySourceManual || *observation.IsFocus {
+		if !isWatchlistReplay && (observation.Source == domain.DiscoverySourceManual || *observation.IsFocus) {
 			merged.IsFocus = *observation.IsFocus
 		}
 	}
 	if observation.ManualNote != nil {
-		if observation.Source == domain.DiscoverySourceManual || *observation.ManualNote != "" {
+		if (observation.Source == domain.DiscoverySourceManual && !isWatchlistReplay) || (merged.ManualNote == "" && *observation.ManualNote != "") {
 			merged.ManualNote = *observation.ManualNote
 		}
 	}

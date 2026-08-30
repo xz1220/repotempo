@@ -12,8 +12,8 @@ const (
 	defaultDatabasePath    = "github-radar.db"
 	defaultExportDirectory = "exports"
 	defaultBackupDirectory = "backups"
-	defaultDiscoveryConfig = "config/discovery.example.yaml"
-	defaultTopicsConfig    = "config/topics.example.yaml"
+	defaultDiscoveryConfig = "config/discovery.yaml"
+	defaultTopicsConfig    = "config/topics.yaml"
 	defaultListenAddress   = "127.0.0.1:8787"
 	defaultTimezone        = "Asia/Shanghai"
 )

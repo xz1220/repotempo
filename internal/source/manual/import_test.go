@@ -41,7 +41,7 @@ func TestImportManualAlwaysResolvesGitHubIDAndAllowsFork(t *testing.T) {
 		t.Fatalf("candidates = %+v", result.Candidates)
 	}
 	first := result.Candidates[0]
-	if first.Repository.ID != 42 || first.Repository.FullName != "new-owner/repo" || !first.IsFocus || first.Source != "manual" {
+	if first.Repository.ID != 42 || first.Repository.FullName != "new-owner/repo" || !first.IsFocus || first.Source != "manual" || first.Profile != "config-watchlist" {
 		t.Fatalf("first candidate = %+v", first)
 	}
 	if len(first.PreviousNames) != 1 || first.PreviousNames[0] != "owner/repo" {

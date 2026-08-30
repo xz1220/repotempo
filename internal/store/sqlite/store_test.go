@@ -267,6 +267,23 @@ func TestAutomatedRediscoveryDoesNotEraseManualRegistryState(t *testing.T) {
 	if rediscovered.MonitoringStatus != domain.MonitoringPaused || !rediscovered.IsFocus || rediscovered.ManualNote != note {
 		t.Fatalf("automated rediscovery erased manual state: %+v", rediscovered)
 	}
+	configNote := "configuration default"
+	replayed, _, err := store.UpsertRepository(ctx, domain.RepositoryObservation{
+		GitHubRepoID:     7,
+		FullName:         "owner/focus",
+		Source:           domain.DiscoverySourceManual,
+		Profile:          "config-watchlist",
+		DiscoveredAt:     testNow.Add(time.Minute),
+		MonitoringStatus: domain.MonitoringActive,
+		IsFocus:          &notFocus,
+		ManualNote:       &configNote,
+	})
+	if err != nil {
+		t.Fatalf("replay configured watchlist: %v", err)
+	}
+	if replayed.MonitoringStatus != domain.MonitoringPaused || !replayed.IsFocus || replayed.ManualNote != note {
+		t.Fatalf("watchlist replay erased explicit state: %+v", replayed)
+	}
 	if err := store.SetRepositoryMonitoringStatus(ctx, 7, domain.MonitoringActive); err != nil {
 		t.Fatalf("explicitly resume repository: %v", err)
 	}

@@ -77,4 +77,17 @@ func TestRepositoryCanHaveMultipleTopicsAndManualWins(t *testing.T) {
 	if err != nil || !removed {
 		t.Fatalf("manual topic removal = (%t, %v)", removed, err)
 	}
+	auto, err = store.AssignRepositoryTopic(ctx, domain.RepositoryTopic{
+		RepositoryID: 1,
+		TopicID:      child.ID,
+		Source:       domain.TopicSourceAuto,
+		Confidence:   pointer(0.9),
+	})
+	if err != nil || !auto.Protected {
+		t.Fatalf("automatic restore after manual removal = (%+v, %v), want protected veto", auto, err)
+	}
+	topics, err = store.ListRepositoryTopics(ctx, 1)
+	if err != nil || len(topics) != 1 || topics[0].ID != other.ID {
+		t.Fatalf("topics after manual veto = (%+v, %v)", topics, err)
+	}
 }

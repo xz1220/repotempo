@@ -154,6 +154,7 @@ WITH metrics AS (
             SELECT 1 FROM repository_topics rt
             JOIN topics t ON t.id = rt.topic_id
             WHERE rt.repository_id = r.github_repo_id AND t.slug = ? COLLATE NOCASE
+              AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)
         )`
 		arguments = append(arguments, query.TopicSlug)
 	}
@@ -315,6 +316,7 @@ SELECT rt.repository_id, t.id, t.slug, t.name, t.parent_id, t.description, t.sta
 FROM repository_topics rt
 JOIN topics t ON t.id = rt.topic_id
 WHERE rt.repository_id IN (`+placeholders(len(chunk))+`)
+  AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)
 ORDER BY t.name COLLATE NOCASE`, anyIDs(chunk)...)
 		if err != nil {
 			return nil, fmt.Errorf("load metric topics: %w", err)
@@ -595,6 +597,7 @@ SELECT
 FROM daily_snapshots s
 JOIN repository_topics rt ON rt.repository_id = s.repository_id
 WHERE rt.topic_id = ? AND s.snapshot_date <= ?`
+	query += " AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)"
 	arguments := []any{topicID, asOf}
 	if excludedID != nil {
 		query += " AND s.repository_id <> ?"

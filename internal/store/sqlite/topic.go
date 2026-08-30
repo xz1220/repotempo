@@ -342,12 +342,27 @@ func (store *Store) RemoveRepositoryTopic(ctx context.Context, repositoryID, top
 	if repositoryID <= 0 || topicID <= 0 || !requestedBy.Valid() {
 		return false, fmt.Errorf("%w: valid repository, topic, and source are required", corestore.ErrInvalid)
 	}
+	if requestedBy == domain.TopicSourceManual {
+		// A confirmed manual assignment with confidence 0 is a durable veto.
+		// It uses the existing five-table model, stays visible in raw exports,
+		// is excluded from topic queries, and protects against future auto adds.
+		confidence := 0.0
+		result, err := store.AssignRepositoryTopic(ctx, domain.RepositoryTopic{
+			RepositoryID: repositoryID,
+			TopicID:      topicID,
+			Source:       domain.TopicSourceManual,
+			Confirmed:    true,
+			Confidence:   &confidence,
+		})
+		if err != nil {
+			return false, err
+		}
+		return result.Changed, nil
+	}
 	query := "DELETE FROM repository_topics WHERE repository_id = ? AND topic_id = ?"
 	arguments := []any{repositoryID, topicID}
-	if requestedBy != domain.TopicSourceManual {
-		query += " AND source = ? AND source <> 'manual' AND confirmed = 0"
-		arguments = append(arguments, requestedBy)
-	}
+	query += " AND source = ? AND source <> 'manual' AND confirmed = 0"
+	arguments = append(arguments, requestedBy)
 	result, err := store.db.ExecContext(ctx, query, arguments...)
 	if err != nil {
 		return false, fmt.Errorf("remove repository topic: %w", err)
@@ -365,6 +380,7 @@ SELECT t.`+strings.ReplaceAll(topicColumns, ", ", ", t.")+`
 FROM topics t
 JOIN repository_topics rt ON rt.topic_id = t.id
 WHERE rt.repository_id = ?
+  AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)
 ORDER BY t.name COLLATE NOCASE`, repositoryID)
 	if err != nil {
 		return nil, fmt.Errorf("list repository topics: %w", err)

@@ -103,6 +103,7 @@ func Import(ctx context.Context, reader io.Reader, resolver Resolver, now time.T
 		candidates = append(candidates, source.Candidate{
 			Repository:    repository,
 			Source:        "manual",
+			Profile:       "config-watchlist",
 			DiscoveredAt:  now.UTC(),
 			IsFocus:       entry.Focus,
 			ManualNote:    entry.Note,
