@@ -36,11 +36,29 @@ func TestRegistryDeduplicatesByRepositoryIDAndSkipsDiscoveredForks(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(store.observations) != 1 || store.observations[0].FullName != "owner/new" {
+	if len(store.observations) != 2 || store.observations[0].FullName != "owner/new" {
 		t.Fatalf("unexpected observations: %#v", store.observations)
+	}
+	if store.observations[0].Source == store.observations[1].Source {
+		t.Fatalf("additional discovery source was not persisted: %#v", store.observations)
 	}
 	if report.CreatedCount != 1 || report.SkippedCount != 1 {
 		t.Fatalf("unexpected report: %#v", report)
+	}
+}
+
+func TestRegistryPreservesLegacyGitHubStatus(t *testing.T) {
+	store := &fakeRepositoryStore{}
+	registry := Registry{Store: store}
+	_, err := registry.Merge(context.Background(), []source.Candidate{{
+		Repository: source.Repository{ID: 1, FullName: "owner/deleted", GitHubStatus: "deleted"},
+		Source:     "legacy",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := store.observations[0].GitHubStatus; got != domain.GitHubDeleted {
+		t.Fatalf("GitHub status = %s", got)
 	}
 }
 

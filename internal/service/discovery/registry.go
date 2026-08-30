@@ -3,6 +3,7 @@ package discovery
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/xz1220/github-radar/internal/domain"
@@ -77,7 +78,7 @@ func (registry Registry) Merge(ctx context.Context, candidates []source.Candidat
 		focus := candidate.IsFocus
 		note := candidate.ManualNote
 		monitoring := mapMonitoring(candidate.MonitorStatus)
-		githubStatus := domain.GitHubActive
+		githubStatus := mapGitHubStatus(candidate.Repository.GitHubStatus)
 		switch {
 		case candidate.Repository.Private:
 			githubStatus = domain.GitHubPrivate
@@ -121,9 +122,33 @@ func (registry Registry) Merge(ctx context.Context, candidates []source.Candidat
 		} else {
 			report.UpdatedCount++
 		}
+		if err := registry.persistAdditionalSources(ctx, observation, candidate.Metadata["discovery_sources"]); err != nil {
+			report.FailureCount++
+			report.Failures = append(report.Failures, RegistryFailure{
+				RepositoryID: candidate.Repository.ID,
+				FullName:     candidate.Repository.FullName,
+				Error:        err.Error(),
+			})
+		}
 		report.Repositories = append(report.Repositories, repository)
 	}
 	return report, nil
+}
+
+func (registry Registry) persistAdditionalSources(ctx context.Context, observation domain.RepositoryObservation, sources string) error {
+	for _, value := range strings.Split(sources, ",") {
+		sourceValue, ok := mapSource(strings.TrimSpace(value))
+		if !ok || sourceValue == observation.Source {
+			continue
+		}
+		additional := observation
+		additional.Source = sourceValue
+		additional.Profile = ""
+		if _, _, err := registry.Store.UpsertRepository(ctx, additional); err != nil {
+			return fmt.Errorf("persist additional discovery source %s: %w", sourceValue, err)
+		}
+	}
+	return nil
 }
 
 func mapSource(value string) (domain.DiscoverySource, bool) {
@@ -149,5 +174,20 @@ func mapMonitoring(value string) domain.MonitoringStatus {
 		return domain.MonitoringStopped
 	default:
 		return domain.MonitoringActive
+	}
+}
+
+func mapGitHubStatus(value string) domain.GitHubStatus {
+	switch value {
+	case string(domain.GitHubArchived):
+		return domain.GitHubArchived
+	case string(domain.GitHubDeleted):
+		return domain.GitHubDeleted
+	case string(domain.GitHubPrivate):
+		return domain.GitHubPrivate
+	case string(domain.GitHubUnreachable):
+		return domain.GitHubUnreachable
+	default:
+		return domain.GitHubActive
 	}
 }
