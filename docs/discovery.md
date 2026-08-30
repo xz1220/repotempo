@@ -11,11 +11,10 @@ Discovery combines four signals that answer different questions.
 
 GitHub Search cannot be treated as a complete site crawl. A query returns at
 most 1,000 results and may report `incomplete_results`. Profiles that exceed the
-boundary are split by configured star bands, creation dates, or topics. The run
+boundary are split by configured star bands, creation dates, or pushed dates. The run
 record keeps the original query, partitions, total count, pages, completeness,
 and rate state.
 
 All sources resolve to a GitHub repository ID before persistence. Multiple
 source hits merge into one registry row while discovery provenance remains in
 the repository JSON fields and the job run details.
-
