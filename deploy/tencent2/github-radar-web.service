@@ -1,0 +1,29 @@
+[Unit]
+Description=GitHub Radar read-only Web dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=github-radar
+Group=github-radar
+EnvironmentFile=/etc/github-radar/github-radar.env
+ExecStart=/opt/github-radar/github-radar serve
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/github-radar
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
+

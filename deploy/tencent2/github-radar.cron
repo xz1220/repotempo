@@ -1,0 +1,7 @@
+# /etc/cron.d/github-radar
+CRON_TZ=Asia/Shanghai
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+15 9 * * * github-radar /usr/bin/flock -n /var/lib/github-radar/daily.lock /usr/bin/env -i HOME=/var/lib/github-radar PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /bin/sh -c '. /etc/github-radar/github-radar.env && export GITHUB_RADAR_GITHUB_TOKEN GITHUB_RADAR_DB_PATH GITHUB_RADAR_EXPORT_DIR GITHUB_RADAR_BACKUP_DIR GITHUB_RADAR_DISCOVERY_CONFIG GITHUB_RADAR_TOPICS_CONFIG GITHUB_RADAR_TIMEZONE GITHUB_RADAR_LOG_FORMAT GITHUB_RADAR_EXPORT_RETENTION_DAYS GITHUB_RADAR_BACKUP_RETENTION_DAYS; exec /opt/github-radar/github-radar run-daily' >>/var/log/github-radar/daily.log 2>&1
+
