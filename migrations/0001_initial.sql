@@ -119,5 +119,3 @@ BEGIN
         THEN RAISE(ABORT, 'topic hierarchy supports at most two levels')
     END;
 END;
-
-PRAGMA user_version = 1;

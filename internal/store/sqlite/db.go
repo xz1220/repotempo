@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -95,30 +96,58 @@ func applyMigrations(ctx context.Context, database *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("list embedded migrations: %w", err)
 	}
-	names := make([]string, 0, len(entries))
+	type migration struct {
+		name    string
+		version int
+	}
+	files := make([]migration, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
-			names = append(names, entry.Name())
+			prefix, _, ok := strings.Cut(entry.Name(), "_")
+			if !ok {
+				return fmt.Errorf("migration %s must start with a numeric version and underscore", entry.Name())
+			}
+			version, err := strconv.Atoi(prefix)
+			if err != nil || version <= 0 {
+				return fmt.Errorf("migration %s has invalid version %q", entry.Name(), prefix)
+			}
+			files = append(files, migration{name: entry.Name(), version: version})
 		}
 	}
-	sort.Strings(names)
-
-	transaction, err := database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin migrations: %w", err)
+	sort.Slice(files, func(i, j int) bool { return files[i].version < files[j].version })
+	for index := 1; index < len(files); index++ {
+		if files[index-1].version == files[index].version {
+			return fmt.Errorf("duplicate migration version %d", files[index].version)
+		}
 	}
-	defer func() { _ = transaction.Rollback() }()
-	for _, name := range names {
-		script, err := fs.ReadFile(migrations.Files, name)
+	var currentVersion int
+	if err := database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&currentVersion); err != nil {
+		return fmt.Errorf("read SQLite migration version: %w", err)
+	}
+	for _, file := range files {
+		if file.version <= currentVersion {
+			continue
+		}
+		script, err := fs.ReadFile(migrations.Files, file.name)
 		if err != nil {
-			return fmt.Errorf("read migration %s: %w", name, err)
+			return fmt.Errorf("read migration %s: %w", file.name, err)
+		}
+		transaction, err := database.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("begin migration %s: %w", file.name, err)
 		}
 		if _, err := transaction.ExecContext(ctx, string(script)); err != nil {
-			return fmt.Errorf("apply migration %s: %w", name, err)
+			_ = transaction.Rollback()
+			return fmt.Errorf("apply migration %s: %w", file.name, err)
 		}
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit migrations: %w", err)
+		if _, err := transaction.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", file.version)); err != nil {
+			_ = transaction.Rollback()
+			return fmt.Errorf("record migration %s: %w", file.name, err)
+		}
+		if err := transaction.Commit(); err != nil {
+			return fmt.Errorf("commit migration %s: %w", file.name, err)
+		}
+		currentVersion = file.version
 	}
 	return nil
 }
