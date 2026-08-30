@@ -101,12 +101,19 @@ fi
 systemctl stop github-radar-web.service
 service_stopped=true
 
+echo "Creating the system-disk emergency backup."
 install -d -o root -g root -m 0750 "$emergency_dir"
 sqlite3 "$old_root/github-radar.db" 'PRAGMA wal_checkpoint(TRUNCATE);' >/dev/null
+source_foreign_keys=$(sqlite3 "$old_root/github-radar.db" 'PRAGMA foreign_key_check;')
 sqlite3 "$old_root/github-radar.db" ".backup '$emergency_dir/pre-data-disk-$stamp.db'"
 test "$(sqlite3 "$emergency_dir/pre-data-disk-$stamp.db" 'PRAGMA integrity_check;')" = ok
-test -z "$(sqlite3 "$emergency_dir/pre-data-disk-$stamp.db" 'PRAGMA foreign_key_check;')"
+emergency_foreign_keys=$(sqlite3 "$emergency_dir/pre-data-disk-$stamp.db" 'PRAGMA foreign_key_check;')
+test "$source_foreign_keys" = "$emergency_foreign_keys"
+if [ -n "$source_foreign_keys" ]; then
+  echo "Warning: preserving pre-existing foreign-key findings from the source database." >&2
+fi
 
+echo "Copying exports, backups, imports, and a consistent live database."
 install -d -o github-radar -g github-radar -m 0750 \
   "$stage" "$stage/exports" "$stage/backups" "$stage/import" "$stage/migration-backups"
 for directory in exports backups import; do
@@ -117,8 +124,10 @@ done
 sqlite3 "$old_root/github-radar.db" ".backup '$stage/github-radar.db'"
 chmod 0640 "$stage/github-radar.db"
 test "$(sqlite3 "$stage/github-radar.db" 'PRAGMA integrity_check;')" = ok
-test -z "$(sqlite3 "$stage/github-radar.db" 'PRAGMA foreign_key_check;')"
+stage_foreign_keys=$(sqlite3 "$stage/github-radar.db" 'PRAGMA foreign_key_check;')
+test "$source_foreign_keys" = "$stage_foreign_keys"
 
+echo "Comparing source and destination database metrics."
 old_counts=$(sqlite3 -separator : "$old_root/github-radar.db" \
   "SELECT (SELECT COUNT(*) FROM repositories),(SELECT COUNT(*) FROM daily_snapshots),(SELECT COUNT(*) FROM topics),(SELECT COUNT(*) FROM repository_topics),(SELECT COUNT(*) FROM job_runs),(SELECT COALESCE(MAX(snapshot_date), '') FROM daily_snapshots),(SELECT COALESCE(SUM(star_count),0) FROM daily_snapshots WHERE star_count IS NOT NULL),(SELECT user_version FROM pragma_user_version);")
 new_counts=$(sqlite3 -separator : "$stage/github-radar.db" \
@@ -136,6 +145,7 @@ install -o github-radar -g github-radar -m 0640 /dev/null "$new_root/daily.lock"
 exec 8<>"$new_root/daily.lock"
 flock -n 8
 
+echo "Installing the data-disk runtime configuration."
 env_tmp=$(mktemp "$rollback_dir/env.XXXXXX")
 awk -v db="$new_root/github-radar.db" -v exports="$new_root/exports" -v backups="$new_root/backups" '
   BEGIN { seen_db=0; seen_exports=0; seen_backups=0; seen_locale=0 }
@@ -158,6 +168,7 @@ install -o root -g root -m 0755 "$script_dir/run-daily.sh" "$daily_script"
 install -o root -g root -m 0644 "$script_dir/github-radar.cron" "$cron_file"
 systemctl daemon-reload
 
+echo "Checking the migrated runtime and Web readiness."
 sudo -u github-radar /usr/bin/env -i \
   HOME="$new_root" \
   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \

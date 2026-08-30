@@ -93,6 +93,11 @@ Run this migration before the first data-disk-aware `install.sh` upgrade; the
 installer deliberately refuses to create an empty destination while it detects
 the legacy live database.
 
+The migration does not silently repair historical data. If the source database
+already has foreign-key findings, the emergency and destination copies must
+reproduce the exact same findings; any difference aborts the cutover. Record and
+resolve legacy findings as a separate, reviewed data-maintenance change.
+
 Run the migration away from the 09:15 collection minute. Both the old and new
 lock files are held during cutover, so a scheduled run cannot overlap the copy;
 if it fires while migration is in progress, run `run-daily` manually afterward.
