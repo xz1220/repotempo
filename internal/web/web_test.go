@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +44,11 @@ func (f *fakeQueryer) DashboardSummary(context.Context, time.Time) (DashboardSum
 }
 
 func (f *fakeQueryer) ListRepositoryMetrics(_ context.Context, query RepositoryQuery) (RepositoryPage, error) {
+	f.lastRepositoryQuery = query
+	return f.repositories, f.repositoriesErr
+}
+
+func (f *fakeQueryer) ListRepositoryTrends(_ context.Context, query RepositoryQuery) (RepositoryPage, error) {
 	f.lastRepositoryQuery = query
 	return f.repositories, f.repositoriesErr
 }
@@ -84,16 +91,15 @@ func TestMainRoutesRender(t *testing.T) {
 		wantStatus  int
 		wantContent string
 	}{
-		{path: "/", wantStatus: http.StatusOK, wantContent: "Monitoring summary"},
-		{path: "/repositories", wantStatus: http.StatusOK, wantContent: "acme/radar"},
+		{path: "/", wantStatus: http.StatusOK, wantContent: "Project monitoring"},
+		{path: "/repositories", wantStatus: http.StatusOK, wantContent: "Project monitoring"},
 		{path: "/repositories/101", wantStatus: http.StatusOK, wantContent: "Valid history starts"},
 		{path: "/topics", wantStatus: http.StatusOK, wantContent: "AI Agent"},
 		{path: "/topics/ai-agent", wantStatus: http.StatusOK, wantContent: "Top repository share"},
-		{path: "/discoveries", wantStatus: http.StatusOK, wantContent: "GitHub Search profiles"},
 		{path: "/runs", wantStatus: http.StatusOK, wantContent: "Recent job runs"},
 		{path: "/static/tokens.css", wantStatus: http.StatusOK, wantContent: "--color-accent:"},
-		{path: "/static/app.css", wantStatus: http.StatusOK, wantContent: "Research Workbench"},
-		{path: "/static/app.js", wantStatus: http.StatusOK, wantContent: "data-nav-toggle"},
+		{path: "/static/app.css", wantStatus: http.StatusOK, wantContent: "macrostructure: Catalogue"},
+		{path: "/static/app.js", wantStatus: http.StatusOK, wantContent: "document.documentElement"},
 		{path: "/healthz", wantStatus: http.StatusOK, wantContent: "ok"},
 		{path: "/readyz", wantStatus: http.StatusOK, wantContent: "ready"},
 	}
@@ -131,21 +137,20 @@ func TestStaticAssetsRevalidateWithETag(t *testing.T) {
 	}
 }
 
-func TestChineseLocaleRendersAllDashboardRoutes(t *testing.T) {
+func TestChineseLocaleRendersAllProductRoutes(t *testing.T) {
 	queryer := populatedFake()
-	queryer.dashboard.Warnings = []string{"Current snapshot coverage is temporarily unavailable."}
+	queryer.repositories.Warnings = []string{"Current snapshot coverage is temporarily unavailable."}
 	handler := newTestHandlerWithLocale(t, queryer, localeChinese)
 
 	tests := []struct {
 		path string
 		want string
 	}{
-		{path: "/", want: "监控概况"},
-		{path: "/repositories", want: "项目指标"},
+		{path: "/", want: "项目监测"},
+		{path: "/repositories", want: "项目监测"},
 		{path: "/repositories/101", want: "有效历史起始日"},
 		{path: "/topics", want: "主题指标"},
 		{path: "/topics/ai-agent", want: "头部项目占比"},
-		{path: "/discoveries", want: "GitHub Search 配置"},
 		{path: "/runs", want: "最近任务运行"},
 		{path: "/not-here", want: "页面不存在"},
 	}
@@ -167,9 +172,9 @@ func TestChineseLocaleRendersAllDashboardRoutes(t *testing.T) {
 	}
 
 	home := request(t, handler, "/").Body.String()
-	for _, want := range []string{"当前快照覆盖率暂不可用。", "部分成功", "截至 2026-08-30"} {
+	for _, want := range []string{"当前快照覆盖率暂不可用。", "严格对比区间：2026-08-23 至 2026-08-30", "截至 2026-08-30"} {
 		if !strings.Contains(home, want) {
-			t.Errorf("Chinese overview does not contain %q", want)
+			t.Errorf("Chinese project monitor does not contain %q", want)
 		}
 	}
 }
@@ -211,20 +216,31 @@ func TestLanguageQueryPersistsCookieAndPreservesLocation(t *testing.T) {
 	}
 }
 
-func TestResearchWorkbenchShellAndDetailOrientationRender(t *testing.T) {
+func TestCatalogueShellAndDetailOrientationRender(t *testing.T) {
 	handler := newTestHandler(t, populatedFake())
 	home := request(t, handler, "/").Body.String()
 	for _, want := range []string{
 		`href="/static/tokens.css"`,
-		`class="utility-row"`,
-		`class="primary-row"`,
+		`class="header-inner"`,
+		`class="primary-nav"`,
 		`>Projects<`,
-		`>New discoveries<`,
-		`>Collection status<`,
-		`class="home-primary-grid"`,
+		`>Topics<`,
+		`class="history-link `,
+		`>History<`,
+		`class="monitor-controls"`,
+		`class="comparison-summary"`,
+		`class="data-table repository-trend-table"`,
 	} {
 		if !strings.Contains(home, want) {
 			t.Errorf("home does not contain %q: %s", want, home)
+		}
+	}
+	if count := strings.Count(home, `class="nav-link `); count != 2 {
+		t.Errorf("primary navigation link count = %d, want 2", count)
+	}
+	for _, unwanted := range []string{`href="/discoveries"`, `>New discoveries<`, `>Collection status<`} {
+		if strings.Contains(home, unwanted) {
+			t.Errorf("home still contains obsolete top-level navigation %q", unwanted)
 		}
 	}
 
@@ -234,6 +250,7 @@ func TestResearchWorkbenchShellAndDetailOrientationRender(t *testing.T) {
 		`class="table-scroll repository-table-scroll"`,
 		`class="repository-record-list"`,
 		`class="repository-mobile-metrics"`,
+		`action="/repositories"`,
 	} {
 		if !strings.Contains(projects, want) {
 			t.Errorf("projects does not contain %q: %s", want, projects)
@@ -243,7 +260,7 @@ func TestResearchWorkbenchShellAndDetailOrientationRender(t *testing.T) {
 	repository := request(t, handler, "/repositories/101").Body.String()
 	if !strings.Contains(repository, `class="breadcrumb"`) ||
 		!strings.Contains(repository, `aria-label="Breadcrumb"`) ||
-		!strings.Contains(repository, `href="/repositories"`) ||
+		!strings.Contains(repository, `href="/"`) ||
 		!strings.Contains(repository, `class="entity-title-repository" translate="no"`) {
 		t.Fatalf("repository breadcrumb is missing: %s", repository)
 	}
@@ -259,7 +276,7 @@ func TestResearchWorkbenchShellAndDetailOrientationRender(t *testing.T) {
 func TestUnsupportedLocaleFallsBackToEnglish(t *testing.T) {
 	handler := newTestHandlerWithLocale(t, populatedFake(), "fr-FR")
 	response := request(t, handler, "/?lang=fr-FR")
-	if !strings.Contains(response.Body.String(), `<html lang="en">`) || !strings.Contains(response.Body.String(), "Monitoring summary") {
+	if !strings.Contains(response.Body.String(), `<html lang="en">`) || !strings.Contains(response.Body.String(), "Project monitoring") {
 		t.Fatalf("unsupported locale did not fall back to English: %s", response.Body.String())
 	}
 	if values := response.Header().Values("Set-Cookie"); len(values) != 0 {
@@ -294,10 +311,9 @@ func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 		path string
 		want string
 	}{
-		{path: "/", want: "No comparable growth yet"},
+		{path: "/", want: "No repositories match"},
 		{path: "/repositories", want: "No repositories match"},
 		{path: "/topics", want: "No topics configured"},
-		{path: "/discoveries", want: "No discoveries recorded"},
 		{path: "/runs", want: "No job runs recorded"},
 	}
 	for _, test := range tests {
@@ -313,27 +329,91 @@ func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 	}
 }
 
-func TestRepositoryFiltersAndPaginationArePreserved(t *testing.T) {
+func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
 	queryer := populatedFake()
 	queryer.repositories.Total = 120
+	queryer.repositories.HasMore = true
+	queryer.repositories.NextCursor = "2t"
+	queryer.repositories.Items[0].IsNew = true
 	handler := newTestHandler(t, queryer)
-	response := request(t, handler, "/repositories?q=acme+radar&topic=ai-agent&source=manual&status=active&offset=50")
+	response := request(t, handler, "/?q=acme+radar&topic=ai-agent&date=2026-08-29&period=30d&sort=rank_change&new=1&source=manual&status=active&cursor=2s&lang=en")
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", response.Code)
 	}
 	got := queryer.lastRepositoryQuery
-	if got.Search != "acme radar" || got.TopicSlug != "ai-agent" || got.Source != "manual" || got.MonitoringStatus != "active" {
+	if got.Search != "acme radar" || got.TopicSlug != "ai-agent" || got.Source != "manual" || got.MonitoringStatus != "active" || got.Sort != "rank_change" || !got.OnlyNew {
 		t.Fatalf("unexpected filter: %#v", got)
 	}
-	if got.Limit != repositoryPageSize || got.Offset != 50 {
+	if got.WindowDays != 30 || got.AsOf.Format("2006-01-02") != "2026-08-29" {
+		t.Fatalf("unexpected comparison window: %#v", got)
+	}
+	if got.Limit != repositoryPageSize || got.AfterID == nil || *got.AfterID != 100 {
 		t.Fatalf("unexpected pagination query: %#v", got)
 	}
-	body := response.Body.String()
-	for _, value := range []string{"offset=100", "q=acme&#43;radar", "topic=ai-agent", "Showing 51 to 100 of 120"} {
+	body := html.UnescapeString(response.Body.String())
+	for _, value := range []string{
+		`href="/?cursor=2t&date=2026-08-29&lang=en&new=1&period=30d&q=acme+radar&sort=rank_change&source=manual&status=active&topic=ai-agent"`,
+		`name="period" value="30d"`,
+		`name="sort" value="rank_change"`,
+		`name="new" type="checkbox" value="1" checked`,
+		`value="manual" selected`,
+		`value="active" selected`,
+		`Strict comparison: 2026-08-23 to 2026-08-30`,
+		`1,150</strong><span>comparable projects`,
+		`class="new-badge">New`,
+		`class="rank-transition"`,
+		`7 → 4`,
+		`+3 places`,
+		`+61.4`,
+	} {
 		if !strings.Contains(body, value) {
 			t.Errorf("body does not contain %q", value)
 		}
+	}
+}
+
+func TestDiscoveriesRedirectsToNewProjectFilter(t *testing.T) {
+	response := request(t, newTestHandler(t, populatedFake()), "/discoveries?lang=zh-CN&period=30d&q=radar&cursor=abc")
+	if response.Code != http.StatusFound {
+		t.Fatalf("status = %d, want 302", response.Code)
+	}
+	location, err := url.Parse(response.Header().Get("Location"))
+	if err != nil {
+		t.Fatalf("parse redirect location: %v", err)
+	}
+	if location.Path != "/" || location.Query().Get("new") != "1" || location.Query().Get("period") != "30d" || location.Query().Get("q") != "radar" || location.Query().Get("lang") != localeChinese {
+		t.Fatalf("redirect location = %q", location.String())
+	}
+	if location.Query().Has("cursor") {
+		t.Fatalf("redirect retained stale cursor: %q", location.String())
+	}
+}
+
+func TestStaleRepositoryCursorRedirectsToFirstPage(t *testing.T) {
+	queryer := populatedFake()
+	queryer.repositoriesErr = ErrInvalid
+	response := request(t, newTestHandler(t, queryer), "/?topic=skills&period=7d&cursor=stale&lang=zh-CN")
+	if response.Code != http.StatusFound {
+		t.Fatalf("status = %d, want 302", response.Code)
+	}
+	location, err := url.Parse(response.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if location.Query().Has("cursor") || location.Query().Get("topic") != "skills" || location.Query().Get("period") != "7d" || location.Query().Get("lang") != localeChinese {
+		t.Fatalf("cursor recovery location = %q", location.String())
+	}
+}
+
+func TestInvalidRepositoryDateReturnsBadRequest(t *testing.T) {
+	queryer := populatedFake()
+	response := request(t, newTestHandlerWithLocale(t, queryer, localeChinese), "/?date=2026-02-30")
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", response.Code)
+	}
+	if !strings.Contains(response.Body.String(), "观测日期无效") || !strings.Contains(response.Body.String(), "YYYY-MM-DD") {
+		t.Fatalf("invalid date response = %s", response.Body.String())
 	}
 }
 
@@ -394,7 +474,7 @@ func TestTemplatesEscapeContentAndRejectUnsafeLinks(t *testing.T) {
 
 func TestWarningsAndFailedObservationsStayVisible(t *testing.T) {
 	queryer := populatedFake()
-	queryer.dashboard.Warnings = []string{`Search profile <partial> was incomplete`}
+	queryer.repositories.Warnings = []string{`Search profile <partial> was incomplete`}
 	queryer.repository.History[1].Stars = nil
 	queryer.repository.History[1].FetchStatus = "failed"
 	queryer.repository.FailedDates = []SnapshotPoint{queryer.repository.History[1]}
@@ -432,50 +512,84 @@ func TestChartPreservesMissingObservationAsGap(t *testing.T) {
 	}
 }
 
-func TestDashboardGrowthChartDistinguishesNegativeZeroAndMissing(t *testing.T) {
+func TestRepositoryDetailRendersStoredProjectAnalysis(t *testing.T) {
 	queryer := populatedFake()
-	queryer.dashboard.GrowthHistory = []GrowthPoint{
+	queryer.repository.Analysis = &RepositoryAnalysis{
+		SummaryZH:      "这个项目持续追踪 GitHub 项目的 Star 变化。",
+		KeyPoints:      []string{"记录每日 Star 快照", "区分缺失观测与真实零增长"},
+		UseCases:       []string{"观察开源项目的增长势头"},
+		TechnicalNotes: "分析结果离线生成，Web 服务只读展示。",
+		Source:         "codex",
+		Model:          "gpt-5.4",
+		Revision:       2,
+		AnalyzedAt:     mustDate("2026-08-30"),
+	}
+	body := request(t, newTestHandler(t, queryer), "/repositories/101").Body.String()
+	for _, want := range []string{
+		"Project interpretation",
+		"这个项目持续追踪 GitHub 项目的 Star 变化。",
+		"记录每日 Star 快照",
+		"观察开源项目的增长势头",
+		"分析结果离线生成，Web 服务只读展示。",
+		"codex analysis · revision 2 · 2026-08-30",
+		"gpt-5.4",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("stored analysis does not contain %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "Codex interpretation has not been generated yet") {
+		t.Fatal("stored analysis rendered the pending fallback")
+	}
+}
+
+func TestRepositoryDetailAnalysisFallbackPrefersManualNoteThenDescription(t *testing.T) {
+	queryer := populatedFake()
+	queryer.repository.Analysis = nil
+	queryer.repository.Repository.ManualNote = "这是一条已经保存的人工项目说明。"
+	body := request(t, newTestHandler(t, queryer), "/repositories/101").Body.String()
+	for _, want := range []string{"Codex interpretation has not been generated yet", "这是一条已经保存的人工项目说明。"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("manual-note fallback does not contain %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "GitHub description: A repository trend monitor.") {
+		t.Fatal("description fallback displaced a manual note")
+	}
+
+	queryer.repository.Repository.ManualNote = ""
+	body = request(t, newTestHandler(t, queryer), "/repositories/101").Body.String()
+	if !strings.Contains(body, "GitHub description: A repository trend monitor.") {
+		t.Fatalf("GitHub description fallback is missing: %s", body)
+	}
+}
+
+func TestDashboardGrowthChartModelDistinguishesNegativeZeroAndMissing(t *testing.T) {
+	history := []GrowthPoint{
 		{Date: mustDate("2026-08-27"), Delta: int64Pointer(120), ComparableRepositoryCount: 100},
 		{Date: mustDate("2026-08-28"), Delta: int64Pointer(0), ComparableRepositoryCount: 104},
 		{Date: mustDate("2026-08-29"), Delta: nil},
 		{Date: mustDate("2026-08-30"), Delta: int64Pointer(-35), ComparableRepositoryCount: 103, GapSpanningRepositoryCount: 2},
 	}
-	handler := newTestHandler(t, queryer)
-	response := request(t, handler, "/")
-	if response.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", response.Code)
+	chart := dashboardGrowthChart(history, newLocalizer(localeEnglish))
+	if !chart.HasPoints || !chart.HasComparable || len(chart.Bars) != 4 {
+		t.Fatalf("growth chart = %#v", chart)
 	}
-	body := response.Body.String()
-	for _, want := range []string{
-		`class="growth-bar-positive"`,
-		`class="growth-bar-negative"`,
-		`class="growth-bar-zero"`,
-		`class="growth-bar-missing"`,
-		"View exact daily values",
-		">-35<",
-		">0<",
-	} {
-		if !strings.Contains(body, want) {
-			t.Errorf("body does not contain %q: %s", want, body)
+	wantClasses := []string{"growth-bar-positive", "growth-bar-zero", "growth-bar-missing", "growth-bar-negative"}
+	for index, want := range wantClasses {
+		if chart.Bars[index].Class != want {
+			t.Errorf("bar %d class = %q, want %q", index, chart.Bars[index].Class, want)
 		}
 	}
-	if strings.Contains(body, `style="`) {
-		t.Fatal("chart emitted an inline style, which violates the CSP")
+	if !chart.Bars[2].Missing || !strings.Contains(chart.Bars[3].Tooltip, "-35") {
+		t.Fatalf("missing/negative observations were not represented: %#v", chart.Bars)
 	}
 }
 
-func TestDashboardGrowthChartNeedsAComparablePoint(t *testing.T) {
-	queryer := populatedFake()
-	queryer.dashboard.GrowthHistory = []GrowthPoint{{Date: mustDate("2026-08-30")}}
-	body := request(t, newTestHandler(t, queryer), "/").Body.String()
-	if strings.Contains(body, `class="growth-chart"`) {
-		t.Fatal("all-missing growth history rendered a chart")
-	}
-	if !strings.Contains(body, "No comparable daily history yet") {
-		t.Fatalf("all-missing history did not render the empty state: %s", body)
-	}
-	if !strings.Contains(body, "View exact daily values") || !strings.Contains(body, ">N/A<") {
-		t.Fatalf("all-missing history did not preserve its exact-value table: %s", body)
+func TestDashboardGrowthChartModelNeedsAComparablePoint(t *testing.T) {
+	chart := dashboardGrowthChart([]GrowthPoint{{Date: mustDate("2026-08-30")}}, newLocalizer(localeEnglish))
+	if !chart.HasPoints || chart.HasComparable || len(chart.Bars) != 1 || !chart.Bars[0].Missing {
+		t.Fatalf("all-missing growth chart = %#v", chart)
 	}
 }
 
@@ -539,10 +653,29 @@ func TestTopicRankingUsesLeafTopicsPeriodAndEightItemLimit(t *testing.T) {
 	for _, want := range []string{
 		`href="/topics?lang=zh-CN&amp;period=1d"`,
 		`aria-current="page">近 30 天`,
-		"叶子主题增长排行",
+		"可比较主题增长排行",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("body does not contain %q: %s", want, body)
+		}
+	}
+}
+
+func TestTopicsExposeClassificationAndComparableCoverage(t *testing.T) {
+	body := request(t, newTestHandlerWithLocale(t, populatedFake(), localeChinese), "/topics?period=7d").Body.String()
+	for _, want := range []string{
+		"主题分类覆盖",
+		"监测范围内",
+		">1,250<",
+		"已分类",
+		">850<",
+		"未分类",
+		">400<",
+		"68.0%",
+		"90/120 可比",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("topic coverage does not contain %q: %s", want, body)
 		}
 	}
 }
@@ -571,23 +704,16 @@ func TestDiscoveryMixUsesStableSourceColorsAndKeepsZeroCounts(t *testing.T) {
 			t.Errorf("source %q color changed from %q to %q", source, color, colors(second)[source])
 		}
 	}
-
-	queryer := populatedFake()
-	queryer.discoveries.FirstSeenSources = sources
-	body := request(t, newTestHandler(t, queryer), "/discoveries").Body.String()
-	for _, want := range []string{"75.0%", "25.0%", "0 · 0.0%", "source-fill-1", "source-fill-2", "source-fill-3", "source-fill-4"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("body does not contain %q: %s", want, body)
+	for _, segment := range first.Segments {
+		if (segment.Source == "manual" || segment.Source == "legacy") && segment.Percent != "0.0%" {
+			t.Errorf("zero-count source %q percent = %q", segment.Source, segment.Percent)
 		}
-	}
-	if strings.Contains(body, "source-strip") {
-		t.Fatal("legacy source strip is still rendered")
 	}
 }
 
 func TestFatalQueryErrorIsGeneric(t *testing.T) {
 	queryer := populatedFake()
-	queryer.dashboardErr = errors.New("database failed with secret-token-value")
+	queryer.repositoriesErr = errors.New("database failed with secret-token-value")
 	handler := newTestHandler(t, queryer)
 	response := request(t, handler, "/")
 	if response.Code != http.StatusInternalServerError {
@@ -668,6 +794,13 @@ func populatedFake() *fakeQueryer {
 		FirstSeenAt:      mustTime("2026-08-27T02:00:00Z"),
 		MonitoringStatus: "active",
 		GitHubStatus:     "active",
+		BaselineStars:    int64Pointer(12_020),
+		CurrentRank:      int64Pointer(4),
+		BaselineRank:     int64Pointer(7),
+		RankChange:       int64Pointer(3),
+		StarDelta:        int64Pointer(430),
+		GrowthRate:       float64Pointer(3.6),
+		DailyVelocity:    float64Pointer(61.4),
 	}
 	run := JobRun{
 		RunID:               "run-20260830-011500",
@@ -710,8 +843,17 @@ func populatedFake() *fakeQueryer {
 			Topics:             []TopicRef{{Slug: "ai-agent", Name: "AI Agent"}},
 			Sources:            []string{"ossinsight", "github_search", "legacy", "manual"},
 			MonitoringStatuses: []string{"active", "paused", "stopped"},
+			Coverage: ComparisonCoverage{
+				BaselineDate:    mustDate("2026-08-23"),
+				AsOfDate:        mustDate("2026-08-30"),
+				ScopeCount:      1_250,
+				ObservedCount:   1_200,
+				ComparableCount: 1_150,
+				NewCount:        12,
+			},
 		},
 		repository: RepositoryDetail{
+			AsOf:       lastSnapshot,
 			Repository: repository,
 			History: []SnapshotPoint{
 				{Date: mustDate("2026-08-27"), Stars: int64Pointer(12_000), FetchStatus: "success", OSSRank: int64Pointer(9)},
@@ -722,7 +864,9 @@ func populatedFake() *fakeQueryer {
 			PreviousNames: []string{"acme/star-radar"},
 			ValidFrom:     &validFrom,
 		},
-		topics: TopicPage{Items: []TopicMetric{{
+		topics: TopicPage{AsOf: lastSnapshot, Classification: TopicClassificationCoverage{
+			RepositoryCount: 1_250, ClassifiedCount: 850, UnclassifiedCount: 400, Percent: float64Pointer(68),
+		}, Items: []TopicMetric{{
 			ID:              1,
 			Slug:            "ai-agent",
 			Name:            "AI Agent",
@@ -732,8 +876,12 @@ func populatedFake() *fakeQueryer {
 			Delta1D:         int64Pointer(5_200),
 			Delta7D:         int64Pointer(31_400),
 			Delta30D:        int64Pointer(120_000),
+			Comparable1D:    100,
+			Comparable7D:    90,
+			Comparable30D:   80,
 		}}},
 		topic: TopicDetail{
+			AsOf: lastSnapshot,
 			Topic: TopicMetric{
 				ID:              1,
 				Slug:            "ai-agent",
@@ -744,6 +892,9 @@ func populatedFake() *fakeQueryer {
 				Delta1D:         int64Pointer(5_200),
 				Delta7D:         int64Pointer(31_400),
 				Delta30D:        int64Pointer(120_000),
+				Comparable1D:    100,
+				Comparable7D:    90,
+				Comparable30D:   80,
 			},
 			Repositories:           []RepositoryMetric{repository},
 			History:                []TrendPoint{{Date: mustDate("2026-08-29"), Stars: int64Pointer(3_194_800)}, {Date: mustDate("2026-08-30"), Stars: int64Pointer(3_200_000)}},
@@ -801,6 +952,10 @@ func request(t *testing.T, handler http.Handler, path string) *httptest.Response
 }
 
 func int64Pointer(value int64) *int64 {
+	return &value
+}
+
+func float64Pointer(value float64) *float64 {
 	return &value
 }
 
