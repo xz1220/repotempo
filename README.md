@@ -36,6 +36,9 @@ monthly coverage is present but disabled until the operator checks Search
   incomplete-result detection, and separate Search rate handling.
 - One explicit success or failure row per active repository per day.
 - Two-level topic taxonomy with manual assignments taking precedence.
+- Strict 1/7/30-day cohort comparisons, monitored-sample rank movement, and
+  cursor-based project browsing.
+- Durable Codex/manual project interpretations imported from traceable JSON.
 - Legacy SQLite, CSV, YAML, JSON, and manual-watchlist input paths.
 - CSV, JSON, and SQLite exports.
 - Embedded Chinese/English server-rendered dashboard with no frontend build chain.
@@ -185,6 +188,35 @@ unchanged. See [Feishu Base import](docs/feishu-base-import.md).
 A repository can belong to multiple topics. Confirmed manual assignments are
 not overwritten by imported GitHub topics or automatic suggestions.
 
+## Save a project interpretation
+
+Codex or another review workflow can write a small JSON artifact and import it
+without giving the read-only Web process write access:
+
+```json
+{
+  "summary_zh": "这个项目解决的问题和核心做法。",
+  "key_points": ["主要能力一", "主要能力二"],
+  "use_cases": ["适用场景"],
+  "technical_notes": "需要保留的实现说明。",
+  "source": "codex",
+  "model": "model-name"
+}
+```
+
+```sh
+./bin/github-radar analysis import \
+  --repo owner/name \
+  --file config/analysis.example.json
+```
+
+Each import replaces the current stored interpretation and increments its
+revision counter while keeping source, model, and analysis time. This release
+does not retain prior interpretation bodies. Existing non-empty manual notes
+are migrated as revision 1 and are not overwritten by the migration. SQLite
+backups include interpretations; the regular CSV/JSON monitoring exports do not
+yet include them.
+
 ## Export data
 
 ```sh
@@ -202,9 +234,13 @@ export GITHUB_RADAR_LISTEN_ADDR=127.0.0.1:8787
 ./bin/github-radar serve
 ```
 
-The dashboard includes overview metrics, repository filters, repository star
-history, topic stock and growth, concentration with optional leader exclusion,
-discovery evidence, task runs, and explicit failure dates. Health endpoints are
+The home page is the project monitor. It compares only repositories with valid
+observations at both endpoints, shows current Stars, momentum, relative growth,
+and monitored-sample rank movement, and supports a specific observation date.
+New discoveries and unclassified projects are lightweight filters in the same
+catalog. Project detail pages add the stored project interpretation, Star
+history, collection provenance, and explicit failure dates. Collection history
+is a header utility rather than a primary section. Health endpoints are
 available at `/healthz` and `/readyz`.
 
 Set `GITHUB_RADAR_LOCALE=zh-CN` for Chinese or
@@ -241,6 +277,7 @@ Collection run evidence:
 discover --source ossinsight|github-search|legacy|all [--profile NAME]
 snapshot
 import-legacy --path PATH
+analysis import --repo OWNER/NAME --file PATH
 topic list|assign|remove
 watch add|pause|resume
 export --format csv|json|sqlite
@@ -249,9 +286,10 @@ run-daily
 serve
 ```
 
-Commands return stable exit codes, support human-readable output and `--json`,
-and write commands accept `--dry-run`. Secrets are read from the environment,
-not command arguments.
+Commands return stable exit codes and support human-readable output and
+`--json`. Collection, taxonomy, watchlist, and export writes expose dry-run
+paths; `analysis import` validates one explicit JSON artifact before writing a
+new revision. Secrets are read from the environment, not command arguments.
 
 ## Daily data semantics
 

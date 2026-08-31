@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-08-31",
+    "scope": "app",
+    "genre": "modern-minimal",
+    "macrostructure": "Catalogue",
+    "theme": "GitHub Radar cool-neutral",
+    "navigation": "single app bar",
+    "footer": "Ft1 mast-headed data note",
+    "enrichment": "none",
+    "brief": "项目历史监测首页"
+  },
+  {
     "date": "2026-08-30",
     "scope": "app",
     "genre": "modern-minimal",
