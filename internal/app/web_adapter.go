@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,7 +70,56 @@ func (adapter WebAdapter) ListRepositoryMetrics(ctx context.Context, query web.R
 	}, nil
 }
 
+func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.RepositoryQuery) (web.RepositoryPage, error) {
+	asOf, err := adapter.resolveAsOf(ctx, query.AsOf)
+	if err != nil {
+		return web.RepositoryPage{}, err
+	}
+	domainQuery := domain.RepositoryTrendQuery{
+		AsOf:             domain.ShanghaiDate(asOf),
+		WindowDays:       query.WindowDays,
+		Search:           query.Search,
+		TopicSlug:        query.TopicSlug,
+		DiscoverySource:  validDiscoverySource(query.Source),
+		MonitoringStatus: validMonitoringStatus(query.MonitoringStatus),
+		Sort:             validTrendSort(query.Sort),
+		OnlyNew:          query.OnlyNew,
+		Limit:            query.Limit,
+		AfterID:          query.AfterID,
+	}
+	value, err := adapter.Store.ListRepositoryTrends(ctx, domainQuery)
+	if err != nil {
+		return web.RepositoryPage{}, mapWebError(err)
+	}
+	topics, err := adapter.Store.ListTopics(ctx, domain.TopicActive)
+	if err != nil {
+		return web.RepositoryPage{}, mapWebError(err)
+	}
+	query.AsOf = dateTime(value.Coverage.AsOfDate)
+	query.WindowDays = domainQuery.WindowDays
+	query.Sort = string(domainQuery.Sort)
+	result := web.RepositoryPage{
+		Items:              mapRepositoryTrends(value.Items),
+		Total:              value.Total,
+		Filter:             query,
+		Topics:             mapTopicFilterRefs(topics),
+		Sources:            []string{"ossinsight", "github_search", "legacy", "manual"},
+		MonitoringStatuses: []string{"active", "paused", "stopped"},
+		Coverage:           mapComparisonCoverage(value.Coverage),
+		HasMore:            value.HasMore,
+	}
+	if result.HasMore && len(result.Items) > 0 {
+		result.NextCursor = strconv.FormatInt(result.Items[len(result.Items)-1].ID, 36)
+	}
+	return result, nil
+}
+
 func (adapter WebAdapter) GetRepositoryDetail(ctx context.Context, id int64, asOf time.Time) (web.RepositoryDetail, error) {
+	resolved, err := adapter.resolveAsOf(ctx, asOf)
+	if err != nil {
+		return web.RepositoryDetail{}, err
+	}
+	asOf = resolved
 	value, err := adapter.Store.GetRepositoryDetail(ctx, id, domain.ShanghaiDate(asOf))
 	if err != nil {
 		return web.RepositoryDetail{}, mapWebError(err)
@@ -85,7 +135,9 @@ func (adapter WebAdapter) GetRepositoryDetail(ctx context.Context, id int64, asO
 	}
 	validFrom := datePointer(value.ValidFrom)
 	return web.RepositoryDetail{
+		AsOf:          asOf,
 		Repository:    mapRepositoryMetric(value.Metric),
+		Analysis:      mapRepositoryAnalysis(value.Analysis),
 		History:       history,
 		FailedDates:   failed,
 		PreviousNames: append([]string(nil), value.Metric.Repository.PreviousNames...),
@@ -94,6 +146,11 @@ func (adapter WebAdapter) GetRepositoryDetail(ctx context.Context, id int64, asO
 }
 
 func (adapter WebAdapter) ListTopicMetrics(ctx context.Context, asOf time.Time) (web.TopicPage, error) {
+	resolved, err := adapter.resolveAsOf(ctx, asOf)
+	if err != nil {
+		return web.TopicPage{}, err
+	}
+	asOf = resolved
 	values, err := adapter.Store.ListTopicMetrics(ctx, domain.ShanghaiDate(asOf))
 	if err != nil {
 		return web.TopicPage{}, mapWebError(err)
@@ -103,10 +160,19 @@ func (adapter WebAdapter) ListTopicMetrics(ctx context.Context, asOf time.Time) 
 	for _, value := range values {
 		items = append(items, mapTopicMetric(value, parentNames))
 	}
-	return web.TopicPage{Items: items}, nil
+	coverage, err := adapter.Store.TopicClassificationCoverage(ctx, domain.ShanghaiDate(asOf))
+	if err != nil {
+		return web.TopicPage{}, mapWebError(err)
+	}
+	return web.TopicPage{AsOf: asOf, Items: items, Classification: mapTopicClassificationCoverage(coverage)}, nil
 }
 
 func (adapter WebAdapter) GetTopicDetail(ctx context.Context, slug string, asOf time.Time, excludeLeader bool) (web.TopicDetail, error) {
+	resolved, err := adapter.resolveAsOf(ctx, asOf)
+	if err != nil {
+		return web.TopicDetail{}, err
+	}
+	asOf = resolved
 	value, err := adapter.Store.GetTopicDetail(ctx, slug, domain.ShanghaiDate(asOf), excludeLeader)
 	if err != nil {
 		return web.TopicDetail{}, mapWebError(err)
@@ -126,6 +192,7 @@ func (adapter WebAdapter) GetTopicDetail(ctx context.Context, slug string, asOf 
 		concentrationPercent = &percent
 	}
 	return web.TopicDetail{
+		AsOf:                   asOf,
 		Topic:                  mapTopicMetric(value.Metric, parentNames),
 		Repositories:           mapRepositoryMetrics(value.Repositories),
 		History:                history,
@@ -157,8 +224,12 @@ func (adapter WebAdapter) ListJobRuns(ctx context.Context, limit, offset int) (w
 	}
 	total := len(all)
 	page := pageJobRuns(all, offset, limit)
-	coverageSummary, summaryErr := adapter.Store.DashboardSummary(ctx, domain.ShanghaiDate(time.Now()))
 	result := web.RunsPage{Items: mapJobRuns(page), Total: total, Limit: limit, Offset: offset}
+	latest, latestErr := adapter.Store.LatestSnapshotDate(ctx)
+	coverageSummary, summaryErr := domain.DashboardSummary{}, latestErr
+	if latestErr == nil {
+		coverageSummary, summaryErr = adapter.Store.DashboardSummary(ctx, latest)
+	}
 	if summaryErr == nil {
 		result.CurrentCoverage = mapCoverage(coverageSummary.Coverage)
 		if coverageSummary.Coverage.Date != "" && coverageSummary.Coverage.SuccessCount > 0 {
@@ -202,6 +273,70 @@ func mapRepositoryMetric(value domain.RepositoryMetric) web.RepositoryMetric {
 		FirstSeenAt:      repository.FirstSeenAt,
 		MonitoringStatus: string(repository.MonitoringStatus),
 		GitHubStatus:     string(repository.GitHubStatus),
+		ManualNote:       repository.ManualNote,
+	}
+}
+
+func mapRepositoryTrends(values []domain.RepositoryTrendMetric) []web.RepositoryMetric {
+	result := make([]web.RepositoryMetric, 0, len(values))
+	for _, value := range values {
+		repository := value.Repository
+		var growthRate *float64
+		if value.GrowthRate != nil {
+			percent := *value.GrowthRate * 100
+			growthRate = &percent
+		}
+		result = append(result, web.RepositoryMetric{
+			ID:               repository.GitHubRepoID,
+			FullName:         repository.FullName,
+			HTMLURL:          repository.HTMLURL,
+			Description:      repository.Description,
+			PrimaryLanguage:  repository.PrimaryLanguage,
+			CurrentStars:     value.CurrentStars,
+			Topics:           mapTopicRefs(value.Topics),
+			FirstSeenSource:  string(repository.FirstSeenSource),
+			FirstSeenProfile: repository.FirstSeenProfile,
+			FirstSeenAt:      repository.FirstSeenAt,
+			MonitoringStatus: string(repository.MonitoringStatus),
+			GitHubStatus:     string(repository.GitHubStatus),
+			ManualNote:       repository.ManualNote,
+			BaselineStars:    value.BaselineStars,
+			CurrentRank:      value.CurrentRank,
+			BaselineRank:     value.BaselineRank,
+			RankChange:       value.RankChange,
+			StarDelta:        value.StarDelta,
+			GrowthRate:       growthRate,
+			DailyVelocity:    value.DailyVelocity,
+			IsNew:            value.IsNew,
+		})
+	}
+	return result
+}
+
+func mapRepositoryAnalysis(value *domain.RepositoryAnalysis) *web.RepositoryAnalysis {
+	if value == nil {
+		return nil
+	}
+	return &web.RepositoryAnalysis{
+		SummaryZH:      value.SummaryZH,
+		KeyPoints:      append([]string(nil), value.KeyPoints...),
+		UseCases:       append([]string(nil), value.UseCases...),
+		TechnicalNotes: value.TechnicalNotes,
+		Source:         value.Source,
+		Model:          value.Model,
+		Revision:       value.Revision,
+		AnalyzedAt:     value.AnalyzedAt,
+	}
+}
+
+func mapComparisonCoverage(value domain.ComparisonCoverage) web.ComparisonCoverage {
+	return web.ComparisonCoverage{
+		BaselineDate:    dateTime(value.BaselineDate),
+		AsOfDate:        dateTime(value.AsOfDate),
+		ScopeCount:      value.ScopeCount,
+		ObservedCount:   value.ObservedCount,
+		ComparableCount: value.ComparableCount,
+		NewCount:        value.NewCount,
 	}
 }
 
@@ -209,6 +344,29 @@ func mapTopicRefs(values []domain.Topic) []web.TopicRef {
 	result := make([]web.TopicRef, 0, len(values))
 	for _, value := range values {
 		result = append(result, web.TopicRef{Slug: value.Slug, Name: value.Name})
+	}
+	return result
+}
+
+func mapTopicFilterRefs(values []domain.Topic) []web.TopicRef {
+	byID := make(map[int64]domain.Topic, len(values))
+	children := make(map[int64]bool)
+	for _, value := range values {
+		byID[value.ID] = value
+		if value.ParentID != nil {
+			children[*value.ParentID] = true
+		}
+	}
+	result := make([]web.TopicRef, 0, len(values))
+	for _, value := range values {
+		mapped := web.TopicRef{Slug: value.Slug, Name: value.Name, IsParent: children[value.ID]}
+		if value.ParentID != nil {
+			if parent, ok := byID[*value.ParentID]; ok {
+				mapped.ParentSlug = parent.Slug
+				mapped.ParentName = parent.Name
+			}
+		}
+		result = append(result, mapped)
 	}
 	return result
 }
@@ -224,12 +382,28 @@ func mapTopicMetric(value domain.TopicMetric, parentNames map[int64]domain.Topic
 		Delta1D:         value.Growth.Day,
 		Delta7D:         value.Growth.SevenDay,
 		Delta30D:        value.Growth.ThirtyDay,
+		Comparable1D:    value.ComparableDay,
+		Comparable7D:    value.ComparableSevenDay,
+		Comparable30D:   value.ComparableThirtyDay,
 	}
 	if value.Topic.ParentID != nil {
 		if parent, ok := parentNames[*value.Topic.ParentID]; ok {
 			result.ParentSlug = parent.Slug
 			result.ParentName = parent.Name
 		}
+	}
+	return result
+}
+
+func mapTopicClassificationCoverage(value domain.TopicClassificationCoverage) web.TopicClassificationCoverage {
+	result := web.TopicClassificationCoverage{
+		RepositoryCount:   value.RepositoryCount,
+		ClassifiedCount:   value.ClassifiedCount,
+		UnclassifiedCount: value.UnclassifiedCount,
+	}
+	if value.RepositoryCount > 0 {
+		percent := float64(value.ClassifiedCount) / float64(value.RepositoryCount) * 100
+		result.Percent = &percent
 	}
 	return result
 }
@@ -471,6 +645,32 @@ func validMonitoringStatus(value string) domain.MonitoringStatus {
 	return ""
 }
 
+func validTrendSort(value string) domain.RepositoryTrendSort {
+	sortValue := domain.RepositoryTrendSort(value)
+	switch sortValue {
+	case domain.RepositoryTrendSortRankChange, domain.RepositoryTrendSortStars,
+		domain.RepositoryTrendSortDelta, domain.RepositoryTrendSortGrowthRate,
+		domain.RepositoryTrendSortVelocity:
+		return sortValue
+	default:
+		return domain.RepositoryTrendSortVelocity
+	}
+}
+
+func (adapter WebAdapter) resolveAsOf(ctx context.Context, requested time.Time) (time.Time, error) {
+	if !requested.IsZero() {
+		return requested, nil
+	}
+	latest, err := adapter.Store.LatestSnapshotDate(ctx)
+	if err == nil {
+		return dateTime(latest), nil
+	}
+	if errors.Is(err, corestore.ErrNotFound) {
+		return dateTime(domain.ShanghaiDate(time.Now())), nil
+	}
+	return time.Time{}, mapWebError(err)
+}
+
 func dateTime(value domain.Date) time.Time {
 	parsed, err := value.Time()
 	if err != nil {
@@ -490,6 +690,9 @@ func datePointer(value *domain.Date) *time.Time {
 func mapWebError(err error) error {
 	if errors.Is(err, corestore.ErrNotFound) {
 		return web.ErrNotFound
+	}
+	if errors.Is(err, corestore.ErrInvalid) {
+		return web.ErrInvalid
 	}
 	return err
 }

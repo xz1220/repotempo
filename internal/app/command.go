@@ -170,6 +170,7 @@ type CommandApplication interface {
 	Discover(context.Context, DiscoverOptions) (DiscoverReport, error)
 	Snapshot(context.Context, bool) (SnapshotCommandReport, error)
 	ImportLegacy(context.Context, ImportOptions) (ImportReport, error)
+	ImportAnalysis(context.Context, string, domain.RepositoryAnalysis) (domain.RepositoryAnalysis, error)
 	ListTopics(context.Context) ([]domain.Topic, error)
 	AssignTopic(context.Context, string, string, bool) (domain.TopicAssignmentResult, error)
 	RemoveTopic(context.Context, string, string, bool) (bool, error)

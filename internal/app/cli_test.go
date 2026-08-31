@@ -24,6 +24,8 @@ type fakeCommandApplication struct {
 	snapshotDryRun  bool
 	dailyReport     DailyReport
 	closed          bool
+	analysisRepo    string
+	analysisInput   domain.RepositoryAnalysis
 }
 
 func (application *fakeCommandApplication) Discover(_ context.Context, options DiscoverOptions) (DiscoverReport, error) {
@@ -38,6 +40,14 @@ func (application *fakeCommandApplication) Snapshot(_ context.Context, dryRun bo
 
 func (application *fakeCommandApplication) ImportLegacy(context.Context, ImportOptions) (ImportReport, error) {
 	return ImportReport{}, nil
+}
+
+func (application *fakeCommandApplication) ImportAnalysis(_ context.Context, repository string, analysis domain.RepositoryAnalysis) (domain.RepositoryAnalysis, error) {
+	application.analysisRepo = repository
+	application.analysisInput = analysis
+	analysis.RepositoryID = 42
+	analysis.Revision = 2
+	return analysis, nil
 }
 
 func (application *fakeCommandApplication) ListTopics(context.Context) ([]domain.Topic, error) {
@@ -126,6 +136,33 @@ func TestCLISnapshotDryRunHasHumanOutput(t *testing.T) {
 		t.Fatalf("code=%d dry-run=%t", code, application.snapshotDryRun)
 	}
 	if !strings.Contains(stdout.String(), "4 active repositories") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestCLIImportsStoredRepositoryAnalysisFromJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "analysis.json")
+	if err := os.WriteFile(path, []byte(`{
+  "summary_zh": "这是项目摘要。",
+  "key_points": ["能力一"],
+  "use_cases": ["场景一"],
+  "technical_notes": "Go 项目",
+  "model": "gpt-test"
+}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	application := &fakeCommandApplication{}
+	cli, stdout, _ := testCLI(application)
+	code := cli.Run(context.Background(), []string{"analysis", "import", "--repo", "owner/project", "--file", path})
+	if code != ExitSuccess {
+		t.Fatalf("exit code = %d, want %d", code, ExitSuccess)
+	}
+	if application.analysisRepo != "owner/project" || application.analysisInput.SummaryZH != "这是项目摘要。" ||
+		application.analysisInput.Source != "codex" || application.analysisInput.Model != "gpt-test" ||
+		len(application.analysisInput.KeyPoints) != 1 || len(application.analysisInput.UseCases) != 1 {
+		t.Fatalf("analysis import = repo %q input %+v", application.analysisRepo, application.analysisInput)
+	}
+	if !strings.Contains(stdout.String(), "Stored analysis revision 2 for owner/project") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 }

@@ -1,14 +1,17 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xz1220/github-radar/internal/domain"
 	"github.com/xz1220/github-radar/internal/service/snapshot"
@@ -36,6 +39,16 @@ type outputEnvelope struct {
 	Status  string `json:"status"`
 	Result  any    `json:"result,omitempty"`
 	Error   string `json:"error,omitempty"`
+}
+
+type repositoryAnalysisFile struct {
+	SummaryZH      string     `json:"summary_zh"`
+	KeyPoints      []string   `json:"key_points"`
+	UseCases       []string   `json:"use_cases"`
+	TechnicalNotes string     `json:"technical_notes"`
+	Source         string     `json:"source"`
+	Model          string     `json:"model"`
+	AnalyzedAt     *time.Time `json:"analyzed_at"`
 }
 
 type commandAction func(CommandApplication) (value any, human string, code int, err error)
@@ -89,6 +102,8 @@ func (cli *CLI) Run(ctx context.Context, arguments []string) int {
 		return cli.runSnapshot(ctx, settings, globals.JSON, args)
 	case "import-legacy":
 		return cli.runImport(ctx, settings, globals.JSON, args)
+	case "analysis":
+		return cli.runAnalysis(ctx, settings, globals.JSON, args)
 	case "topic":
 		return cli.runTopic(ctx, settings, globals.JSON, args)
 	case "watch":
@@ -104,6 +119,53 @@ func (cli *CLI) Run(ctx context.Context, arguments []string) int {
 	default:
 		return cli.writeError(command, globals.JSON, settings, ExitUsage, fmt.Errorf("unknown command %q", command))
 	}
+}
+
+func (cli *CLI) runAnalysis(ctx context.Context, settings Settings, jsonOutput bool, args []string) int {
+	if len(args) == 0 || args[0] != "import" {
+		return cli.writeError("analysis", jsonOutput, settings, ExitUsage, errors.New("analysis requires import"))
+	}
+	flags := cli.flagSet("analysis import")
+	repository := flags.String("repo", "", "repository owner/name")
+	path := flags.String("file", "", "analysis JSON file")
+	if err := parseFlags(flags, args[1:]); err != nil {
+		return cli.flagError("analysis import", jsonOutput, settings, err)
+	}
+	if strings.TrimSpace(*repository) == "" || strings.TrimSpace(*path) == "" {
+		return cli.writeError("analysis import", jsonOutput, settings, ExitUsage, errors.New("--repo and --file are required"))
+	}
+	contents, err := os.ReadFile(*path)
+	if err != nil {
+		return cli.writeError("analysis import", jsonOutput, settings, ExitFailure, fmt.Errorf("read analysis file: %w", err))
+	}
+	var input repositoryAnalysisFile
+	decoder := json.NewDecoder(bytes.NewReader(contents))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
+		return cli.writeError("analysis import", jsonOutput, settings, ExitUsage, fmt.Errorf("decode analysis file: %w", err))
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return cli.writeError("analysis import", jsonOutput, settings, ExitUsage, errors.New("analysis file must contain exactly one JSON object"))
+	}
+	if input.Source == "" {
+		input.Source = "codex"
+	}
+	analysis := domain.RepositoryAnalysis{
+		SummaryZH:      input.SummaryZH,
+		KeyPoints:      input.KeyPoints,
+		UseCases:       input.UseCases,
+		TechnicalNotes: input.TechnicalNotes,
+		Source:         input.Source,
+		Model:          input.Model,
+	}
+	if input.AnalyzedAt != nil {
+		analysis.AnalyzedAt = *input.AnalyzedAt
+	}
+	return cli.invoke(ctx, settings, jsonOutput, "analysis import", func(application CommandApplication) (any, string, int, error) {
+		stored, err := application.ImportAnalysis(ctx, strings.TrimSpace(*repository), analysis)
+		human := fmt.Sprintf("Stored analysis revision %d for %s.", stored.Revision, strings.TrimSpace(*repository))
+		return stored, human, ExitSuccess, err
+	})
 }
 
 func (cli *CLI) runDiscover(ctx context.Context, settings Settings, jsonOutput bool, args []string) int {
@@ -482,6 +544,7 @@ Commands:
   discover       Discover candidates from OSS Insight, GitHub Search, legacy, and manual inputs
   snapshot       Capture today's absolute GitHub stars for every active repository
   import-legacy  Import legacy SQLite and verified CSV history
+  analysis       Import a stored Codex/manual project interpretation from JSON
   topic          List, assign, or remove topics
   watch          Add, pause, or resume a repository
   export         Export csv, json, or sqlite

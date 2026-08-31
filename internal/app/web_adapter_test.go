@@ -93,6 +93,9 @@ func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 	}
 	if topics, err := adapter.ListTopicMetrics(ctx, now); err != nil || len(topics.Items) != 2 {
 		t.Fatalf("topics = (%#v, %v)", topics, err)
+	} else if topics.Classification.RepositoryCount != 2 || topics.Classification.ClassifiedCount != 2 ||
+		topics.Classification.UnclassifiedCount != 0 || topics.Items[0].Comparable1D != 1 {
+		t.Fatalf("topic coverage = %#v items=%#v", topics.Classification, topics.Items)
 	}
 	topicDetail, err := adapter.GetTopicDetail(ctx, "memory", now, false)
 	if err != nil {
@@ -101,8 +104,9 @@ func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 	if topicDetail.ConcentrationPercent == nil || *topicDetail.ConcentrationPercent <= 0 || *topicDetail.ConcentrationPercent > 100 {
 		t.Fatalf("concentration = %#v", topicDetail.ConcentrationPercent)
 	}
-	if len(topicDetail.History) == 0 || topicDetail.History[len(topicDetail.History)-1].Stars != nil {
-		t.Fatalf("partial topic day did not become a chart gap: %#v", topicDetail.History)
+	if len(topicDetail.History) != 2 || topicDetail.History[0].Stars == nil || *topicDetail.History[0].Stars != 100 ||
+		topicDetail.History[1].Stars == nil || *topicDetail.History[1].Stars != 125 {
+		t.Fatalf("fixed topic cohort history = %#v", topicDetail.History)
 	}
 	discoveries, err := adapter.DiscoverySummary(ctx)
 	if err != nil || len(discoveries.Profiles) == 0 || !discoveries.Profiles[0].IncompleteResults {
@@ -128,6 +132,31 @@ func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 	}
 	if err := adapter.Ready(ctx); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestWebAdapterRendersEmptyCatalogBeforeFirstSnapshot(t *testing.T) {
+	ctx := context.Background()
+	store, err := sqlite.OpenWithConfig(ctx, sqlite.Config{Path: t.TempDir() + "/empty.db"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	adapter := WebAdapter{Store: store}
+
+	projects, err := adapter.ListRepositoryTrends(ctx, web.RepositoryQuery{WindowDays: 7, Limit: 50})
+	if err != nil {
+		t.Fatalf("empty project catalog: %v", err)
+	}
+	if projects.Total != 0 || len(projects.Items) != 0 || projects.Coverage.AsOfDate.IsZero() {
+		t.Fatalf("empty project catalog = %+v", projects)
+	}
+	topics, err := adapter.ListTopicMetrics(ctx, time.Time{})
+	if err != nil {
+		t.Fatalf("empty topic catalog: %v", err)
+	}
+	if len(topics.Items) != 0 || topics.AsOf.IsZero() {
+		t.Fatalf("empty topic catalog = %+v", topics)
 	}
 }
 
