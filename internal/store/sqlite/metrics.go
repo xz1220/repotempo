@@ -61,7 +61,15 @@ func normalizeMetricQuery(query domain.RepositoryMetricQuery, nowDate domain.Dat
 }
 
 func (store *Store) ListRepositoryMetrics(ctx context.Context, requested domain.RepositoryMetricQuery) ([]domain.RepositoryMetric, error) {
-	query, err := normalizeMetricQuery(requested, domain.ShanghaiDate(store.nowUTC()))
+	nowDate := requested.AsOf
+	if nowDate == "" {
+		nowDate = domain.ShanghaiDate(store.nowUTC())
+	}
+	query, err := normalizeMetricQuery(requested, nowDate)
+	if err != nil {
+		return nil, err
+	}
+	dayDate, err := query.AsOf.AddDays(-1)
 	if err != nil {
 		return nil, err
 	}
@@ -84,9 +92,7 @@ WITH metrics AS (
             FROM daily_snapshots s
             WHERE s.repository_id = r.github_repo_id
               AND s.fetch_status = 'success'
-              AND s.snapshot_date <= ?
-            ORDER BY s.snapshot_date DESC
-            LIMIT 1
+              AND s.snapshot_date = ?
         ) AS current_stars,
         (
             SELECT s.star_count
@@ -99,9 +105,7 @@ WITH metrics AS (
             FROM daily_snapshots s
             WHERE s.repository_id = r.github_repo_id
               AND s.fetch_status = 'success'
-              AND s.snapshot_date < ?
-            ORDER BY s.snapshot_date DESC
-            LIMIT 1
+              AND s.snapshot_date = ?
         ) AS day_delta,
         (
             SELECT s.star_count
@@ -114,9 +118,7 @@ WITH metrics AS (
             FROM daily_snapshots s
             WHERE s.repository_id = r.github_repo_id
               AND s.fetch_status = 'success'
-              AND s.snapshot_date <= ?
-            ORDER BY s.snapshot_date DESC
-            LIMIT 1
+              AND s.snapshot_date = ?
         ) AS seven_day_delta,
         (
             SELECT s.star_count
@@ -129,17 +131,16 @@ WITH metrics AS (
             FROM daily_snapshots s
             WHERE s.repository_id = r.github_repo_id
               AND s.fetch_status = 'success'
-              AND s.snapshot_date <= ?
-            ORDER BY s.snapshot_date DESC
-            LIMIT 1
+              AND s.snapshot_date = ?
         ) AS thirty_day_delta
     FROM repositories r
-    WHERE 1 = 1`
+    WHERE date(r.first_seen_at, '+8 hours') <= ?`
 	arguments := []any{
 		query.AsOf,
-		query.AsOf, query.AsOf,
+		query.AsOf, dayDate,
 		query.AsOf, sevenDayDate,
 		query.AsOf, thirtyDayDate,
+		query.AsOf,
 	}
 	if query.RepositoryID != nil {
 		statement += " AND r.github_repo_id = ?"
@@ -153,13 +154,17 @@ WITH metrics AS (
 		statement += ` AND EXISTS (
             SELECT 1 FROM repository_topics rt
             JOIN topics t ON t.id = rt.topic_id
-            WHERE rt.repository_id = r.github_repo_id AND t.slug = ? COLLATE NOCASE
+            WHERE rt.repository_id = r.github_repo_id
+              AND t.status = 'active'
+              AND (t.slug = ? COLLATE NOCASE OR t.parent_id = (
+                  SELECT id FROM topics WHERE slug = ? COLLATE NOCASE
+              ))
               AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)
         )`
-		arguments = append(arguments, query.TopicSlug)
+		arguments = append(arguments, query.TopicSlug, query.TopicSlug)
 	}
 	if query.DiscoverySource != "" {
-		statement += " AND EXISTS (SELECT 1 FROM json_each(r.discovery_sources_json) WHERE value = ?)"
+		statement += " AND r.first_seen_source = ?"
 		arguments = append(arguments, query.DiscoverySource)
 	}
 	if query.MonitoringStatus != "" {
@@ -316,6 +321,7 @@ SELECT rt.repository_id, t.id, t.slug, t.name, t.parent_id, t.description, t.sta
 FROM repository_topics rt
 JOIN topics t ON t.id = rt.topic_id
 WHERE rt.repository_id IN (`+placeholders(len(chunk))+`)
+  AND t.status = 'active'
   AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)
 ORDER BY t.name COLLATE NOCASE`, anyIDs(chunk)...)
 		if err != nil {
@@ -404,6 +410,17 @@ func topicMetric(topic domain.Topic, metrics []domain.RepositoryMetric) domain.T
 		Topic:           topic,
 		RepositoryCount: len(metrics),
 		Growth:          sumGrowth(metrics),
+	}
+	for _, metric := range metrics {
+		if metric.Growth.Day != nil {
+			result.ComparableDay++
+		}
+		if metric.Growth.SevenDay != nil {
+			result.ComparableSevenDay++
+		}
+		if metric.Growth.ThirtyDay != nil {
+			result.ComparableThirtyDay++
+		}
 	}
 	var leader *domain.RepositoryMetric
 	for index := range metrics {
@@ -574,6 +591,9 @@ WHERE r.monitoring_status = 'active'`, asOf).Scan(
 }
 
 func (store *Store) GetRepositoryDetail(ctx context.Context, repositoryID int64, asOf domain.Date) (domain.RepositoryDetail, error) {
+	if asOf == "" {
+		asOf = domain.ShanghaiDate(store.nowUTC())
+	}
 	metrics, err := store.ListRepositoryMetrics(ctx, domain.RepositoryMetricQuery{
 		AsOf:         asOf,
 		RepositoryID: &repositoryID,
@@ -585,14 +605,20 @@ func (store *Store) GetRepositoryDetail(ctx context.Context, repositoryID int64,
 	if len(metrics) == 0 {
 		return domain.RepositoryDetail{}, corestore.ErrNotFound
 	}
-	if asOf == "" {
-		asOf = domain.ShanghaiDate(store.nowUTC())
-	}
 	history, err := store.ListDailySnapshots(ctx, repositoryID, domain.SnapshotFilter{Through: asOf})
 	if err != nil {
 		return domain.RepositoryDetail{}, err
 	}
-	detail := domain.RepositoryDetail{Metric: metrics[0], History: history, FailedDates: []domain.Date{}}
+	analysis, err := store.getRepositoryAnalysis(ctx, repositoryID)
+	if err != nil {
+		return domain.RepositoryDetail{}, err
+	}
+	detail := domain.RepositoryDetail{
+		Metric:      metrics[0],
+		Analysis:    analysis,
+		History:     history,
+		FailedDates: []domain.Date{},
+	}
 	for _, snapshot := range history {
 		if snapshot.FetchStatus == domain.FetchFailed {
 			detail.FailedDates = append(detail.FailedDates, snapshot.SnapshotDate)
@@ -624,6 +650,35 @@ func (store *Store) ListTopicMetrics(ctx context.Context, asOf domain.Date) ([]d
 	return results, nil
 }
 
+func (store *Store) TopicClassificationCoverage(ctx context.Context, asOf domain.Date) (domain.TopicClassificationCoverage, error) {
+	if asOf == "" {
+		asOf = domain.ShanghaiDate(store.nowUTC())
+	}
+	if err := asOf.Validate(); err != nil {
+		return domain.TopicClassificationCoverage{}, fmt.Errorf("%w: %v", corestore.ErrInvalid, err)
+	}
+	var coverage domain.TopicClassificationCoverage
+	if err := store.db.QueryRowContext(ctx, `
+SELECT
+    COUNT(*),
+    COALESCE(SUM(CASE WHEN EXISTS (
+        SELECT 1
+        FROM repository_topics rt
+        JOIN topics t ON t.id = rt.topic_id AND t.status = 'active'
+        WHERE rt.repository_id = r.github_repo_id
+          AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)
+    ) THEN 1 ELSE 0 END), 0)
+FROM repositories r
+WHERE date(r.first_seen_at, '+8 hours') <= ?`, asOf).Scan(
+		&coverage.RepositoryCount,
+		&coverage.ClassifiedCount,
+	); err != nil {
+		return domain.TopicClassificationCoverage{}, fmt.Errorf("query topic classification coverage: %w", err)
+	}
+	coverage.UnclassifiedCount = coverage.RepositoryCount - coverage.ClassifiedCount
+	return coverage, nil
+}
+
 func (store *Store) GetTopicDetail(ctx context.Context, slug string, asOf domain.Date, excludeLeader bool) (domain.TopicDetail, error) {
 	if asOf == "" {
 		asOf = domain.ShanghaiDate(store.nowUTC())
@@ -638,7 +693,7 @@ func (store *Store) GetTopicDetail(ctx context.Context, slug string, asOf domain
 	metrics, err := store.ListRepositoryMetrics(ctx, domain.RepositoryMetricQuery{
 		AsOf:       asOf,
 		TopicSlug:  slug,
-		Sort:       domain.RepositorySortThirtyDay,
+		Sort:       domain.RepositorySortDay,
 		Descending: true,
 	})
 	if err != nil {
@@ -661,7 +716,7 @@ func (store *Store) GetTopicDetail(ctx context.Context, slug string, asOf domain
 		detail.Repositories = filtered
 		detail.Metric = topicMetric(topic, filtered)
 	}
-	detail.History, err = store.topicHistory(ctx, topic.ID, asOf, excludedID, detail.Metric.RepositoryCount)
+	detail.History, err = store.topicHistory(ctx, topic.ID, asOf, excludedID)
 	if err != nil {
 		return domain.TopicDetail{}, err
 	}
@@ -672,22 +727,82 @@ func (store *Store) GetTopicDetail(ctx context.Context, slug string, asOf domain
 	return detail, nil
 }
 
-func (store *Store) topicHistory(ctx context.Context, topicID int64, asOf domain.Date, excludedID *int64, targetCount int) ([]domain.TopicHistoryPoint, error) {
-	query := `
-SELECT
-    s.snapshot_date,
-    SUM(CASE WHEN s.fetch_status = 'success' THEN s.star_count END),
-    SUM(CASE WHEN s.fetch_status = 'success' THEN 1 ELSE 0 END)
-FROM daily_snapshots s
-JOIN repository_topics rt ON rt.repository_id = s.repository_id
-WHERE rt.topic_id = ? AND s.snapshot_date <= ?`
-	query += " AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)"
-	arguments := []any{topicID, asOf}
-	if excludedID != nil {
-		query += " AND s.repository_id <> ?"
-		arguments = append(arguments, *excludedID)
+func (store *Store) topicHistory(ctx context.Context, topicID int64, asOf domain.Date, excludedID *int64) ([]domain.TopicHistoryPoint, error) {
+	from, err := asOf.AddDays(-29)
+	if err != nil {
+		return nil, err
 	}
-	query += " GROUP BY s.snapshot_date ORDER BY s.snapshot_date"
+	scope := `
+    SELECT DISTINCT rt.repository_id
+    FROM repository_topics rt
+    JOIN topics assigned ON assigned.id = rt.topic_id
+    WHERE (rt.topic_id = ? OR assigned.parent_id = ?)
+      AND assigned.status = 'active'
+      AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)`
+	scopeArguments := []any{topicID, topicID}
+	if excludedID != nil {
+		scope += " AND rt.repository_id <> ?"
+		scopeArguments = append(scopeArguments, *excludedID)
+	}
+	var startText sql.NullString
+	startArguments := []any{asOf}
+	startArguments = append(startArguments, scopeArguments...)
+	startArguments = append(startArguments, from, asOf)
+	if err := store.db.QueryRowContext(ctx, `
+SELECT MIN(s.snapshot_date)
+FROM daily_snapshots s
+JOIN daily_snapshots endpoint
+  ON endpoint.repository_id = s.repository_id
+ AND endpoint.snapshot_date = ?
+ AND endpoint.fetch_status = 'success'
+WHERE s.repository_id IN (`+scope+`)
+  AND s.fetch_status = 'success'
+  AND s.snapshot_date >= ?
+  AND s.snapshot_date <= ?`, startArguments...).Scan(&startText); err != nil {
+		return nil, fmt.Errorf("query topic history start: %w", err)
+	}
+	if !startText.Valid || startText.String == "" {
+		return []domain.TopicHistoryPoint{}, nil
+	}
+	start, err := domain.ParseDate(startText.String)
+	if err != nil {
+		return nil, fmt.Errorf("parse topic history start: %w", err)
+	}
+	query := `
+WITH RECURSIVE calendar(snapshot_date) AS (
+    SELECT ?
+    UNION ALL
+    SELECT date(snapshot_date, '+1 day')
+    FROM calendar
+    WHERE snapshot_date < ?
+), scoped_repositories AS (` + scope + `
+), cohort AS (
+    SELECT scoped.repository_id
+    FROM scoped_repositories scoped
+    JOIN daily_snapshots baseline
+      ON baseline.repository_id = scoped.repository_id
+     AND baseline.snapshot_date = ?
+     AND baseline.fetch_status = 'success'
+    JOIN daily_snapshots endpoint
+      ON endpoint.repository_id = scoped.repository_id
+     AND endpoint.snapshot_date = ?
+     AND endpoint.fetch_status = 'success'
+)
+SELECT
+    calendar.snapshot_date,
+    SUM(CASE WHEN observation.fetch_status = 'success' THEN observation.star_count END),
+    COALESCE(SUM(CASE WHEN observation.fetch_status = 'success' THEN 1 ELSE 0 END), 0),
+    (SELECT COUNT(*) FROM cohort)
+FROM calendar
+LEFT JOIN cohort ON 1 = 1
+LEFT JOIN daily_snapshots observation
+  ON observation.repository_id = cohort.repository_id
+ AND observation.snapshot_date = calendar.snapshot_date
+GROUP BY calendar.snapshot_date
+ORDER BY calendar.snapshot_date`
+	arguments := []any{start, asOf}
+	arguments = append(arguments, scopeArguments...)
+	arguments = append(arguments, start, asOf)
 	rows, err := store.db.QueryContext(ctx, query, arguments...)
 	if err != nil {
 		return nil, fmt.Errorf("query topic history: %w", err)
@@ -698,7 +813,8 @@ WHERE rt.topic_id = ? AND s.snapshot_date <= ?`
 		var dateText string
 		var stars sql.NullInt64
 		var observed int
-		if err := rows.Scan(&dateText, &stars, &observed); err != nil {
+		var targetCount int
+		if err := rows.Scan(&dateText, &stars, &observed, &targetCount); err != nil {
 			return nil, fmt.Errorf("scan topic history: %w", err)
 		}
 		date, err := domain.ParseDate(dateText)

@@ -1,10 +1,9 @@
 package domain
 
-// GrowthMetric never interpolates an observation. Current is the most recent
-// successful value on or before the query date. Each delta requires a real
-// successful value on the query date and subtracts the latest successful value
-// on or before its boundary (or, for Day, the immediately previous success).
-// Missing baselines and failed current fetches therefore remain nil.
+// GrowthMetric never interpolates an observation. Current requires a successful
+// value on the query date. Every delta requires successful values on that exact
+// endpoint and its exact 1, 7, or 30-day boundary. Missing or failed endpoints
+// therefore remain nil instead of becoming a wider, mislabeled comparison.
 type GrowthMetric struct {
 	Current   *int64 `json:"current"`
 	Day       *int64 `json:"day"`
@@ -51,20 +50,89 @@ type RepositoryMetricQuery struct {
 	Offset           int
 }
 
+// RepositoryTrendSort controls the primary ordering of the monitoring view.
+// Every ordering is stabilized by current stars and the immutable repository ID.
+type RepositoryTrendSort string
+
+const (
+	RepositoryTrendSortRankChange RepositoryTrendSort = "rank_change"
+	RepositoryTrendSortStars      RepositoryTrendSort = "stars"
+	RepositoryTrendSortDelta      RepositoryTrendSort = "delta"
+	RepositoryTrendSortGrowthRate RepositoryTrendSort = "growth_rate"
+	RepositoryTrendSortVelocity   RepositoryTrendSort = "velocity"
+)
+
+// RepositoryTrendQuery compares two strict calendar endpoints. A repository
+// is comparable only when both dates have successful observations. AfterID is
+// an opaque keyset cursor resolved inside SQLite, so the caller never embeds
+// metric values in a URL.
+type RepositoryTrendQuery struct {
+	AsOf             Date
+	WindowDays       int
+	Search           string
+	TopicSlug        string
+	DiscoverySource  DiscoverySource
+	MonitoringStatus MonitoringStatus
+	Sort             RepositoryTrendSort
+	OnlyNew          bool
+	Limit            int
+	AfterID          *int64
+}
+
+type ComparisonCoverage struct {
+	BaselineDate    Date `json:"baseline_date"`
+	AsOfDate        Date `json:"as_of_date"`
+	ScopeCount      int  `json:"scope_count"`
+	ObservedCount   int  `json:"observed_count"`
+	ComparableCount int  `json:"comparable_count"`
+	NewCount        int  `json:"new_count"`
+}
+
+type RepositoryTrendMetric struct {
+	Repository    Repository `json:"repository"`
+	Topics        []Topic    `json:"topics"`
+	CurrentStars  *int64     `json:"current_stars,omitempty"`
+	BaselineStars *int64     `json:"baseline_stars,omitempty"`
+	CurrentRank   *int64     `json:"current_rank,omitempty"`
+	BaselineRank  *int64     `json:"baseline_rank,omitempty"`
+	RankChange    *int64     `json:"rank_change,omitempty"`
+	StarDelta     *int64     `json:"star_delta,omitempty"`
+	GrowthRate    *float64   `json:"growth_rate,omitempty"`
+	DailyVelocity *float64   `json:"daily_velocity,omitempty"`
+	IsNew         bool       `json:"is_new"`
+}
+
+type RepositoryTrendPage struct {
+	Items    []RepositoryTrendMetric `json:"items"`
+	Total    int                     `json:"total"`
+	Coverage ComparisonCoverage      `json:"coverage"`
+	HasMore  bool                    `json:"has_more"`
+}
+
 type RepositoryDetail struct {
-	Metric      RepositoryMetric `json:"metric"`
-	History     []DailySnapshot  `json:"history"`
-	FailedDates []Date           `json:"failed_dates"`
-	ValidFrom   *Date            `json:"valid_from,omitempty"`
+	Metric      RepositoryMetric    `json:"metric"`
+	Analysis    *RepositoryAnalysis `json:"analysis,omitempty"`
+	History     []DailySnapshot     `json:"history"`
+	FailedDates []Date              `json:"failed_dates"`
+	ValidFrom   *Date               `json:"valid_from,omitempty"`
 }
 
 type TopicMetric struct {
-	Topic              Topic        `json:"topic"`
-	RepositoryCount    int          `json:"repository_count"`
-	Growth             GrowthMetric `json:"growth"`
-	Concentration      *float64     `json:"concentration,omitempty"`
-	LeaderRepositoryID *int64       `json:"leader_repository_id,omitempty"`
-	LeaderFullName     string       `json:"leader_full_name,omitempty"`
+	Topic               Topic        `json:"topic"`
+	RepositoryCount     int          `json:"repository_count"`
+	Growth              GrowthMetric `json:"growth"`
+	ComparableDay       int          `json:"comparable_day"`
+	ComparableSevenDay  int          `json:"comparable_seven_day"`
+	ComparableThirtyDay int          `json:"comparable_thirty_day"`
+	Concentration       *float64     `json:"concentration,omitempty"`
+	LeaderRepositoryID  *int64       `json:"leader_repository_id,omitempty"`
+	LeaderFullName      string       `json:"leader_full_name,omitempty"`
+}
+
+type TopicClassificationCoverage struct {
+	RepositoryCount   int `json:"repository_count"`
+	ClassifiedCount   int `json:"classified_count"`
+	UnclassifiedCount int `json:"unclassified_count"`
 }
 
 type TopicHistoryPoint struct {

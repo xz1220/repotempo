@@ -40,6 +40,10 @@ type TopicStore interface {
 	ListRepositoryTopicAssignments(context.Context, *int64) ([]domain.RepositoryTopic, error)
 }
 
+type AnalysisStore interface {
+	PutRepositoryAnalysis(context.Context, domain.RepositoryAnalysis) (domain.RepositoryAnalysis, error)
+}
+
 type JobRunStore interface {
 	CreateJobRun(context.Context, domain.JobRun) error
 	UpdateJobRun(context.Context, domain.JobRun) error
@@ -50,8 +54,11 @@ type JobRunStore interface {
 type QueryStore interface {
 	DashboardSummary(context.Context, domain.Date) (domain.DashboardSummary, error)
 	ListRepositoryMetrics(context.Context, domain.RepositoryMetricQuery) ([]domain.RepositoryMetric, error)
+	ListRepositoryTrends(context.Context, domain.RepositoryTrendQuery) (domain.RepositoryTrendPage, error)
+	LatestSnapshotDate(context.Context) (domain.Date, error)
 	GetRepositoryDetail(context.Context, int64, domain.Date) (domain.RepositoryDetail, error)
 	ListTopicMetrics(context.Context, domain.Date) ([]domain.TopicMetric, error)
+	TopicClassificationCoverage(context.Context, domain.Date) (domain.TopicClassificationCoverage, error)
 	GetTopicDetail(context.Context, string, domain.Date, bool) (domain.TopicDetail, error)
 	DiscoverySummary(context.Context) (domain.DiscoverySummary, error)
 }
@@ -60,6 +67,7 @@ type Store interface {
 	RepositoryStore
 	SnapshotStore
 	TopicStore
+	AnalysisStore
 	JobRunStore
 	QueryStore
 	Close() error

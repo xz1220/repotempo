@@ -6,7 +6,7 @@ import "embed"
 
 // Files contains all SQL migration files. Migrations intentionally use only
 // idempotent statements; schema state is tracked with SQLite user_version so no
-// sixth application table is needed.
+// dedicated migrations table is needed.
 //
 //go:embed *.sql
 var Files embed.FS
