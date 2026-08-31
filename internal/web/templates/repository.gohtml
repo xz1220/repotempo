@@ -1,6 +1,6 @@
 {{define "page-meta"}}
   <nav class="breadcrumb" aria-label="{{t "breadcrumb.label"}}">
-    <a class="breadcrumb-link" href="/repositories"><span aria-hidden="true">←</span><span>{{t "nav.repositories"}}</span></a>
+    <a class="breadcrumb-link" href="/"><span aria-hidden="true">←</span><span>{{t "nav.repositories"}}</span></a>
   </nav>
 {{end}}
 
@@ -13,8 +13,29 @@
         <span class="status-badge {{statusClass .Repository.Repository.MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .Repository.Repository.MonitoringStatus}}</span>
         {{if ne .Repository.Repository.GitHubStatus "active"}}<span class="status-badge {{statusClass .Repository.Repository.GitHubStatus}}"><span aria-hidden="true"></span>{{tf "repository.github_status" (statusLabel .Repository.Repository.GitHubStatus)}}</span>{{end}}
       </div>
-      {{if .Repository.Repository.Description}}<p class="entity-description">{{.Repository.Repository.Description}}</p>{{end}}
+      {{if and .Repository.Repository.Description .Repository.Analysis}}<p class="entity-description">{{.Repository.Repository.Description}}</p>{{end}}
     </div>
+
+    <section class="repository-analysis" aria-labelledby="repository-analysis-title">
+      <div class="section-heading compact">
+        <div><h2 id="repository-analysis-title">{{t "repository.analysis_title"}}</h2><p>{{t "repository.analysis_help"}}</p></div>
+      </div>
+      {{with .Repository.Analysis}}
+        {{if .SummaryZH}}<p class="analysis-summary" lang="zh-CN">{{.SummaryZH}}</p>{{end}}
+        <div class="analysis-columns">
+          {{if .KeyPoints}}<div><h3>{{t "repository.analysis_key_points"}}</h3><ul>{{range .KeyPoints}}<li lang="zh-CN">{{.}}</li>{{end}}</ul></div>{{end}}
+          {{if .UseCases}}<div><h3>{{t "repository.analysis_use_cases"}}</h3><ul>{{range .UseCases}}<li lang="zh-CN">{{.}}</li>{{end}}</ul></div>{{end}}
+        </div>
+        {{if .TechnicalNotes}}<details class="analysis-notes"><summary>{{t "repository.analysis_technical_notes"}}</summary><p lang="zh-CN">{{.TechnicalNotes}}</p></details>{{end}}
+        <p class="analysis-provenance">{{tf "repository.analysis_provenance" .Source .Revision (formatDate .AnalyzedAt)}}{{if .Model}} · <span translate="no">{{.Model}}</span>{{end}}</p>
+      {{else}}
+        <div class="analysis-pending">
+          <span>{{t "repository.analysis_pending"}}</span>
+          {{if .Repository.Repository.ManualNote}}<p lang="zh-CN">{{.Repository.Repository.ManualNote}}</p>{{else if .Repository.Repository.Description}}<p>{{tf "repository.analysis_github_fallback" .Repository.Repository.Description}}</p>{{else}}<p>{{t "repository.analysis_no_description"}}</p>{{end}}
+        </div>
+      {{end}}
+    </section>
+
     <dl class="metric-strip repository-metrics">
       <div><dt>{{t "metric.current_stars"}}</dt><dd>{{formatIntPtr .Repository.Repository.CurrentStars}}</dd></div>
       <div><dt>{{t "metric.one_day"}}</dt><dd>{{formatSigned .Repository.Repository.Delta1D}}</dd></div>

@@ -98,6 +98,7 @@ type topicRankItem struct {
 	Slug            string
 	Name            string
 	RepositoryCount int
+	ComparableCount int
 	CurrentStars    *int64
 	Delta           *int64
 	BarX            string
@@ -275,6 +276,7 @@ func makeTopicRankChart(items []TopicMetric, period string, localized localizer)
 			Slug:            item.Slug,
 			Name:            item.Name,
 			RepositoryCount: item.RepositoryCount,
+			ComparableCount: topicComparableCount(item, period),
 			CurrentStars:    item.CurrentStars,
 			Delta:           delta,
 		})
@@ -341,10 +343,22 @@ func makeTopicRankChart(items []TopicMetric, period string, localized localizer)
 			result.PeriodLabel,
 			formatSigned(item.Delta),
 			formatIntPtrLocalized(item.CurrentStars, localized.Text("page.not_available")),
+			formatInt(item.ComparableCount),
 			formatInt(item.RepositoryCount),
 		)
 	}
 	return result
+}
+
+func topicComparableCount(item TopicMetric, period string) int {
+	switch period {
+	case "1d":
+		return item.Comparable1D
+	case "30d":
+		return item.Comparable30D
+	default:
+		return item.Comparable7D
+	}
 }
 
 func topicDelta(item TopicMetric, period string) *int64 {
@@ -629,6 +643,36 @@ func formatSignedLocalized(value *int64, unavailable string) string {
 		return "+" + formatInt(*value)
 	}
 	return formatInt(*value)
+}
+
+func formatDecimalSignedLocalized(value *float64, unavailable string) string {
+	if value == nil {
+		return unavailable
+	}
+	if *value > 0 {
+		return fmt.Sprintf("+%.1f", *value)
+	}
+	return fmt.Sprintf("%.1f", *value)
+}
+
+func deltaClass(value *int64) string {
+	if value == nil || *value == 0 {
+		return "metric-neutral"
+	}
+	if *value > 0 {
+		return "metric-positive"
+	}
+	return "metric-negative"
+}
+
+func floatDeltaClass(value *float64) string {
+	if value == nil || *value == 0 {
+		return "metric-neutral"
+	}
+	if *value > 0 {
+		return "metric-positive"
+	}
+	return "metric-negative"
 }
 
 func formatDate(value time.Time, location *time.Location) string {

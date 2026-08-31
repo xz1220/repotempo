@@ -125,9 +125,12 @@ func (h *Handler) parseTemplates() error {
 		localized := newLocalizer(locale)
 		unavailable := localized.Text("page.not_available")
 		funcs := template.FuncMap{
-			"formatInt":       formatInt,
-			"formatIntPtr":    func(value *int64) string { return formatIntPtrLocalized(value, unavailable) },
-			"formatSigned":    func(value *int64) string { return formatSignedLocalized(value, unavailable) },
+			"formatInt":    formatInt,
+			"formatIntPtr": func(value *int64) string { return formatIntPtrLocalized(value, unavailable) },
+			"formatSigned": func(value *int64) string { return formatSignedLocalized(value, unavailable) },
+			"formatDecimalSigned": func(value *float64) string {
+				return formatDecimalSignedLocalized(value, unavailable)
+			},
 			"formatDate":      func(value time.Time) string { return formatDateLocalized(value, h.location, unavailable) },
 			"formatDatePtr":   func(value *time.Time) string { return formatDatePtrLocalized(value, h.location, unavailable) },
 			"formatDateTime":  func(value time.Time) string { return formatDateTimeLocalized(value, h.location, unavailable) },
@@ -137,14 +140,16 @@ func (h *Handler) parseTemplates() error {
 			"formatDuration": func(start time.Time, finish *time.Time) string {
 				return formatDuration(start, finish, localized.Text("time.running"), unavailable)
 			},
-			"statusLabel": localized.StatusLabel,
-			"statusClass": statusClass,
-			"sourceLabel": localized.SourceLabel,
-			"t":           localized.Text,
-			"tf":          localized.Textf,
-			"githubURL":   githubURL,
-			"join":        strings.Join,
-			"lower":       strings.ToLower,
+			"statusLabel":     localized.StatusLabel,
+			"statusClass":     statusClass,
+			"deltaClass":      deltaClass,
+			"floatDeltaClass": floatDeltaClass,
+			"sourceLabel":     localized.SourceLabel,
+			"t":               localized.Text,
+			"tf":              localized.Textf,
+			"githubURL":       githubURL,
+			"join":            strings.Join,
+			"lower":           strings.ToLower,
 		}
 		h.templates[locale] = make(map[string]*template.Template)
 		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "discoveries", "runs", "error"} {

@@ -45,10 +45,18 @@ type pageView struct {
 	GrowthChart  growthBarChart
 	TopicRanking topicRankChart
 	DiscoveryMix discoveryMixChart
+	TrendPeriods []viewOption
+	TrendSorts   []viewOption
 	Pagination   pagination
 	ErrorStatus  int
 	ErrorTitle   string
 	ErrorMessage string
+}
+
+type viewOption struct {
+	Label  string
+	URL    string
+	Active bool
 }
 
 type pagination struct {
@@ -60,42 +68,59 @@ type pagination struct {
 }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
-	localized := h.localizerFor(r)
-	asOf := h.asOf()
-	data, err := h.queryer.DashboardSummary(r.Context(), asOf)
-	if err != nil {
-		h.serverError(w, r, err)
-		return
-	}
-	h.render(w, r, http.StatusOK, "home", pageView{
-		Meta:        h.meta(localized, "meta.overview.title", "meta.overview.description", "overview", data.Warnings),
-		Dashboard:   data,
-		GrowthChart: dashboardGrowthChart(data.GrowthHistory, localized),
-	})
+	h.repositoryIndex(w, r, "/")
 }
 
 func (h *Handler) repositories(w http.ResponseWriter, r *http.Request) {
+	h.repositoryIndex(w, r, "/repositories")
+}
+
+func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path string) {
 	localized := h.localizerFor(r)
+	rawDate := strings.TrimSpace(r.URL.Query().Get("date"))
+	asOf := parseDateParameter(rawDate, h.location)
+	if rawDate != "" && asOf.IsZero() {
+		h.badRequest(w, r, localized.Text("error.invalid_date.title"), localized.Text("error.invalid_date.message"))
+		return
+	}
 	filter := RepositoryQuery{
-		AsOf:             h.asOf(),
+		AsOf:             asOf,
+		WindowDays:       normalizeRepositoryPeriod(r.URL.Query().Get("period")),
 		Search:           cleanSearch(r.URL.Query().Get("q")),
 		TopicSlug:        strings.TrimSpace(r.URL.Query().Get("topic")),
 		Source:           strings.TrimSpace(r.URL.Query().Get("source")),
 		MonitoringStatus: strings.TrimSpace(r.URL.Query().Get("status")),
+		Sort:             normalizeRepositorySort(r.URL.Query().Get("sort")),
+		OnlyNew:          r.URL.Query().Get("new") == "1",
 		Limit:            repositoryPageSize,
-		Offset:           parseOffset(r.URL.Query().Get("offset")),
+		AfterID:          parseTrendCursor(r.URL.Query().Get("cursor")),
 	}
-	data, err := h.queryer.ListRepositoryMetrics(r.Context(), filter)
+	data, err := h.queryer.ListRepositoryTrends(r.Context(), filter)
 	if err != nil {
+		if errors.Is(err, ErrInvalid) && r.URL.Query().Get("cursor") != "" {
+			values := cloneValues(r.URL.Query())
+			values.Del("cursor")
+			http.Redirect(w, r, queryPath(path, values), http.StatusFound)
+			return
+		}
 		h.serverError(w, r, err)
 		return
 	}
 	data.Filter = filter
+	data.Filter.AsOf = data.Coverage.AsOfDate
+	data.Path = path
+	if data.HasMore && data.NextCursor != "" {
+		values := cloneValues(r.URL.Query())
+		values.Set("cursor", data.NextCursor)
+		data.NextCursor = queryPath(path, values)
+	}
 	view := pageView{
 		Meta:         h.meta(localized, "meta.repositories.title", "meta.repositories.description", "repositories", data.Warnings),
 		Repositories: data,
-		Pagination:   repositoryPagination(r.URL.Query(), filter.Offset, filter.Limit, data.Total),
+		TrendPeriods: repositoryPeriodOptions(path, r.URL.Query(), filter.WindowDays, localized),
+		TrendSorts:   repositorySortOptions(path, r.URL.Query(), filter.Sort, localized),
 	}
+	view.Meta.AsOfLabel = formatDateLocalized(data.Coverage.AsOfDate, h.location, localized.Text("page.not_available"))
 	h.render(w, r, http.StatusOK, "repositories", view)
 }
 
@@ -106,7 +131,7 @@ func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
 		h.notFound(w, r)
 		return
 	}
-	data, err := h.queryer.GetRepositoryDetail(r.Context(), id, h.asOf())
+	data, err := h.queryer.GetRepositoryDetail(r.Context(), id, time.Time{})
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			h.notFound(w, r)
@@ -117,6 +142,9 @@ func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
 	}
 	meta := h.metaText(localized, data.Repository.FullName, localized.Text("meta.repository.description"), "repositories", data.Warnings)
 	meta.TitleKind = "repository"
+	if !data.AsOf.IsZero() {
+		meta.AsOfLabel = formatDateLocalized(data.AsOf, h.location, localized.Text("page.not_available"))
+	}
 	view := pageView{
 		Meta:       meta,
 		Repository: data,
@@ -128,7 +156,7 @@ func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) topics(w http.ResponseWriter, r *http.Request) {
 	localized := h.localizerFor(r)
-	data, err := h.queryer.ListTopicMetrics(r.Context(), h.asOf())
+	data, err := h.queryer.ListTopicMetrics(r.Context(), time.Time{})
 	if err != nil {
 		h.serverError(w, r, err)
 		return
@@ -143,11 +171,15 @@ func (h *Handler) topics(w http.ResponseWriter, r *http.Request) {
 			Active: value == period,
 		})
 	}
-	h.render(w, r, http.StatusOK, "topics", pageView{
+	view := pageView{
 		Meta:         h.meta(localized, "meta.topics.title", "meta.topics.description", "topics", data.Warnings),
 		Topics:       data,
 		TopicRanking: ranking,
-	})
+	}
+	if !data.AsOf.IsZero() {
+		view.Meta.AsOfLabel = formatDateLocalized(data.AsOf, h.location, localized.Text("page.not_available"))
+	}
+	h.render(w, r, http.StatusOK, "topics", view)
 }
 
 func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +190,7 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	excludeLeader := r.URL.Query().Get("exclude_leader") == "true"
-	data, err := h.queryer.GetTopicDetail(r.Context(), slug, h.asOf(), excludeLeader)
+	data, err := h.queryer.GetTopicDetail(r.Context(), slug, time.Time{}, excludeLeader)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			h.notFound(w, r)
@@ -169,6 +201,9 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 	}
 	meta := h.metaText(localized, data.Topic.Name, localized.Text("meta.topic.description"), "topics", data.Warnings)
 	meta.TitleKind = "topic"
+	if !data.AsOf.IsZero() {
+		meta.AsOfLabel = formatDateLocalized(data.AsOf, h.location, localized.Text("page.not_available"))
+	}
 	view := pageView{
 		Meta:       meta,
 		Topic:      data,
@@ -178,17 +213,10 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) discoveries(w http.ResponseWriter, r *http.Request) {
-	localized := h.localizerFor(r)
-	data, err := h.queryer.DiscoverySummary(r.Context())
-	if err != nil {
-		h.serverError(w, r, err)
-		return
-	}
-	h.render(w, r, http.StatusOK, "discoveries", pageView{
-		Meta:         h.meta(localized, "meta.discoveries.title", "meta.discoveries.description", "discoveries", data.Warnings),
-		Discoveries:  data,
-		DiscoveryMix: makeDiscoveryMixChart(data.FirstSeenSources, localized),
-	})
+	values := cloneValues(r.URL.Query())
+	values.Set("new", "1")
+	values.Del("cursor")
+	http.Redirect(w, r, queryPath("/", values), http.StatusFound)
 }
 
 func (h *Handler) runs(w http.ResponseWriter, r *http.Request) {
@@ -234,6 +262,16 @@ func (h *Handler) notFound(w http.ResponseWriter, r *http.Request) {
 		ErrorStatus:  http.StatusNotFound,
 		ErrorTitle:   localized.Text("error.not_found.title"),
 		ErrorMessage: localized.Text("error.not_found.message"),
+	})
+}
+
+func (h *Handler) badRequest(w http.ResponseWriter, r *http.Request, title, message string) {
+	localized := h.localizerFor(r)
+	h.render(w, r, http.StatusBadRequest, "error", pageView{
+		Meta:         h.metaText(localized, title, message, "", nil),
+		ErrorStatus:  http.StatusBadRequest,
+		ErrorTitle:   title,
+		ErrorMessage: message,
 	})
 }
 
@@ -336,6 +374,92 @@ func parseOffset(raw string) int {
 		return 0
 	}
 	return value
+}
+
+func parseDateParameter(raw string, location *time.Location) time.Time {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return time.Time{}
+	}
+	parsed, err := time.ParseInLocation("2006-01-02", value, location)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed
+}
+
+func normalizeRepositoryPeriod(raw string) int {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1d":
+		return 1
+	case "30d":
+		return 30
+	default:
+		return 7
+	}
+}
+
+func normalizeRepositorySort(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "rank_change", "stars", "delta", "growth_rate":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return "velocity"
+	}
+}
+
+func parseTrendCursor(raw string) *int64 {
+	value, err := strconv.ParseInt(strings.TrimSpace(raw), 36, 64)
+	if err != nil || value <= 0 {
+		return nil
+	}
+	return &value
+}
+
+func cloneValues(values url.Values) url.Values {
+	result := make(url.Values, len(values))
+	for key, items := range values {
+		result[key] = append([]string(nil), items...)
+	}
+	return result
+}
+
+func repositoryOptionURL(path string, values url.Values, key, value string) string {
+	result := cloneValues(values)
+	result.Set(key, value)
+	result.Del("cursor")
+	return queryPath(path, result)
+}
+
+func repositoryPeriodOptions(path string, values url.Values, active int, localized localizer) []viewOption {
+	options := make([]viewOption, 0, 3)
+	for _, value := range []struct {
+		Days  int
+		Query string
+	}{
+		{Days: 1, Query: "1d"},
+		{Days: 7, Query: "7d"},
+		{Days: 30, Query: "30d"},
+	} {
+		options = append(options, viewOption{
+			Label:  localized.Text("period." + value.Query),
+			URL:    repositoryOptionURL(path, values, "period", value.Query),
+			Active: active == value.Days,
+		})
+	}
+	return options
+}
+
+func repositorySortOptions(path string, values url.Values, active string, localized localizer) []viewOption {
+	options := make([]viewOption, 0, 4)
+	for _, value := range []string{"velocity", "growth_rate", "rank_change", "stars"} {
+		options = append(options, viewOption{
+			Label:  localized.Text("repositories.sort_" + value),
+			URL:    repositoryOptionURL(path, values, "sort", value),
+			Active: active == value,
+		})
+	}
+	return options
 }
 
 func normalizeTopicPeriod(raw string) string {

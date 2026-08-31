@@ -9,7 +9,10 @@ import (
 // ErrNotFound lets Queryer implementations distinguish an absent resource
 // from an unavailable data source. Handlers turn it into the dashboard's 404
 // page without exposing storage details.
-var ErrNotFound = errors.New("web resource not found")
+var (
+	ErrNotFound = errors.New("web resource not found")
+	ErrInvalid  = errors.New("web request is invalid")
+)
 
 // Queryer is the read-only boundary used by the dashboard. Store packages can
 // implement it directly or through a small adapter; HTTP handlers never issue
@@ -17,6 +20,7 @@ var ErrNotFound = errors.New("web resource not found")
 type Queryer interface {
 	DashboardSummary(context.Context, time.Time) (DashboardSummary, error)
 	ListRepositoryMetrics(context.Context, RepositoryQuery) (RepositoryPage, error)
+	ListRepositoryTrends(context.Context, RepositoryQuery) (RepositoryPage, error)
 	GetRepositoryDetail(context.Context, int64, time.Time) (RepositoryDetail, error)
 	ListTopicMetrics(context.Context, time.Time) (TopicPage, error)
 	GetTopicDetail(context.Context, string, time.Time, bool) (TopicDetail, error)
@@ -61,12 +65,16 @@ type SnapshotCoverage struct {
 
 type RepositoryQuery struct {
 	AsOf             time.Time
+	WindowDays       int
 	Search           string
 	TopicSlug        string
 	Source           string
 	MonitoringStatus string
+	Sort             string
+	OnlyNew          bool
 	Limit            int
 	Offset           int
+	AfterID          *int64
 }
 
 type RepositoryPage struct {
@@ -77,6 +85,19 @@ type RepositoryPage struct {
 	Topics             []TopicRef
 	Sources            []string
 	MonitoringStatuses []string
+	Coverage           ComparisonCoverage
+	HasMore            bool
+	NextCursor         string
+	Path               string
+}
+
+type ComparisonCoverage struct {
+	BaselineDate    time.Time
+	AsOfDate        time.Time
+	ScopeCount      int
+	ObservedCount   int
+	ComparableCount int
+	NewCount        int
 }
 
 type RepositoryMetric struct {
@@ -95,20 +116,45 @@ type RepositoryMetric struct {
 	FirstSeenAt      time.Time
 	MonitoringStatus string
 	GitHubStatus     string
+	ManualNote       string
+	BaselineStars    *int64
+	CurrentRank      *int64
+	BaselineRank     *int64
+	RankChange       *int64
+	StarDelta        *int64
+	GrowthRate       *float64
+	DailyVelocity    *float64
+	IsNew            bool
 }
 
 type TopicRef struct {
-	Slug string
-	Name string
+	Slug       string
+	Name       string
+	ParentSlug string
+	ParentName string
+	IsParent   bool
 }
 
 type RepositoryDetail struct {
 	Warnings      []string
+	AsOf          time.Time
 	Repository    RepositoryMetric
+	Analysis      *RepositoryAnalysis
 	History       []SnapshotPoint
 	FailedDates   []SnapshotPoint
 	PreviousNames []string
 	ValidFrom     *time.Time
+}
+
+type RepositoryAnalysis struct {
+	SummaryZH      string
+	KeyPoints      []string
+	UseCases       []string
+	TechnicalNotes string
+	Source         string
+	Model          string
+	Revision       int
+	AnalyzedAt     time.Time
 }
 
 type SnapshotPoint struct {
@@ -122,8 +168,17 @@ type SnapshotPoint struct {
 }
 
 type TopicPage struct {
-	Warnings []string
-	Items    []TopicMetric
+	Warnings       []string
+	AsOf           time.Time
+	Items          []TopicMetric
+	Classification TopicClassificationCoverage
+}
+
+type TopicClassificationCoverage struct {
+	RepositoryCount   int
+	ClassifiedCount   int
+	UnclassifiedCount int
+	Percent           *float64
 }
 
 type TopicMetric struct {
@@ -138,10 +193,14 @@ type TopicMetric struct {
 	Delta1D         *int64
 	Delta7D         *int64
 	Delta30D        *int64
+	Comparable1D    int
+	Comparable7D    int
+	Comparable30D   int
 }
 
 type TopicDetail struct {
 	Warnings               []string
+	AsOf                   time.Time
 	Topic                  TopicMetric
 	Repositories           []RepositoryMetric
 	History                []TrendPoint

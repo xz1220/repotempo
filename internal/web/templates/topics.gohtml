@@ -1,4 +1,17 @@
 {{define "content"}}
+  <section class="topic-coverage-summary" aria-labelledby="topic-coverage-title">
+    <div>
+      <h2 id="topic-coverage-title">{{t "topics.coverage_title"}}</h2>
+      <p>{{t "topics.coverage_help"}}</p>
+    </div>
+    <dl>
+      <div><dt>{{t "topics.coverage_total"}}</dt><dd>{{formatInt .Topics.Classification.RepositoryCount}}</dd></div>
+      <div><dt>{{t "topics.coverage_classified"}}</dt><dd>{{formatInt .Topics.Classification.ClassifiedCount}}</dd></div>
+      <div><dt>{{t "topics.coverage_unclassified"}}</dt><dd><a href="/?topic=__unclassified">{{formatInt .Topics.Classification.UnclassifiedCount}}</a></dd></div>
+      <div><dt>{{t "topics.coverage_percent"}}</dt><dd>{{formatPercent .Topics.Classification.Percent}}</dd></div>
+    </dl>
+  </section>
+
   <section class="page-primary-view" aria-labelledby="topic-ranking">
     <div class="topic-ranking-header">
       <div>
@@ -16,7 +29,7 @@
             <span class="topic-rank-number" aria-hidden="true">{{.Rank}}</span>
             <div class="topic-rank-identity">
               <a class="topic-name" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>
-              <p>{{tf "topics.ranking_meta" (formatIntPtr .CurrentStars) (formatInt .RepositoryCount)}}</p>
+              <p>{{tf "topics.ranking_meta" (formatIntPtr .CurrentStars) (formatInt .ComparableCount) (formatInt .RepositoryCount)}}</p>
             </div>
             <strong class="topic-rank-delta">{{formatSigned .Delta}}</strong>
             <svg class="topic-rank-bar" viewBox="0 0 1000 12" preserveAspectRatio="none" role="img" aria-label="{{.Tooltip}}">
@@ -47,9 +60,9 @@
                 <td>{{if .ParentName}}<a class="text-link" href="/topics/{{.ParentSlug}}" translate="no">{{.ParentName}}</a>{{else}}<span class="muted">{{t "topics.top_level"}}</span>{{end}}</td>
                 <td class="numeric">{{formatInt .RepositoryCount}}</td>
                 <td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td>
-                <td class="numeric metric-delta">{{formatSigned .Delta1D}}</td>
-                <td class="numeric metric-delta">{{formatSigned .Delta7D}}</td>
-                <td class="numeric metric-delta">{{formatSigned .Delta30D}}</td>
+                <td class="numeric metric-delta">{{formatSigned .Delta1D}}<span class="cell-secondary">{{tf "topics.comparable_short" (formatInt .Comparable1D) (formatInt .RepositoryCount)}}</span></td>
+                <td class="numeric metric-delta">{{formatSigned .Delta7D}}<span class="cell-secondary">{{tf "topics.comparable_short" (formatInt .Comparable7D) (formatInt .RepositoryCount)}}</span></td>
+                <td class="numeric metric-delta">{{formatSigned .Delta30D}}<span class="cell-secondary">{{tf "topics.comparable_short" (formatInt .Comparable30D) (formatInt .RepositoryCount)}}</span></td>
               </tr>
             {{end}}
           </tbody>

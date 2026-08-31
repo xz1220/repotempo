@@ -21,9 +21,9 @@
     <dl class="metric-strip topic-metrics">
       <div><dt>{{t "metric.repositories"}}</dt><dd>{{formatInt .Topic.Topic.RepositoryCount}}</dd></div>
       <div><dt>{{t "metric.total_stars"}}</dt><dd>{{formatIntPtr .Topic.Topic.CurrentStars}}</dd></div>
-      <div><dt>{{t "metric.one_day"}}</dt><dd>{{formatSigned .Topic.Topic.Delta1D}}</dd></div>
-      <div><dt>{{t "metric.seven_days"}}</dt><dd>{{formatSigned .Topic.Topic.Delta7D}}</dd></div>
-      <div><dt>{{t "metric.thirty_days"}}</dt><dd>{{formatSigned .Topic.Topic.Delta30D}}</dd></div>
+      <div><dt>{{t "metric.one_day"}}</dt><dd>{{formatSigned .Topic.Topic.Delta1D}}<small>{{tf "topics.comparable_short" (formatInt .Topic.Topic.Comparable1D) (formatInt .Topic.Topic.RepositoryCount)}}</small></dd></div>
+      <div><dt>{{t "metric.seven_days"}}</dt><dd>{{formatSigned .Topic.Topic.Delta7D}}<small>{{tf "topics.comparable_short" (formatInt .Topic.Topic.Comparable7D) (formatInt .Topic.Topic.RepositoryCount)}}</small></dd></div>
+      <div><dt>{{t "metric.thirty_days"}}</dt><dd>{{formatSigned .Topic.Topic.Delta30D}}<small>{{tf "topics.comparable_short" (formatInt .Topic.Topic.Comparable30D) (formatInt .Topic.Topic.RepositoryCount)}}</small></dd></div>
       <div><dt>{{t "topic.top_share"}}</dt><dd>{{formatPercent .Topic.ConcentrationPercent}}</dd></div>
     </dl>
   </section>
