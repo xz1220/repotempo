@@ -46,7 +46,7 @@ func TestDashboardAndTopicMetricsRespectFailuresAndMissingDates(t *testing.T) {
 	if math.Abs(summary.Coverage.Percent-50) > 0.0001 {
 		t.Fatalf("coverage percent = %f, want 50", summary.Coverage.Percent)
 	}
-	assertGrowth(t, summary.Growth, 420, 20, 30, 70)
+	assertGrowth(t, summary.Growth, 370, 10, 20, 40)
 
 	metrics, err := store.ListRepositoryMetrics(ctx, domain.RepositoryMetricQuery{
 		AsOf:       date("2026-08-30"),
@@ -61,9 +61,12 @@ func TestDashboardAndTopicMetricsRespectFailuresAndMissingDates(t *testing.T) {
 		byID[metric.Repository.GitHubRepoID] = metric
 	}
 	assertGrowth(t, byID[1].Growth, 140, 10, 20, 40)
-	assertGrowth(t, byID[2].Growth, 230, 10, 10, 30)
-	if byID[3].Growth.Current == nil || *byID[3].Growth.Current != 50 ||
-		byID[3].Growth.Day != nil || byID[3].Growth.SevenDay != nil || byID[3].Growth.ThirtyDay != nil {
+	if byID[2].Growth.Current == nil || *byID[2].Growth.Current != 230 || byID[2].Growth.Day != nil ||
+		byID[2].Growth.SevenDay != nil || byID[2].Growth.ThirtyDay != nil {
+		t.Fatalf("non-exact baseline repo growth = %+v", byID[2].Growth)
+	}
+	if byID[3].Growth.Current != nil || byID[3].Growth.Day != nil ||
+		byID[3].Growth.SevenDay != nil || byID[3].Growth.ThirtyDay != nil {
 		t.Fatalf("failed-current repo growth = %+v", byID[3].Growth)
 	}
 	if byID[4].Growth.Current != nil {
@@ -90,17 +93,27 @@ func TestDashboardAndTopicMetricsRespectFailuresAndMissingDates(t *testing.T) {
 	if topicDetails.Metric.RepositoryCount != 3 {
 		t.Fatalf("topic repository count = %d", topicDetails.Metric.RepositoryCount)
 	}
-	assertGrowth(t, topicDetails.Metric.Growth, 420, 20, 30, 70)
+	assertGrowth(t, topicDetails.Metric.Growth, 370, 10, 20, 40)
+	if topicDetails.Metric.ComparableDay != 1 || topicDetails.Metric.ComparableSevenDay != 1 || topicDetails.Metric.ComparableThirtyDay != 1 {
+		t.Fatalf("topic comparable counts = %+v", topicDetails.Metric)
+	}
 	if topicDetails.Metric.LeaderRepositoryID == nil || *topicDetails.Metric.LeaderRepositoryID != 2 {
 		t.Fatalf("topic leader = %+v", topicDetails.Metric)
 	}
-	if topicDetails.Metric.Concentration == nil || math.Abs(*topicDetails.Metric.Concentration-float64(230)/420) > 0.0001 {
+	if topicDetails.Metric.Concentration == nil || math.Abs(*topicDetails.Metric.Concentration-float64(230)/370) > 0.0001 {
 		t.Fatalf("topic concentration = %v", topicDetails.Metric.Concentration)
 	}
 	lastPoint := topicDetails.History[len(topicDetails.History)-1]
-	if lastPoint.Date != date("2026-08-30") || lastPoint.StarCount == nil || *lastPoint.StarCount != 370 ||
-		lastPoint.ObservedCount != 2 || lastPoint.TargetCount != 3 {
+	if lastPoint.Date != date("2026-08-30") || lastPoint.StarCount == nil || *lastPoint.StarCount != 230 ||
+		lastPoint.ObservedCount != 1 || lastPoint.TargetCount != 1 {
 		t.Fatalf("topic history point = %+v", lastPoint)
+	}
+	if len(topicDetails.History) != 9 {
+		t.Fatalf("fixed-cohort topic history length = %d, want 9", len(topicDetails.History))
+	}
+	missingPoint := topicDetails.History[7]
+	if missingPoint.Date != date("2026-08-29") || missingPoint.StarCount != nil || missingPoint.ObservedCount != 0 || missingPoint.TargetCount != 1 {
+		t.Fatalf("fixed-cohort topic history gap = %+v", missingPoint)
 	}
 
 	excluded, err := store.GetTopicDetail(ctx, "agents", date("2026-08-30"), true)
@@ -110,10 +123,10 @@ func TestDashboardAndTopicMetricsRespectFailuresAndMissingDates(t *testing.T) {
 	if excluded.ExcludedRepositoryID == nil || *excluded.ExcludedRepositoryID != 2 || excluded.Metric.RepositoryCount != 2 {
 		t.Fatalf("excluded topic metadata = %+v", excluded)
 	}
-	assertGrowth(t, excluded.Metric.Growth, 190, 10, 20, 40)
+	assertGrowth(t, excluded.Metric.Growth, 140, 10, 20, 40)
 	excludedLast := excluded.History[len(excluded.History)-1]
 	if excludedLast.StarCount == nil || *excludedLast.StarCount != 140 ||
-		excludedLast.ObservedCount != 1 || excludedLast.TargetCount != 2 {
+		excludedLast.ObservedCount != 1 || excludedLast.TargetCount != 1 {
 		t.Fatalf("excluded topic history point = %+v", excludedLast)
 	}
 
@@ -184,6 +197,260 @@ func TestRepositoryMetricsRequireARealBaselineAndApplyFilters(t *testing.T) {
 	})
 	if err != nil || len(injection) != 0 {
 		t.Fatalf("parameterized search = (%+v, %v), want no matches", injection, err)
+	}
+}
+
+func TestTopicDetailFastestRepositoriesUseDailyGrowth(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	addRepository(t, store, 1, "owner/fast-today")
+	addRepository(t, store, 2, "owner/fast-month")
+	putSuccess(t, store, 1, "2026-07-31", 900)
+	putSuccess(t, store, 1, "2026-08-29", 1_000)
+	putSuccess(t, store, 1, "2026-08-30", 1_100)
+	putSuccess(t, store, 2, "2026-07-31", 0)
+	putSuccess(t, store, 2, "2026-08-29", 499)
+	putSuccess(t, store, 2, "2026-08-30", 500)
+	topic, _, err := store.UpsertTopic(ctx, domain.Topic{Slug: "fastest", Name: "Fastest"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, repositoryID := range []int64{1, 2} {
+		if _, err := store.AssignRepositoryTopic(ctx, domain.RepositoryTopic{RepositoryID: repositoryID, TopicID: topic.ID, Source: domain.TopicSourceManual}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	detail, err := store.GetTopicDetail(ctx, topic.Slug, date("2026-08-30"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detail.Fastest) != 2 || detail.Fastest[0].Repository.GitHubRepoID != 1 ||
+		detail.Fastest[0].Growth.Day == nil || *detail.Fastest[0].Growth.Day != 100 {
+		t.Fatalf("topic fastest repositories = %+v", detail.Fastest)
+	}
+}
+
+func TestRepositoryTrendsUseStrictCohortRanksAndKeysetPagination(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	for id, name := range []string{"alpha/steady", "beta/large", "gamma/rising"} {
+		addRepositoryFromSource(t, store, int64(id+1), name, domain.DiscoverySourceGitHubSearch, testNow.Add(-10*24*time.Hour))
+	}
+	addRepository(t, store, 4, "delta/new")
+	addRepositoryFromSource(t, store, 5, "epsilon/failed", domain.DiscoverySourceGitHubSearch, testNow.Add(-10*24*time.Hour))
+
+	putSuccess(t, store, 1, "2026-08-23", 100)
+	putSuccess(t, store, 1, "2026-08-30", 150)
+	putSuccess(t, store, 2, "2026-08-23", 200)
+	putSuccess(t, store, 2, "2026-08-30", 210)
+	putSuccess(t, store, 3, "2026-08-23", 50)
+	putSuccess(t, store, 3, "2026-08-30", 300)
+	putSuccess(t, store, 4, "2026-08-30", 400)
+	putSuccess(t, store, 5, "2026-08-23", 500)
+	putFailure(t, store, 5, "2026-08-30")
+
+	page, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf:       date("2026-08-30"),
+		WindowDays: 7,
+		Sort:       domain.RepositoryTrendSortRankChange,
+		Limit:      2,
+	})
+	if err != nil {
+		t.Fatalf("list repository trends: %v", err)
+	}
+	if page.Total != 4 || !page.HasMore || page.Coverage.ScopeCount != 5 ||
+		page.Coverage.ObservedCount != 4 || page.Coverage.ComparableCount != 3 ||
+		page.Coverage.NewCount != 1 {
+		t.Fatalf("trend page metadata = %+v", page)
+	}
+	if len(page.Items) != 2 || page.Items[0].Repository.GitHubRepoID != 3 ||
+		page.Items[1].Repository.GitHubRepoID != 2 {
+		t.Fatalf("first trend page = %+v", page.Items)
+	}
+	if page.Items[0].RankChange == nil || *page.Items[0].RankChange != 2 ||
+		page.Items[0].StarDelta == nil || *page.Items[0].StarDelta != 250 {
+		t.Fatalf("rising metric = %+v", page.Items[0])
+	}
+
+	after := page.Items[1].Repository.GitHubRepoID
+	next, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf:       date("2026-08-30"),
+		WindowDays: 7,
+		Sort:       domain.RepositoryTrendSortRankChange,
+		Limit:      2,
+		AfterID:    &after,
+	})
+	if err != nil {
+		t.Fatalf("list next trend page: %v", err)
+	}
+	if len(next.Items) != 2 || next.Items[0].Repository.GitHubRepoID != 1 ||
+		next.Items[1].Repository.GitHubRepoID != 4 || next.HasMore {
+		t.Fatalf("next trend page = %+v", next.Items)
+	}
+	if !next.Items[1].IsNew || next.Items[1].BaselineStars != nil || next.Items[1].RankChange != nil {
+		t.Fatalf("new repository trend = %+v", next.Items[1])
+	}
+
+	searched, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf:       date("2026-08-30"),
+		WindowDays: 7,
+		Search:     "alpha",
+		Limit:      10,
+	})
+	if err != nil || len(searched.Items) != 1 || searched.Items[0].CurrentRank == nil ||
+		*searched.Items[0].CurrentRank != 3 {
+		t.Fatalf("search changed ranking scope: page=%+v err=%v", searched, err)
+	}
+
+	newOnly, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf:       date("2026-08-30"),
+		WindowDays: 7,
+		OnlyNew:    true,
+		Limit:      10,
+	})
+	if err != nil || len(newOnly.Items) != 1 || newOnly.Items[0].Repository.GitHubRepoID != 4 {
+		t.Fatalf("new-only trends = (%+v, %v)", newOnly.Items, err)
+	}
+
+	latest, err := store.LatestSnapshotDate(ctx)
+	if err != nil || latest != date("2026-08-30") {
+		t.Fatalf("latest snapshot date = %q, err=%v", latest, err)
+	}
+}
+
+func TestRepositoryTrendParentTopicIncludesChildren(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	addRepositoryFromSource(t, store, 1, "owner/child", domain.DiscoverySourceGitHubSearch, testNow.Add(-10*24*time.Hour))
+	putSuccess(t, store, 1, "2026-08-23", 10)
+	putSuccess(t, store, 1, "2026-08-30", 20)
+	parent, _, err := store.UpsertTopic(ctx, domain.Topic{Slug: "parent", Name: "Parent"})
+	if err != nil {
+		t.Fatalf("create parent topic: %v", err)
+	}
+	child, _, err := store.UpsertTopic(ctx, domain.Topic{Slug: "child", Name: "Child", ParentID: &parent.ID})
+	if err != nil {
+		t.Fatalf("create child topic: %v", err)
+	}
+	if _, err := store.AssignRepositoryTopic(ctx, domain.RepositoryTopic{
+		RepositoryID: 1,
+		TopicID:      child.ID,
+		Source:       domain.TopicSourceManual,
+	}); err != nil {
+		t.Fatalf("assign child topic: %v", err)
+	}
+	page, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf:       date("2026-08-30"),
+		WindowDays: 7,
+		TopicSlug:  parent.Slug,
+		Limit:      10,
+	})
+	if err != nil || len(page.Items) != 1 || page.Items[0].Repository.GitHubRepoID != 1 {
+		t.Fatalf("parent topic trend page = (%+v, %v)", page.Items, err)
+	}
+	detail, err := store.GetTopicDetail(ctx, parent.Slug, date("2026-08-30"), false)
+	if err != nil {
+		t.Fatalf("parent topic detail: %v", err)
+	}
+	if detail.Metric.RepositoryCount != 1 || len(detail.Repositories) != 1 {
+		t.Fatalf("parent topic detail did not include child assignment: %+v", detail.Metric)
+	}
+	last := detail.History[len(detail.History)-1]
+	if last.StarCount == nil || *last.StarCount != 20 || last.ObservedCount != 1 || last.TargetCount != 1 {
+		t.Fatalf("parent topic history = %+v", last)
+	}
+}
+
+func TestRepositorySourceFilterUsesFirstDiscoverySource(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	addRepositoryFromSource(t, store, 1, "owner/github-first", domain.DiscoverySourceGitHubSearch, testNow.Add(-10*24*time.Hour))
+	addRepositoryFromSource(t, store, 1, "owner/github-first", domain.DiscoverySourceOSSInsight, testNow.Add(-5*24*time.Hour))
+	addRepositoryFromSource(t, store, 2, "owner/oss-first", domain.DiscoverySourceOSSInsight, testNow.Add(-10*24*time.Hour))
+	for _, repositoryID := range []int64{1, 2} {
+		putSuccess(t, store, repositoryID, "2026-08-23", 10)
+		putSuccess(t, store, repositoryID, "2026-08-30", 20)
+	}
+
+	page, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf:            date("2026-08-30"),
+		WindowDays:      7,
+		DiscoverySource: domain.DiscoverySourceOSSInsight,
+		Limit:           10,
+	})
+	if err != nil || len(page.Items) != 1 || page.Items[0].Repository.GitHubRepoID != 2 {
+		t.Fatalf("first-source trend filter = (%+v, %v)", page.Items, err)
+	}
+	metrics, err := store.ListRepositoryMetrics(ctx, domain.RepositoryMetricQuery{
+		AsOf:            date("2026-08-30"),
+		DiscoverySource: domain.DiscoverySourceOSSInsight,
+	})
+	if err != nil || len(metrics) != 1 || metrics[0].Repository.GitHubRepoID != 2 {
+		t.Fatalf("first-source metric filter = (%+v, %v)", metrics, err)
+	}
+}
+
+func TestArchivedTopicsStayOutOfActiveViewsAndParentRollups(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	addRepositoryFromSource(t, store, 1, "owner/archived-topic", domain.DiscoverySourceGitHubSearch, testNow.Add(-10*24*time.Hour))
+	putSuccess(t, store, 1, "2026-08-23", 10)
+	putSuccess(t, store, 1, "2026-08-30", 20)
+	parent, _, err := store.UpsertTopic(ctx, domain.Topic{Slug: "active-parent", Name: "Active parent", Status: domain.TopicActive})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, _, err := store.UpsertTopic(ctx, domain.Topic{Slug: "archived-child", Name: "Archived child", ParentID: &parent.ID, Status: domain.TopicArchived})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.AssignRepositoryTopic(ctx, domain.RepositoryTopic{RepositoryID: 1, TopicID: child.ID, Source: domain.TopicSourceManual}); err != nil {
+		t.Fatal(err)
+	}
+
+	unclassified, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf: date("2026-08-30"), WindowDays: 7, TopicSlug: unclassifiedTopicFilter, Limit: 10,
+	})
+	if err != nil || len(unclassified.Items) != 1 || len(unclassified.Items[0].Topics) != 0 {
+		t.Fatalf("archived topic in unclassified view = (%+v, %v)", unclassified.Items, err)
+	}
+	archivedMetrics, err := store.ListRepositoryMetrics(ctx, domain.RepositoryMetricQuery{AsOf: date("2026-08-30"), TopicSlug: child.Slug})
+	if err != nil || len(archivedMetrics) != 0 {
+		t.Fatalf("archived topic metrics = (%+v, %v)", archivedMetrics, err)
+	}
+	parentDetail, err := store.GetTopicDetail(ctx, parent.Slug, date("2026-08-30"), false)
+	if err != nil || parentDetail.Metric.RepositoryCount != 0 || len(parentDetail.History) != 0 {
+		t.Fatalf("active parent rolled up archived child = (%+v, %v)", parentDetail, err)
+	}
+	coverage, err := store.TopicClassificationCoverage(ctx, date("2026-08-30"))
+	if err != nil || coverage.RepositoryCount != 1 || coverage.ClassifiedCount != 0 || coverage.UnclassifiedCount != 1 {
+		t.Fatalf("classification coverage = (%+v, %v)", coverage, err)
+	}
+}
+
+func TestHistoricalTrendScopeExcludesRepositoriesDiscoveredLater(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	addRepositoryFromSource(t, store, 1, "owner/already-observed", domain.DiscoverySourceLegacy, time.Date(2026, 8, 20, 1, 0, 0, 0, time.UTC))
+	addRepositoryFromSource(t, store, 2, "owner/future-discovery", domain.DiscoverySourceGitHubSearch, time.Date(2026, 8, 30, 1, 0, 0, 0, time.UTC))
+	for _, repositoryID := range []int64{1, 2} {
+		putSuccess(t, store, repositoryID, "2026-08-22", 10)
+		putSuccess(t, store, repositoryID, "2026-08-23", 20)
+	}
+
+	page, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf: date("2026-08-23"), WindowDays: 1, Limit: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Coverage.ScopeCount != 1 || page.Coverage.ObservedCount != 1 || page.Coverage.ComparableCount != 1 ||
+		page.Total != 1 || len(page.Items) != 1 || page.Items[0].Repository.GitHubRepoID != 1 {
+		t.Fatalf("historical trend scope = %+v items=%+v", page.Coverage, page.Items)
+	}
+	metrics, err := store.ListRepositoryMetrics(ctx, domain.RepositoryMetricQuery{AsOf: date("2026-08-23")})
+	if err != nil || len(metrics) != 1 || metrics[0].Repository.GitHubRepoID != 1 {
+		t.Fatalf("historical metric scope = (%+v, %v)", metrics, err)
 	}
 }
 

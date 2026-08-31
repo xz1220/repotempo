@@ -92,7 +92,7 @@ func putFailure(t *testing.T, store *Store, repositoryID int64, snapshotDate str
 	}
 }
 
-func TestMigrationIsIdempotentAndCreatesExactlyFiveTables(t *testing.T) {
+func TestMigrationIsIdempotentAndCreatesExpectedTables(t *testing.T) {
 	store, path := newTestStore(t)
 	addRepository(t, store, 1, "openai/codex")
 
@@ -114,7 +114,14 @@ ORDER BY name`)
 	if err := rows.Close(); err != nil {
 		t.Fatalf("close table rows: %v", err)
 	}
-	wantTables := []string{"daily_snapshots", "job_runs", "repositories", "repository_topics", "topics"}
+	wantTables := []string{
+		"daily_snapshots",
+		"job_runs",
+		"repositories",
+		"repository_analyses",
+		"repository_topics",
+		"topics",
+	}
 	if !reflect.DeepEqual(tables, wantTables) {
 		t.Fatalf("tables = %v, want %v", tables, wantTables)
 	}
@@ -136,8 +143,8 @@ ORDER BY name`)
 	if err := store.db.QueryRow("PRAGMA user_version").Scan(&migrationVersion); err != nil {
 		t.Fatalf("read user_version: %v", err)
 	}
-	if migrationVersion != 1 {
-		t.Fatalf("user_version = %d, want 1", migrationVersion)
+	if migrationVersion != 3 {
+		t.Fatalf("user_version = %d, want 3", migrationVersion)
 	}
 
 	if err := store.Close(); err != nil {
@@ -151,7 +158,7 @@ ORDER BY name`)
 	if _, err := reopened.GetRepository(context.Background(), 1); err != nil {
 		t.Fatalf("data did not survive repeated migration: %v", err)
 	}
-	if err := reopened.db.QueryRow("PRAGMA user_version").Scan(&migrationVersion); err != nil || migrationVersion != 1 {
+	if err := reopened.db.QueryRow("PRAGMA user_version").Scan(&migrationVersion); err != nil || migrationVersion != 3 {
 		t.Fatalf("reopened user_version = %d, err = %v", migrationVersion, err)
 	}
 }
