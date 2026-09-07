@@ -71,7 +71,7 @@ func (adapter WebAdapter) ListRepositoryMetrics(ctx context.Context, query web.R
 }
 
 func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.RepositoryQuery) (web.RepositoryPage, error) {
-	asOf, err := adapter.resolveAsOf(ctx, query.AsOf)
+	asOf, err := adapter.resolveLibraryDate(ctx, query.AsOf)
 	if err != nil {
 		return web.RepositoryPage{}, err
 	}
@@ -84,6 +84,7 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 		MonitoringStatus: validMonitoringStatus(query.MonitoringStatus),
 		Sort:             validTrendSort(query.Sort),
 		OnlyNew:          query.OnlyNew,
+		OnlyFocus:        query.OnlyFocus,
 		Limit:            query.Limit,
 		AfterID:          query.AfterID,
 	}
@@ -114,10 +115,56 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 	return result, nil
 }
 
+// The library includes newly added projects immediately; the overview uses
+// a completed collection batch to preserve meaningful coverage.
+func (adapter WebAdapter) resolveLibraryDate(ctx context.Context, requested time.Time) (time.Time, error) {
+	if !requested.IsZero() {
+		return requested, nil
+	}
+	var latest domain.Date
+	var err error
+	if library, ok := adapter.Store.(corestore.LatestLibraryDateStore); ok {
+		latest, err = library.LatestLibraryDate(ctx)
+	} else {
+		latest, err = adapter.Store.LatestSnapshotDate(ctx)
+	}
+	if err == nil {
+		return dateTime(latest), nil
+	}
+	if errors.Is(err, corestore.ErrNotFound) {
+		return dateTime(domain.ShanghaiDate(time.Now())), nil
+	}
+	return time.Time{}, mapWebError(err)
+}
+
 func (adapter WebAdapter) GetRepositoryDetail(ctx context.Context, id int64, asOf time.Time) (web.RepositoryDetail, error) {
 	resolved, err := adapter.resolveAsOf(ctx, asOf)
 	if err != nil {
 		return web.RepositoryDetail{}, err
+	}
+	if asOf.IsZero() {
+		// The dashboard follows completed collection batches, while a project
+		// can be added or refreshed after that batch. Its default detail must
+		// still show that newer evidence. An explicit historical date keeps its
+		// original cutoff, including a 404 before the project was first seen.
+		repository, err := adapter.Store.GetRepository(ctx, id)
+		if err != nil {
+			return web.RepositoryDetail{}, mapWebError(err)
+		}
+		firstSeen := dateTime(domain.ShanghaiDate(repository.FirstSeenAt))
+		if firstSeen.After(resolved) {
+			resolved = firstSeen
+		}
+		latest, err := adapter.Store.GetLatestSuccessfulSnapshot(ctx, id, domain.Date("9999-12-31"))
+		if err != nil && !errors.Is(err, corestore.ErrNotFound) {
+			return web.RepositoryDetail{}, mapWebError(err)
+		}
+		if err == nil {
+			latestDate := dateTime(latest.SnapshotDate)
+			if latestDate.After(resolved) {
+				resolved = latestDate
+			}
+		}
 	}
 	asOf = resolved
 	value, err := adapter.Store.GetRepositoryDetail(ctx, id, domain.ShanghaiDate(asOf))
@@ -274,6 +321,8 @@ func mapRepositoryMetric(value domain.RepositoryMetric) web.RepositoryMetric {
 		MonitoringStatus: string(repository.MonitoringStatus),
 		GitHubStatus:     string(repository.GitHubStatus),
 		ManualNote:       repository.ManualNote,
+		IsFocus:          repository.IsFocus,
+		GitHubCreatedAt:  repository.GitHubCreatedAt,
 	}
 }
 
@@ -287,27 +336,34 @@ func mapRepositoryTrends(values []domain.RepositoryTrendMetric) []web.Repository
 			growthRate = &percent
 		}
 		result = append(result, web.RepositoryMetric{
-			ID:               repository.GitHubRepoID,
-			FullName:         repository.FullName,
-			HTMLURL:          repository.HTMLURL,
-			Description:      repository.Description,
-			PrimaryLanguage:  repository.PrimaryLanguage,
-			CurrentStars:     value.CurrentStars,
-			Topics:           mapTopicRefs(value.Topics),
-			FirstSeenSource:  string(repository.FirstSeenSource),
-			FirstSeenProfile: repository.FirstSeenProfile,
-			FirstSeenAt:      repository.FirstSeenAt,
-			MonitoringStatus: string(repository.MonitoringStatus),
-			GitHubStatus:     string(repository.GitHubStatus),
-			ManualNote:       repository.ManualNote,
-			BaselineStars:    value.BaselineStars,
-			CurrentRank:      value.CurrentRank,
-			BaselineRank:     value.BaselineRank,
-			RankChange:       value.RankChange,
-			StarDelta:        value.StarDelta,
-			GrowthRate:       growthRate,
-			DailyVelocity:    value.DailyVelocity,
-			IsNew:            value.IsNew,
+			ID:                repository.GitHubRepoID,
+			FullName:          repository.FullName,
+			HTMLURL:           repository.HTMLURL,
+			Description:       repository.Description,
+			PrimaryLanguage:   repository.PrimaryLanguage,
+			CurrentStars:      value.CurrentStars,
+			Topics:            mapTopicRefs(value.Topics),
+			FirstSeenSource:   string(repository.FirstSeenSource),
+			FirstSeenProfile:  repository.FirstSeenProfile,
+			FirstSeenAt:       repository.FirstSeenAt,
+			MonitoringStatus:  string(repository.MonitoringStatus),
+			GitHubStatus:      string(repository.GitHubStatus),
+			ManualNote:        repository.ManualNote,
+			BaselineStars:     value.BaselineStars,
+			CurrentRank:       value.CurrentRank,
+			BaselineRank:      value.BaselineRank,
+			RankChange:        value.RankChange,
+			StarDelta:         value.StarDelta,
+			GrowthRate:        growthRate,
+			DailyVelocity:     value.DailyVelocity,
+			IsNew:             value.IsNew,
+			IsFocus:           repository.IsFocus,
+			IsStale:           value.IsStale,
+			LastObservedAt:    datePointer(value.LastObservedDate),
+			LastObservedStars: value.LastObservedStars,
+			GitHubCreatedAt:   repository.GitHubCreatedAt,
+			PreviousDelta:     value.PreviousDelta,
+			MomentumChange:    value.MomentumChange,
 		})
 	}
 	return result
@@ -650,7 +706,8 @@ func validTrendSort(value string) domain.RepositoryTrendSort {
 	switch sortValue {
 	case domain.RepositoryTrendSortRankChange, domain.RepositoryTrendSortStars,
 		domain.RepositoryTrendSortDelta, domain.RepositoryTrendSortGrowthRate,
-		domain.RepositoryTrendSortVelocity:
+		domain.RepositoryTrendSortVelocity, domain.RepositoryTrendSortLowGrowth,
+		domain.RepositoryTrendSortSlowdown, domain.RepositoryTrendSortNewest:
 		return sortValue
 	default:
 		return domain.RepositoryTrendSortVelocity
@@ -661,7 +718,13 @@ func (adapter WebAdapter) resolveAsOf(ctx context.Context, requested time.Time) 
 	if !requested.IsZero() {
 		return requested, nil
 	}
-	latest, err := adapter.Store.LatestSnapshotDate(ctx)
+	var latest domain.Date
+	var err error
+	if preferred, ok := adapter.Store.(corestore.PreferredSnapshotDateStore); ok {
+		latest, err = preferred.PreferredSnapshotDate(ctx)
+	} else {
+		latest, err = adapter.Store.LatestSnapshotDate(ctx)
+	}
 	if err == nil {
 		return dateTime(latest), nil
 	}

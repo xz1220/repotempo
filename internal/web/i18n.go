@@ -83,6 +83,14 @@ func (l localizer) SourceLabel(value string) string {
 	return translated
 }
 
+func (l localizer) TopicName(slug, fallback string) string {
+	key := "category." + slug
+	if value := l.Text(key); value != key {
+		return value
+	}
+	return fallback
+}
+
 func (l localizer) WarningText(value string) string {
 	if value == "Current snapshot coverage is temporarily unavailable." {
 		return l.Text("warning.coverage_unavailable")

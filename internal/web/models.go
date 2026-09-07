@@ -72,6 +72,7 @@ type RepositoryQuery struct {
 	MonitoringStatus string
 	Sort             string
 	OnlyNew          bool
+	OnlyFocus        bool
 	Limit            int
 	Offset           int
 	AfterID          *int64
@@ -89,6 +90,7 @@ type RepositoryPage struct {
 	HasMore            bool
 	NextCursor         string
 	Path               string
+	FirstPageURL       string
 }
 
 type ComparisonCoverage struct {
@@ -101,30 +103,37 @@ type ComparisonCoverage struct {
 }
 
 type RepositoryMetric struct {
-	ID               int64
-	FullName         string
-	HTMLURL          string
-	Description      string
-	PrimaryLanguage  string
-	CurrentStars     *int64
-	Delta1D          *int64
-	Delta7D          *int64
-	Delta30D         *int64
-	Topics           []TopicRef
-	FirstSeenSource  string
-	FirstSeenProfile string
-	FirstSeenAt      time.Time
-	MonitoringStatus string
-	GitHubStatus     string
-	ManualNote       string
-	BaselineStars    *int64
-	CurrentRank      *int64
-	BaselineRank     *int64
-	RankChange       *int64
-	StarDelta        *int64
-	GrowthRate       *float64
-	DailyVelocity    *float64
-	IsNew            bool
+	ID                int64
+	FullName          string
+	HTMLURL           string
+	Description       string
+	PrimaryLanguage   string
+	CurrentStars      *int64
+	Delta1D           *int64
+	Delta7D           *int64
+	Delta30D          *int64
+	Topics            []TopicRef
+	FirstSeenSource   string
+	FirstSeenProfile  string
+	FirstSeenAt       time.Time
+	MonitoringStatus  string
+	GitHubStatus      string
+	ManualNote        string
+	BaselineStars     *int64
+	CurrentRank       *int64
+	BaselineRank      *int64
+	RankChange        *int64
+	StarDelta         *int64
+	GrowthRate        *float64
+	DailyVelocity     *float64
+	IsNew             bool
+	IsFocus           bool
+	IsStale           bool
+	LastObservedAt    *time.Time
+	LastObservedStars *int64
+	GitHubCreatedAt   *time.Time
+	PreviousDelta     *int64
+	MomentumChange    *int64
 }
 
 type TopicRef struct {

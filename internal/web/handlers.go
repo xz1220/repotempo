@@ -28,29 +28,39 @@ type pageMeta struct {
 	EnglishURL  string
 	ChineseURL  string
 	TitleKind   string
+	Stale       bool
 }
 
 type pageView struct {
-	Meta         pageMeta
-	Dashboard    DashboardSummary
-	Repositories RepositoryPage
-	Repository   RepositoryDetail
-	Topics       TopicPage
-	Topic        TopicDetail
-	Discoveries  DiscoverySummary
-	Runs         RunsPage
-	StarChart    chart
-	RankChart    chart
-	TopicChart   chart
-	GrowthChart  growthBarChart
-	TopicRanking topicRankChart
-	DiscoveryMix discoveryMixChart
-	TrendPeriods []viewOption
-	TrendSorts   []viewOption
-	Pagination   pagination
-	ErrorStatus  int
-	ErrorTitle   string
-	ErrorMessage string
+	Meta              pageMeta
+	Dashboard         DashboardSummary
+	Repositories      RepositoryPage
+	Repository        RepositoryDetail
+	Topics            TopicPage
+	Topic             TopicDetail
+	Discoveries       DiscoverySummary
+	Runs              RunsPage
+	StarChart         chart
+	RankChart         chart
+	TopicChart        chart
+	GrowthChart       growthBarChart
+	TopicRanking      topicRankChart
+	DiscoveryMix      discoveryMixChart
+	TrendPeriods      []viewOption
+	TrendSorts        []viewOption
+	Pagination        pagination
+	ErrorStatus       int
+	ErrorTitle        string
+	ErrorMessage      string
+	Radar             RadarOverview
+	RadarChart        chart
+	Boards            []leaderboard
+	Categories        []categoryLink
+	CurrentPath       string
+	ChartChange       *float64
+	ChartCohort       int
+	DirectionSegments []directionSegment
+	CategoryCards     []categoryCard
 }
 
 type viewOption struct {
@@ -68,7 +78,7 @@ type pagination struct {
 }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
-	h.repositoryIndex(w, r, "/")
+	h.radarHome(w, r)
 }
 
 func (h *Handler) repositories(w http.ResponseWriter, r *http.Request) {
@@ -92,8 +102,15 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		MonitoringStatus: strings.TrimSpace(r.URL.Query().Get("status")),
 		Sort:             normalizeRepositorySort(r.URL.Query().Get("sort")),
 		OnlyNew:          r.URL.Query().Get("new") == "1",
+		OnlyFocus:        r.URL.Query().Get("focus") == "1",
 		Limit:            repositoryPageSize,
 		AfterID:          parseTrendCursor(r.URL.Query().Get("cursor")),
+	}
+	if path == "/discoveries" {
+		filter.OnlyNew = true
+		if r.URL.Query().Get("sort") == "" {
+			filter.Sort = "newest"
+		}
 	}
 	data, err := h.queryer.ListRepositoryTrends(r.Context(), filter)
 	if err != nil {
@@ -109,9 +126,14 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	data.Filter = filter
 	data.Filter.AsOf = data.Coverage.AsOfDate
 	data.Path = path
+	firstPageValues := cloneValues(r.URL.Query())
+	firstPageValues.Del("cursor")
+	firstPageValues.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
+	data.FirstPageURL = queryPath(path, firstPageValues)
 	if data.HasMore && data.NextCursor != "" {
 		values := cloneValues(r.URL.Query())
 		values.Set("cursor", data.NextCursor)
+		values.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
 		data.NextCursor = queryPath(path, values)
 	}
 	view := pageView{
@@ -121,7 +143,17 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		TrendSorts:   repositorySortOptions(path, r.URL.Query(), filter.Sort, localized),
 	}
 	view.Meta.AsOfLabel = formatDateLocalized(data.Coverage.AsOfDate, h.location, localized.Text("page.not_available"))
-	h.render(w, r, http.StatusOK, "repositories", view)
+	view.Meta.Stale = rawDate == "" && h.isStale(data.Coverage.AsOfDate)
+	view.CurrentPath = path
+	view.Categories = categoryLinks(path, r.URL.Query())
+	templateName := "repositories"
+	if path == "/discoveries" {
+		view.Meta.Title = localized.Text("ui.discovery_title")
+		view.Meta.Description = localized.Text("ui.discovery_description")
+		view.Meta.ActiveNav = "discoveries"
+		templateName = "discoveries"
+	}
+	h.render(w, r, http.StatusOK, templateName, view)
 }
 
 func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +163,13 @@ func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
 		h.notFound(w, r)
 		return
 	}
-	data, err := h.queryer.GetRepositoryDetail(r.Context(), id, time.Time{})
+	rawDate := strings.TrimSpace(r.URL.Query().Get("date"))
+	asOf := parseDateParameter(rawDate, h.location)
+	if rawDate != "" && asOf.IsZero() {
+		h.badRequest(w, r, localized.Text("error.invalid_date.title"), localized.Text("error.invalid_date.message"))
+		return
+	}
+	data, err := h.queryer.GetRepositoryDetail(r.Context(), id, asOf)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			h.notFound(w, r)
@@ -172,9 +210,10 @@ func (h *Handler) topics(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	view := pageView{
-		Meta:         h.meta(localized, "meta.topics.title", "meta.topics.description", "topics", data.Warnings),
-		Topics:       data,
-		TopicRanking: ranking,
+		Meta:          h.meta(localized, "meta.topics.title", "meta.topics.description", "topics", data.Warnings),
+		Topics:        data,
+		TopicRanking:  ranking,
+		CategoryCards: categoryCards(data.Items, localized),
 	}
 	if !data.AsOf.IsZero() {
 		view.Meta.AsOfLabel = formatDateLocalized(data.AsOf, h.location, localized.Text("page.not_available"))
@@ -199,7 +238,7 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
-	meta := h.metaText(localized, data.Topic.Name, localized.Text("meta.topic.description"), "topics", data.Warnings)
+	meta := h.metaText(localized, localized.TopicName(data.Topic.Slug, data.Topic.Name), localized.Text("meta.topic.description"), "topics", data.Warnings)
 	meta.TitleKind = "topic"
 	if !data.AsOf.IsZero() {
 		meta.AsOfLabel = formatDateLocalized(data.AsOf, h.location, localized.Text("page.not_available"))
@@ -213,10 +252,7 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) discoveries(w http.ResponseWriter, r *http.Request) {
-	values := cloneValues(r.URL.Query())
-	values.Set("new", "1")
-	values.Del("cursor")
-	http.Redirect(w, r, queryPath("/", values), http.StatusFound)
+	h.repositoryIndex(w, r, "/discoveries")
 }
 
 func (h *Handler) runs(w http.ResponseWriter, r *http.Request) {
@@ -401,7 +437,7 @@ func normalizeRepositoryPeriod(raw string) int {
 
 func normalizeRepositorySort(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "rank_change", "stars", "delta", "growth_rate":
+	case "rank_change", "stars", "delta", "growth_rate", "low_growth", "slowdown", "newest":
 		return strings.ToLower(strings.TrimSpace(raw))
 	default:
 		return "velocity"

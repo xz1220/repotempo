@@ -528,6 +528,7 @@ func makeChart(input []chartInput, inverse bool, title, description string) char
 		valueRange = 1
 	}
 	denominator := max(1, len(input)-1)
+	dateSpan := input[len(input)-1].Date.Sub(input[0].Date)
 	current := make([]string, 0, len(input))
 	flush := func() {
 		if len(current) > 0 {
@@ -540,7 +541,14 @@ func makeChart(input []chartInput, inverse bool, title, description string) char
 			flush()
 			continue
 		}
-		x := left + float64(index)/float64(denominator)*width
+		if index > 0 && point.Date.Sub(input[index-1].Date) > 36*time.Hour {
+			flush()
+		}
+		xRatio := float64(index) / float64(denominator)
+		if dateSpan > 0 {
+			xRatio = float64(point.Date.Sub(input[0].Date)) / float64(dateSpan)
+		}
+		x := left + xRatio*width
 		ratio := float64(*point.Value-minValue) / valueRange
 		if !inverse {
 			ratio = 1 - ratio
