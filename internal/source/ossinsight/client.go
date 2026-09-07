@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/config"
-	"github.com/xz1220/github-radar/internal/source"
+	"github.com/xz1220/repotempo/internal/config"
+	"github.com/xz1220/repotempo/internal/source"
 )
 
 type ClientOptions struct {

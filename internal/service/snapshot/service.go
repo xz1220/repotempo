@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/source/github"
-	corestore "github.com/xz1220/github-radar/internal/store"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/source/github"
+	corestore "github.com/xz1220/repotempo/internal/store"
 )
 
 type Store interface {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/repotempo/internal/domain"
 )
 
 func TestRepositoryCanHaveMultipleTopicsAndManualWins(t *testing.T) {

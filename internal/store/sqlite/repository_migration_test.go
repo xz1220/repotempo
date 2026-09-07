@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/migrations"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/migrations"
 )
 
 func newV3MigrationFixture(t *testing.T) (*sql.DB, string) {

@@ -13,17 +13,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/config"
-	"github.com/xz1220/github-radar/internal/exporter"
-	"github.com/xz1220/github-radar/internal/service/discovery"
-	"github.com/xz1220/github-radar/internal/service/jobs"
-	"github.com/xz1220/github-radar/internal/service/snapshot"
-	"github.com/xz1220/github-radar/internal/service/topic"
-	"github.com/xz1220/github-radar/internal/service/watch"
-	"github.com/xz1220/github-radar/internal/source/github"
-	"github.com/xz1220/github-radar/internal/source/ossinsight"
-	"github.com/xz1220/github-radar/internal/source/trending"
-	"github.com/xz1220/github-radar/internal/store/sqlite"
+	"github.com/xz1220/repotempo/internal/config"
+	"github.com/xz1220/repotempo/internal/exporter"
+	"github.com/xz1220/repotempo/internal/service/discovery"
+	"github.com/xz1220/repotempo/internal/service/jobs"
+	"github.com/xz1220/repotempo/internal/service/snapshot"
+	"github.com/xz1220/repotempo/internal/service/topic"
+	"github.com/xz1220/repotempo/internal/service/watch"
+	"github.com/xz1220/repotempo/internal/source/github"
+	"github.com/xz1220/repotempo/internal/source/ossinsight"
+	"github.com/xz1220/repotempo/internal/source/trending"
+	"github.com/xz1220/repotempo/internal/store/sqlite"
 )
 
 type RuntimeOptions struct {

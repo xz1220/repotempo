@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xz1220/github-radar/internal/config"
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/source"
-	"github.com/xz1220/github-radar/internal/source/github"
+	"github.com/xz1220/repotempo/internal/config"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/source"
+	"github.com/xz1220/repotempo/internal/source/github"
 )
 
 func (runtime *Runtime) discoverTrending(ctx context.Context, options DiscoverOptions, cfg config.Discovery, client *github.Client, report *DiscoverReport) []source.Candidate {

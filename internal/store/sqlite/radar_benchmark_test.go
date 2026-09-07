@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/repotempo/internal/domain"
 )
 
 // BenchmarkRadar queries a real, temporary SQLite database. Every scenario

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/web"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/web"
 )
 
 func (runtime *Runtime) Serve(ctx context.Context, address string) error {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/xz1220/github-radar/internal/config"
-	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/repotempo/internal/config"
+	"github.com/xz1220/repotempo/internal/domain"
 )
 
 // ensureTopics materializes the configured two-level taxonomy in parent-first

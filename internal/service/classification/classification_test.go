@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/service/classification"
-	"github.com/xz1220/github-radar/internal/store/sqlite"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/service/classification"
+	"github.com/xz1220/repotempo/internal/store/sqlite"
 )
 
 func TestProductClassificationUsesExplicitEvidence(t *testing.T) {

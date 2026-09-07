@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/repotempo/internal/domain"
 )
 
 const repositoryAnalysisColumns = `

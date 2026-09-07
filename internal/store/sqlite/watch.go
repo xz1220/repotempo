@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	corestore "github.com/xz1220/github-radar/internal/store"
+	"github.com/xz1220/repotempo/internal/domain"
+	corestore "github.com/xz1220/repotempo/internal/store"
 )
 
 // PutWatchedRepository makes a manual add atomic. Existing notes and topic

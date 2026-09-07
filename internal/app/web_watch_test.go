@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/config"
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/source/github"
-	"github.com/xz1220/github-radar/internal/web"
+	"github.com/xz1220/repotempo/internal/config"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/source/github"
+	"github.com/xz1220/repotempo/internal/web"
 )
 
 func TestWebWatchEndToEndAddsPublicRepositoryAndImmediateSnapshot(t *testing.T) {

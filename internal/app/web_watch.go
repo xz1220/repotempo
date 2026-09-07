@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/service/classification"
-	"github.com/xz1220/github-radar/internal/service/watch"
-	"github.com/xz1220/github-radar/internal/source/github"
-	corestore "github.com/xz1220/github-radar/internal/store"
-	"github.com/xz1220/github-radar/internal/web"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/service/classification"
+	"github.com/xz1220/repotempo/internal/service/watch"
+	"github.com/xz1220/repotempo/internal/source/github"
+	corestore "github.com/xz1220/repotempo/internal/store"
+	"github.com/xz1220/repotempo/internal/web"
 )
 
 var _ web.Watcher = (*Runtime)(nil)

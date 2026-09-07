@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/repotempo/internal/domain"
 )
 
 var (

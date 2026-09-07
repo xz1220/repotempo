@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/exporter"
-	"github.com/xz1220/github-radar/internal/service/discovery"
-	"github.com/xz1220/github-radar/internal/service/snapshot"
-	"github.com/xz1220/github-radar/internal/service/watch"
-	"github.com/xz1220/github-radar/internal/source"
-	"github.com/xz1220/github-radar/internal/source/legacydb"
-	"github.com/xz1220/github-radar/internal/source/trending"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/exporter"
+	"github.com/xz1220/repotempo/internal/service/discovery"
+	"github.com/xz1220/repotempo/internal/service/snapshot"
+	"github.com/xz1220/repotempo/internal/service/watch"
+	"github.com/xz1220/repotempo/internal/source"
+	"github.com/xz1220/repotempo/internal/source/legacydb"
+	"github.com/xz1220/repotempo/internal/source/trending"
 )
 
 const (

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	corestore "github.com/xz1220/github-radar/internal/store"
-	"github.com/xz1220/github-radar/internal/web"
+	"github.com/xz1220/repotempo/internal/domain"
+	corestore "github.com/xz1220/repotempo/internal/store"
+	"github.com/xz1220/repotempo/internal/web"
 )
 
 type WebAdapter struct {

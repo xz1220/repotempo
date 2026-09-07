@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	corestore "github.com/xz1220/github-radar/internal/store"
-	"github.com/xz1220/github-radar/migrations"
+	corestore "github.com/xz1220/repotempo/internal/store"
+	"github.com/xz1220/repotempo/migrations"
 	_ "modernc.org/sqlite"
 )
 

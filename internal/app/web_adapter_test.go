@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/store/sqlite"
-	"github.com/xz1220/github-radar/internal/web"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/store/sqlite"
+	"github.com/xz1220/repotempo/internal/web"
 )
 
 func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {

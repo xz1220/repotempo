@@ -9,16 +9,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/config"
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/service/classification"
-	"github.com/xz1220/github-radar/internal/service/jobs"
-	"github.com/xz1220/github-radar/internal/service/snapshot"
-	"github.com/xz1220/github-radar/internal/source"
-	"github.com/xz1220/github-radar/internal/source/github"
-	"github.com/xz1220/github-radar/internal/source/manual"
-	"github.com/xz1220/github-radar/internal/source/ossinsight"
-	corestore "github.com/xz1220/github-radar/internal/store"
+	"github.com/xz1220/repotempo/internal/config"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/service/classification"
+	"github.com/xz1220/repotempo/internal/service/jobs"
+	"github.com/xz1220/repotempo/internal/service/snapshot"
+	"github.com/xz1220/repotempo/internal/source"
+	"github.com/xz1220/repotempo/internal/source/github"
+	"github.com/xz1220/repotempo/internal/source/manual"
+	"github.com/xz1220/repotempo/internal/source/ossinsight"
+	corestore "github.com/xz1220/repotempo/internal/store"
 )
 
 func (runtime *Runtime) Discover(ctx context.Context, options DiscoverOptions) (DiscoverReport, error) {

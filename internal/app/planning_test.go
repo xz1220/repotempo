@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/repotempo/internal/domain"
 )
 
 func TestReadOnlyPlanningUsesExistingStateWithoutChangingDatabase(t *testing.T) {

@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/service/jobs"
-	"github.com/xz1220/github-radar/internal/source"
-	csvsource "github.com/xz1220/github-radar/internal/source/csv"
-	"github.com/xz1220/github-radar/internal/source/github"
-	"github.com/xz1220/github-radar/internal/source/legacydb"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/service/jobs"
+	"github.com/xz1220/repotempo/internal/source"
+	csvsource "github.com/xz1220/repotempo/internal/source/csv"
+	"github.com/xz1220/repotempo/internal/source/github"
+	"github.com/xz1220/repotempo/internal/source/legacydb"
 )
 
 func (runtime *Runtime) ImportLegacy(ctx context.Context, options ImportOptions) (ImportReport, error) {

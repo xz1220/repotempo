@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	corestore "github.com/xz1220/github-radar/internal/store"
+	"github.com/xz1220/repotempo/internal/domain"
+	corestore "github.com/xz1220/repotempo/internal/store"
 )
 
 const topicColumns = `id, slug, name, parent_id, description, status, created_at, updated_at`

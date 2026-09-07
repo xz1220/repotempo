@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/xz1220/github-radar/internal/app"
+	"github.com/xz1220/repotempo/internal/app"
 )
 
 func main() {

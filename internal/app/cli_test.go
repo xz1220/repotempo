@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/service/discovery"
-	"github.com/xz1220/github-radar/internal/service/snapshot"
-	"github.com/xz1220/github-radar/internal/service/watch"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/service/discovery"
+	"github.com/xz1220/repotempo/internal/service/snapshot"
+	"github.com/xz1220/repotempo/internal/service/watch"
 )
 
 type fakeCommandApplication struct {

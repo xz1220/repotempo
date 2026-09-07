@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/repotempo/internal/domain"
 )
 
 func (runtime *Runtime) activeRepositoryCount(ctx context.Context) (int, error) {

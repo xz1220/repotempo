@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/repotempo/internal/domain"
 )
 
 func (runtime *Runtime) ImportAnalysis(ctx context.Context, fullName string, analysis domain.RepositoryAnalysis) (domain.RepositoryAnalysis, error) {

@@ -1,4 +1,4 @@
-module github.com/xz1220/github-radar
+module github.com/xz1220/repotempo
 
 go 1.27.0
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	corestore "github.com/xz1220/github-radar/internal/store"
+	"github.com/xz1220/repotempo/internal/domain"
+	corestore "github.com/xz1220/repotempo/internal/store"
 )
 
 type Match struct {

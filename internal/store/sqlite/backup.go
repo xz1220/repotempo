@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	corestore "github.com/xz1220/github-radar/internal/store"
+	corestore "github.com/xz1220/repotempo/internal/store"
 )
 
 var _ corestore.Backuper = (*Store)(nil)

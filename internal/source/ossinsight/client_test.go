@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/config"
+	"github.com/xz1220/repotempo/internal/config"
 )
 
 func ossFixture(t *testing.T) []byte {

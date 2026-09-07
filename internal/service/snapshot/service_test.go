@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/source"
-	"github.com/xz1220/github-radar/internal/source/github"
-	corestore "github.com/xz1220/github-radar/internal/store"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/source"
+	"github.com/xz1220/repotempo/internal/source/github"
+	corestore "github.com/xz1220/repotempo/internal/store"
 )
 
 type fetcherFunc func(context.Context, int64, string) (github.RepositoryResult, error)

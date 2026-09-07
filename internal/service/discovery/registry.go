@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/source"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/source"
 )
 
 type RepositoryStore interface {

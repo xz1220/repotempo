@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xz1220/github-radar/internal/domain"
-	"github.com/xz1220/github-radar/internal/exporter"
-	"github.com/xz1220/github-radar/internal/service/jobs"
-	"github.com/xz1220/github-radar/internal/service/snapshot"
-	"github.com/xz1220/github-radar/internal/source"
-	"github.com/xz1220/github-radar/internal/source/github"
+	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/exporter"
+	"github.com/xz1220/repotempo/internal/service/jobs"
+	"github.com/xz1220/repotempo/internal/service/snapshot"
+	"github.com/xz1220/repotempo/internal/source"
+	"github.com/xz1220/repotempo/internal/source/github"
 )
 
 type DailyJobDetails struct {
