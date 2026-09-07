@@ -11,6 +11,7 @@ import (
 
 	"github.com/xz1220/github-radar/internal/config"
 	"github.com/xz1220/github-radar/internal/domain"
+	"github.com/xz1220/github-radar/internal/service/classification"
 	"github.com/xz1220/github-radar/internal/service/jobs"
 	"github.com/xz1220/github-radar/internal/service/snapshot"
 	"github.com/xz1220/github-radar/internal/source"
@@ -97,7 +98,7 @@ func (runtime *Runtime) runDiscovery(ctx context.Context, options DiscoverOption
 	candidates := make([]source.Candidate, 0)
 
 	if options.Source == "ossinsight" || options.Source == "all" {
-		if discoveryConfig.OSSInsight.Enabled != nil && !*discoveryConfig.OSSInsight.Enabled {
+		if !discoveryConfig.OSSInsight.IsEnabled() {
 			report.Warnings = append(report.Warnings, source.Warning{Code: "ossinsight_disabled", Message: "OSS Insight is disabled by configuration"})
 		} else {
 			ossResult, ossErr := ossClient.FetchWindows(ctx, discoveryConfig.OSSInsight.Windows, discoveryConfig.OSSInsight.Language)
@@ -107,6 +108,8 @@ func (runtime *Runtime) runDiscovery(ctx context.Context, options DiscoverOption
 			report.OSSEvidence = ossEvidence(ossResult, discoveryConfig.OSSInsight.Windows)
 			if ossErr != nil {
 				report.Failures = append(report.Failures, OperationFailure{Stage: "ossinsight", Message: ossErr.Error()})
+			} else if len(ossResult.Repositories) == 0 {
+				report.Warnings = append(report.Warnings, source.Warning{Code: "ossinsight_empty", Message: "OSS Insight returned no repositories across configured windows; GitHub discovery and snapshots continue independently"})
 			}
 		}
 	}
@@ -333,6 +336,19 @@ func (runtime *Runtime) assignCandidateTopics(ctx context.Context, candidates []
 	assigned := 0
 	for _, candidate := range candidates {
 		if _, ok := stored[candidate.Repository.ID]; !ok {
+			continue
+		}
+		// GitHub topic names are not our taxonomy: e.g. "skills" can mean
+		// interview assessments. Infer categories from explicit AI context.
+		if candidate.Source == "github_search" {
+			changed, err := classification.Apply(ctx, runtime.store, domain.Repository{
+				GitHubRepoID: candidate.Repository.ID, FullName: candidate.Repository.FullName,
+				Description: candidate.Repository.Description,
+			}, candidate.Repository.Topics, runtime.now())
+			assigned += changed
+			if err != nil {
+				report.Failures = append(report.Failures, OperationFailure{Stage: "classification", Target: candidate.Repository.FullName, Message: err.Error()})
+			}
 			continue
 		}
 		assignmentSource, confirmed := candidateTopicSource(candidate)

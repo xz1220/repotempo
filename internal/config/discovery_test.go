@@ -16,6 +16,9 @@ func TestLoadDiscoveryExample(t *testing.T) {
 	if got, want := len(config.OSSInsight.Windows), 4; got != want {
 		t.Fatalf("OSS windows = %d, want %d", got, want)
 	}
+	if config.OSSInsight.IsEnabled() {
+		t.Fatal("OSS Insight must be explicit opt-in")
+	}
 	if got, want := len(config.Profiles), 6; got != want {
 		t.Fatalf("profiles = %d, want %d", got, want)
 	}
@@ -36,6 +39,23 @@ func TestLoadDiscoveryExample(t *testing.T) {
 		if !strings.Contains(query.Text, " user:") {
 			t.Fatalf("benchmark query is not owner-scoped: %q", query.Text)
 		}
+	}
+}
+
+func TestOSSInsightOmittedDoesNotBlockGitHubOnlyConfig(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "config", "discovery.example.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := strings.Index(string(raw), "ossinsight:\n")
+	end := strings.Index(string(raw)[start:], "# Discovery thresholds") + start
+	omitted := string(raw[:start]) + string(raw[end:])
+	config, err := DecodeDiscovery(strings.NewReader(omitted))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.OSSInsight.IsEnabled() {
+		t.Fatal("omitted OSS config must not initialize a client")
 	}
 }
 

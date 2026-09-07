@@ -15,7 +15,9 @@ github:
   max_retries: 3
 
 ossinsight:
-  enabled: true
+  # Optional legacy adapter. GitHub Search + Repository APIs are sufficient.
+  # Leave disabled when the service rejects access; do not work around bans.
+  enabled: false
   base_url: https://api.ossinsight.io/v1/trends/repos/
   language: All
   timeout: 30s
@@ -77,6 +79,21 @@ profiles:
           min: 500
         fork: false
         archived: false
+      - topic: coding-agent
+        stars:
+          min: 100
+        fork: false
+        archived: false
+      - topic: deep-research
+        stars:
+          min: 100
+        fork: false
+        archived: false
+      - topic: agent-skills
+        stars:
+          min: 100
+        fork: false
+        archived: false
 
   - name: recently-created
     enabled: true
@@ -96,6 +113,29 @@ profiles:
         fork: false
         archived: false
 
+      # Targeted lower thresholds catch young Agent projects before 500 stars.
+      - topic: ai-agent
+        stars:
+          min: 30
+        created:
+          since_days: 30
+        fork: false
+        archived: false
+      - text: '"coding agent" in:name,description'
+        stars:
+          min: 30
+        created:
+          since_days: 30
+        fork: false
+        archived: false
+      - topic: llm
+        stars:
+          min: 100
+        created:
+          since_days: 14
+        fork: false
+        archived: false
+
   - name: recently-active
     enabled: true
     schedule: daily
@@ -109,6 +149,13 @@ profiles:
           min: 20000
         pushed:
           since_days: 90
+        fork: false
+        archived: false
+      - topic: ai-agent
+        stars:
+          min: 200
+        pushed:
+          since_days: 7
         fork: false
         archived: false
 

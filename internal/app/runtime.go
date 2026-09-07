@@ -190,7 +190,7 @@ func (runtime *Runtime) dependencies() (config.Discovery, *github.Client, *ossin
 		return config.Discovery{}, nil, nil, fmt.Errorf("configure GitHub client: %w", err)
 	}
 	var ossClient *ossinsight.Client
-	if discoveryConfig.OSSInsight.Enabled == nil || *discoveryConfig.OSSInsight.Enabled {
+	if discoveryConfig.OSSInsight.IsEnabled() {
 		ossClient, err = ossinsight.NewClient(ossinsight.ClientOptions{
 			BaseURL:    discoveryConfig.OSSInsight.BaseURL,
 			HTTPClient: runtime.httpClient,

@@ -66,6 +66,9 @@ type OSSWindow struct {
 	Period string `yaml:"period"`
 }
 
+// OSS Insight is opt-in. An omitted block must never stop GitHub-only jobs.
+func (o OSSInsight) IsEnabled() bool { return o.Enabled != nil && *o.Enabled }
+
 type SearchProfile struct {
 	Name      string        `yaml:"name"`
 	Enabled   *bool         `yaml:"enabled"`
@@ -218,7 +221,7 @@ func (c Discovery) Validate() error {
 	if c.GitHub.MaxRetries > 5 {
 		return errors.New("github.max_retries must not exceed 5")
 	}
-	if c.OSSInsight.Enabled == nil || *c.OSSInsight.Enabled {
+	if c.OSSInsight.IsEnabled() {
 		if err := validateURL("ossinsight.base_url", c.OSSInsight.BaseURL); err != nil {
 			return err
 		}
