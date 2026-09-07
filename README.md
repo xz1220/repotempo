@@ -1,76 +1,71 @@
 # GitHub Radar
 
-GitHub Radar is a self-hosted monitor for GitHub repository and topic star
-history. It builds a fixed daily panel from several discovery signals, keeps
-failures explicit, and provides auditable exports and a read-only Web dashboard.
+GitHub Radar is a self-hosted workspace for discovering interesting GitHub
+projects and following what happens after discovery. It stores daily Star
+observations and makes the history readable through charts, project pages,
+categories, and a personal watchlist.
 
-The goal is long-term technical trend research. GitHub Radar does not provide
-investment scores, trading advice, or claims of causal relationships.
+中文界面支持趋势看板、每日发现、项目库、Agent 分类和手动添加关注。
+项目入库后持续观测，便于回看它从首次发现到后续增长的过程。
 
-## Why another GitHub monitor?
+## What you can do
 
-Daily trending lists answer which repositories are moving now. They do not
-preserve a stable population, and their growth figures are not the same as an
-absolute GitHub star count. GitHub Radar separates two jobs:
+- Scan a dashboard for fastest growth, slow or zero growth, and projects losing
+  momentum compared with the preceding period.
+- Read projects newly added on a selected date; they automatically enter the
+  library for continued observation.
+- Paste a public GitHub URL or owner/name to follow it, with an optional category
+  and note. The Web form saves its first real Star snapshot immediately.
+- Open any project to read what it does, inspect Star history, and view saved
+  research interpretations when available.
+- Browse by coding agents, research agents, browser/computer agents, workflow
+  agents, agent platforms, general agents, or AI infrastructure.
+- Export monitoring data as CSV, JSON, or a consistent SQLite backup.
 
-- **Discovery** finds candidates through OSS Insight, GitHub Search, legacy
-  observations, and a manual watchlist.
-- **Snapshotting** asks GitHub for the absolute star count of every active
-  repository once per Shanghai calendar day.
+The interface uses a dark sidebar and bright chart/list surfaces. Chinese and
+English are supported without a frontend build chain.
 
-OSS Insight is a momentum signal. Its `stars` value is the number of stars
-inside a rolling window. GitHub Search complements it with mature high-star
-projects, topic leaders, recent movers, and benchmark repositories. Neither
-source is treated as a complete enumeration of GitHub.
+## Data sources
 
-The default single-host configuration keeps the active population below the
-authenticated GitHub Core API budget (normally 5,000 requests/hour). Broad
-monthly coverage is present but disabled until the operator checks Search
-`total_count` and snapshot capacity.
+GitHub Search is the default discovery source. Configurable queries cover
+recently created projects with early interest, recently active projects, topic
+leaders, and mature benchmarks. The repository API supplies absolute Stars for
+every actively monitored repository.
 
-## Features
+OSS Insight is disabled by default. Its adapter and historical import support
+remain available, but GitHub discovery and daily collection work independently
+of it. An omitted OSS Insight configuration is also treated as disabled.
 
-- Immutable GitHub repository ID deduplication across renames and transfers.
-- Today, Week, Month, and 3 Months OSS Insight discovery.
-- Configurable GitHub Repository Search profiles with paging, query partitioning,
-  incomplete-result detection, and separate Search rate handling.
-- One explicit success or failure row per active repository per day.
-- Two-level topic taxonomy with manual assignments taking precedence.
-- Strict 1/7/30-day cohort comparisons, monitored-sample rank movement, and
-  cursor-based project browsing.
-- Durable Codex/manual project interpretations imported from traceable JSON.
-- Legacy SQLite, CSV, YAML, JSON, and manual-watchlist input paths.
-- CSV, JSON, and SQLite exports.
-- Embedded Chinese/English server-rendered dashboard with no frontend build chain.
-- One static Go binary, SQLite WAL, Cron collection, and systemd Web service.
+A repository's first entry into this system is different from its GitHub
+creation time. Search ordering by Stars or recent pushes does not measure Star
+growth; growth comes from successive real observations.
 
-## Architecture
+GitHub Search has a 1,000-result boundary per query. The collector partitions
+broad queries, preserves incomplete/truncated-result evidence, and respects
+separate Search and Core rate limits. No query set enumerates all of GitHub.
 
-```text
-OSS Insight -------+
-GitHub Search -----+--> registry by GitHub ID --> daily GitHub snapshots
-legacy data -------+               |                       |
-manual watchlist --+               +--> topics             +--> SQLite
-                                                               |
-                                                    CSV / JSON / Web
-```
+See [GitHub discovery and classification](docs/github-data.md) for the current
+profiles, limits, and classification rules.
+
+## Storage and runtime
+
+One Go binary provides collection commands and the Web application. SQLite WAL
+stores the registry, observations, categories, job records, and current project
+interpretations. Repository identity uses GitHub's permanent ID across renames
+and transfers.
+
+Cron runs collection; systemd keeps the Web process available. The supplied
+deployment places business data and backups on a dedicated data disk.
 
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
-[discovery semantics](docs/discovery.md) for the design details.
-The dashboard redesign is grounded in a documented
-[Agent design Skills review](docs/design-skills-research-2026-08-30.md).
+[operations](docs/operations.md) for implementation and deployment details.
 
-## Requirements
+## Requirements and build
 
-- Go 1.27 or newer to build from source.
-- A GitHub token for useful API capacity. Fine-grained read-only repository
-  metadata access is sufficient for public repositories.
-- Linux for the included Cron and systemd deployment files.
-
-The production binary is built with `CGO_ENABLED=0`; SQLite does not require a
-system C toolchain.
-
-## Build
+- Go 1.27 or newer.
+- A GitHub token for useful daily collection capacity. Public metadata can be
+  fetched without authentication, but the unauthenticated limits are much lower.
+- Linux for the supplied Cron and systemd deployment files.
 
 ```sh
 git clone https://github.com/xz1220/github-radar.git
@@ -79,92 +74,164 @@ make ci
 make build
 ```
 
-Cross-compile the deployment artifact with:
+Cross-compile with `make build-linux`. The deployment build uses
+`CGO_ENABLED=0`; no system SQLite C toolchain is required.
 
-```sh
-make build-linux
-```
+For a local Chinese preview, run `bash scripts/dev.sh /path/to/copied-radar.db`.
+It builds the current code and serves on `http://127.0.0.1:8878`. Without a
+database argument it creates a local database. Restart this command after
+editing the embedded templates or styles. A local preview does not start a
+scheduled collector; use the deployment schedule for daily observations.
 
-## Configure
-
-Copy the examples and keep the real environment file outside the repository:
+## Configure a local instance
 
 ```sh
 cp config/discovery.example.yaml discovery.yaml
 cp config/topics.example.yaml topics.yaml
-cp deploy/tencent2/github-radar.env.example .env.example.local
-```
 
-At minimum, set:
-
-```sh
-read -r -s GITHUB_RADAR_GITHUB_TOKEN
-export GITHUB_RADAR_GITHUB_TOKEN
 export GITHUB_RADAR_DB_PATH="$PWD/github-radar.db"
 export GITHUB_RADAR_DISCOVERY_CONFIG="$PWD/discovery.yaml"
 export GITHUB_RADAR_TOPICS_CONFIG="$PWD/topics.yaml"
 export GITHUB_RADAR_LOCALE=zh-CN
+export GITHUB_RADAR_LISTEN_ADDR=127.0.0.1:8787
 ```
 
-Do not place a real token in a tracked file, a Cron line, a systemd unit, a
-command argument, or a screenshot.
+Set `GITHUB_RADAR_GITHUB_TOKEN` through your shell or environment-file workflow.
+Keep real tokens outside tracked files, command arguments, screenshots, and
+logs. An environment file is not automatically sourced by the binary.
 
-## First run
-
-Check configuration and initialize the database:
+Check configuration, seed the category definitions, and start with a small
+discovery profile:
 
 ```sh
 ./bin/github-radar doctor
 ./bin/github-radar topic list
-```
-
-Discover a small configured profile, then collect a snapshot:
-
-```sh
 ./bin/github-radar discover --source github-search --profile benchmark-projects
 ./bin/github-radar snapshot
+./bin/github-radar serve
 ```
 
-Run the complete idempotent daily sequence with:
+Open [the local dashboard](http://127.0.0.1:8787/?lang=zh-CN). To preview real
+history from another host, use a consistent SQLite export as a separate local
+database and point `GITHUB_RADAR_DB_PATH` at that copy.
+
+Run the complete daily sequence with:
 
 ```sh
 ./bin/github-radar run-daily
 ```
 
-A discovery error is recorded but does not cancel snapshots for repositories
-already in the registry.
+The sequence performs due discovery, snapshots, exports, and retention.
+A discovery failure is recorded and does not cancel snapshots for projects
+already in the registry. A same-day rerun skips successful snapshots and can
+repair failed ones.
 
-## Import existing history
+## Browse and add projects
 
-Import the existing OSS Insight digest SQLite database without changing it:
+| Page | What it contains |
+| --- | --- |
+| Trends, `/` | Fixed-cohort charts and fastest, slowest, and slowing growth groups. |
+| Daily discoveries, `/discoveries` | Projects grouped by their first discovery date. |
+| Project library, `/repositories` | Search, category filters, date/period controls, and cursor pagination. |
+| Agent categories, `/topics` | Purpose-based categories, supporting tags, and classification coverage. |
+| Add project, `/watch/new` | A form for a public repository URL, optional category, and note. |
+| Collection history, `/runs` | Run outcomes, source warnings, failures, and completeness. |
 
-```sh
-./bin/github-radar import-legacy \
-  --path /path/to/ossinsight-feishu-digest/state.db
-```
+My watchlist is available at `/repositories?focus=1`. Project details use
+`/repositories/{github_repository_id}`. Health endpoints are `/healthz` and
+`/readyz`.
 
-The importer reads every repository in the legacy `repos` table, not only the
-published catalog. It preserves real `daily_observations` and leaves missing
-days empty. Rolling OSS Insight trend rows are never rewritten as absolute
-GitHub star history.
+The default direct loopback server supports the Add project form locally.
+For public writes, configure `GITHUB_RADAR_WEB_WRITE_TOKEN` with a separate
+24–512-character operator secret and publish through HTTPS. The form requests
+that secret; it is distinct from the GitHub API token.
 
-Other candidates can be added with:
+Public browsing requires no token. Forwarded/proxied requests cannot use the
+direct-local write allowance. Keep the backend on loopback and configure the
+HTTPS proxy to set its forwarding headers; do not expose the database directory.
+
+The Web form validates GitHub identity and atomically saves the project,
+initial snapshot, and any selected category. Adding an existing project
+preserves existing notes and category decisions. It does not duplicate the
+repository or overwrite an already successful same-day snapshot.
+
+CLI watch management remains available:
 
 ```sh
 ./bin/github-radar watch add --repo owner/name --focus --note "benchmark"
+./bin/github-radar snapshot
 ./bin/github-radar watch pause --repo owner/name
 ./bin/github-radar watch resume --repo owner/name
 ```
 
-Manual entries are resolved through GitHub before persistence so the immutable
-repository ID remains the identity key.
+Unlike the Web add flow, CLI `watch add` registers the project; use
+`snapshot` or the next daily run to collect its initial observation.
 
-### Feishu Base
+## How to read growth
 
-The repository includes a read-only bridge for the existing Feishu project and
-daily-record tables. It paginates the Base through an authenticated `lark-cli`,
-resolves permanent repository IDs through `gh`, and produces a CSV that the Go
-importer verifies again:
+Choose an endpoint date and a 1, 7, or 30-day period. A project is comparable
+only when both exact endpoints have successful observations.
+
+- Fastest growth means the largest positive Star gain.
+- Slow growth includes zero and the smallest positive gains.
+- Losing momentum means a smaller Star gain than the previous equal-length
+  period. It requires three successful observations, including the earlier
+  period's starting date.
+- Losing Stars means the cumulative count decreased. It is distinct from a
+  slower positive gain.
+- Missing or failed observations do not become zero growth.
+
+The dashboard attention curve uses the same endpoint-comparable repositories,
+normalized to 100 at the start. Missing intermediate observations create gaps.
+New library entries do not directly increase this fixed-cohort curve.
+
+Rank changes refer to the monitored sample and selected scope, not all of
+GitHub. Last-known Stars show their actual observation date and are not used
+in place of missing comparison endpoints.
+
+Dates use the Asia/Shanghai calendar; observation timestamps are stored in UTC.
+Real imported history can extend the effective history start. The system
+does not fabricate daily observations before collection began.
+
+## Categories
+
+The seven root slugs are `coding-agents`, `research-agents`,
+`browser-computer-agents`, `workflow-agents`, `agent-platforms`, `ai-agent`,
+and `ai-infrastructure`. Components retain a second-level hierarchy.
+
+A parent includes its direct children. A project can have several categories,
+and projects without supported classification remain visible.
+
+Automatic rules use explicit repository descriptions and GitHub topics.
+Generic `skills` or `agent` tags alone do not establish an AI Agent product.
+Manual additions and manual removals take precedence.
+
+```sh
+./bin/github-radar topic list
+./bin/github-radar topic assign --repo owner/name --topic memory
+./bin/github-radar topic remove --repo owner/name --topic memory
+
+./bin/github-radar --json topic reclassify --dry-run
+./bin/github-radar topic reclassify
+```
+
+Reclassification uses saved metadata without network requests. Dry-run reports
+suggestions and protected decisions without writing. The formal run adds
+conservative automatic assignments and retains historical mappings.
+
+## Import existing history
+
+```sh
+./bin/github-radar import-legacy --path /path/to/legacy-digest/state.db
+./bin/github-radar import-legacy --csv /path/to/history.csv
+```
+
+The legacy importer reads repository records and real daily observations
+without changing the source database. OSS Insight rolling-window trend values
+are not converted into absolute Star history.
+
+A read-only Feishu Base bridge is available for the existing project and daily
+record tables:
 
 ```sh
 scripts/export-feishu-base.sh \
@@ -174,24 +241,13 @@ scripts/export-feishu-base.sh \
 ./bin/github-radar import-legacy --csv /tmp/github-radar-feishu.csv
 ```
 
-The Go service never receives a Feishu credential, and the Base remains
-unchanged. See [Feishu Base import](docs/feishu-base-import.md).
-
-## Topics
-
-```sh
-./bin/github-radar topic list
-./bin/github-radar topic assign --repo owner/name --topic agent-memory
-./bin/github-radar topic remove --repo owner/name --topic agent-memory
-```
-
-A repository can belong to multiple topics. Confirmed manual assignments are
-not overwritten by imported GitHub topics or automatic suggestions.
+The bridge uses an authenticated `lark-cli` and resolves permanent repository
+IDs through `gh`. The Go service does not receive Feishu credentials.
+See [Feishu Base import](docs/feishu-base-import.md).
 
 ## Save a project interpretation
 
-Codex or another review workflow can write a small JSON artifact and import it
-without giving the read-only Web process write access:
+An external Codex or human research workflow can prepare this JSON shape:
 
 ```json
 {
@@ -210,75 +266,45 @@ without giving the read-only Web process write access:
   --file config/analysis.example.json
 ```
 
-Each import replaces the current stored interpretation and increments its
-revision counter while keeping source, model, and analysis time. This release
-does not retain prior interpretation bodies. Existing non-empty manual notes
-are migrated as revision 1 and are not overwritten by the migration. SQLite
-backups include interpretations; the regular CSV/JSON monitoring exports do not
-yet include them.
+Import replaces the current interpretation and increments its revision
+counter. Source, model, and analysis time remain visible in the detail page.
+Prior interpretation bodies are not retained in this iteration.
 
-## Export data
+SQLite backups include interpretations. Regular monitoring CSV/JSON exports
+do not yet include them. The Web application displays analyses but does not
+invoke models or generate research.
+
+## Export and deploy
 
 ```sh
 ./bin/github-radar export --format csv
 ./bin/github-radar export --format json
+./bin/github-radar export --format sqlite
 ```
 
-SQLite itself is the third export format. Back up the database through the
-provided export or backup command path so WAL state is captured consistently.
+Use the SQLite export for a consistent backup that includes WAL state.
 
-## Web dashboard
+The supplied Tencent Cloud deployment uses `/opt/github-radar` for the binary,
+`/etc/github-radar` for configuration, and a dedicated mounted data directory
+for the database, exports, backups, and imports.
 
-```sh
-export GITHUB_RADAR_LISTEN_ADDR=127.0.0.1:8787
-./bin/github-radar serve
-```
+Both Cron and systemd check the data-disk mount. The supplied collector schedule
+is 09:15 Asia/Shanghai with `flock` to prevent overlapping runs. The original
+Feishu digest remains an independent job. See [operations](docs/operations.md)
+and the host-specific files in `deploy/tencent2` before deploying.
 
-The home page is the project monitor. It compares only repositories with valid
-observations at both endpoints, shows current Stars, momentum, relative growth,
-and monitored-sample rank movement, and supports a specific observation date.
-New discoveries and unclassified projects are lightweight filters in the same
-catalog. Project detail pages add the stored project interpretation, Star
-history, collection provenance, and explicit failure dates. Collection history
-is a header utility rather than a primary section. Health endpoints are
-available at `/healthz` and `/readyz`.
+Existing installations must update their deployed discovery and taxonomy
+configuration to adopt the new defaults. Rebuilding the binary alone does not
+replace custom configuration files.
 
-Set `GITHUB_RADAR_LOCALE=zh-CN` for Chinese or
-`GITHUB_RADAR_LOCALE=en` for English. The Tencent Cloud deployment defaults to
-Chinese. Visitors can switch languages in the page header; the choice is kept
-in a same-site cookie while the current page and filters are preserved.
-
-The service binds to loopback by default. Publish it through an HTTPS reverse
-proxy; never expose the SQLite directory as static content.
-
-## Screenshots
-
-Desktop overview:
-
-![GitHub Radar desktop overview](docs/screenshots/dashboard-desktop.jpg)
-
-Mobile overview and navigation:
-
-![GitHub Radar mobile overview](docs/screenshots/dashboard-mobile.jpg)
-
-Repository filtering and Star history:
-
-![GitHub Radar repository list](docs/screenshots/repositories-desktop.jpg)
-
-![GitHub Radar repository Star chart](docs/screenshots/repository-chart.jpg)
-
-Collection run evidence:
-
-![GitHub Radar run status](docs/screenshots/runs-desktop.jpg)
-
-## Command reference
+## Commands and verification
 
 ```text
 discover --source ossinsight|github-search|legacy|all [--profile NAME]
 snapshot
 import-legacy --path PATH
 analysis import --repo OWNER/NAME --file PATH
-topic list|assign|remove
+topic list|assign|remove|reclassify
 watch add|pause|resume
 export --format csv|json|sqlite
 doctor
@@ -286,46 +312,8 @@ run-daily
 serve
 ```
 
-Commands return stable exit codes and support human-readable output and
-`--json`. Collection, taxonomy, watchlist, and export writes expose dry-run
-paths; `analysis import` validates one explicit JSON artifact before writing a
-new revision. Secrets are read from the environment, not command arguments.
-
-## Daily data semantics
-
-- `snapshot_date` uses the `Asia/Shanghai` natural day.
-- `captured_at` is UTC.
-- A successful row contains the cumulative GitHub star count.
-- A failed row contains a null star count and a specific error code.
-- A same-day retry can replace a failure with success.
-- A normal retry cannot overwrite a prior success.
-- Growth uses successful observations only and does not treat a failure as zero.
-
-GitHub does not expose precise historical daily star totals for dates before
-monitoring began. Repository pages therefore show the effective history start
-date. GitHub Radar never claims full lifetime history and never fills or
-interpolates missing dates.
-
-## Production deployment
-
-Deployment assets for the Tencent Cloud host are in `deploy/tencent2`. They use:
-
-- `/opt/github-radar/github-radar`
-- `/home/xingzheng/data/github-radar/github-radar.db`
-- `/home/xingzheng/data/github-radar/exports`
-- `/home/xingzheng/data/github-radar/backups`
-- `/home/xingzheng/data/github-radar/import`
-- `/etc/github-radar/github-radar.env`
-
-The business data lives on the dedicated disk mounted at
-`/home/xingzheng/data`; the binary and configuration remain on the system disk.
-Both systemd and Cron fail closed when that mount is absent, so the service
-cannot silently create a fresh database on the system disk. The collector runs
-at 09:15 Asia/Shanghai with `flock`. This avoids overlap with the existing 09:00
-Python Feishu digest, which remains unchanged. The Web server runs as a
-low-privilege systemd service. See [operations](docs/operations.md).
-
-## Tests and release gates
+Commands support human-readable output and `--json`. Collection, topic,
+watchlist, and export operations expose applicable dry-run paths.
 
 ```sh
 make fmt-check
@@ -336,34 +324,22 @@ make build-linux
 make security
 ```
 
-Fixture tests and live acceptance tests are reported separately. A release also
-requires real GitHub and OSS Insight calls, a full active-project snapshot,
-SQL/CSV/JSON/Web consistency checks, desktop and mobile browser screenshots,
-a clean-clone build, secret scanning, and independent review. See
-[testing](docs/testing.md).
+Current acceptance should cover fixed-cohort chart values, slowdown across
+three exact dates, missing/stale states, pagination, manual addition, and
+Chinese/English desktop and mobile layouts. Mock-API tests and live collection
+results should be reported separately. OSS Insight availability is not a
+requirement for GitHub-only operation.
 
-The first production acceptance evidence is in
-[docs/acceptance-2026-08-30.md](docs/acceptance-2026-08-30.md).
-The dedicated-data-disk migration and Chinese dashboard acceptance are in
-[docs/data-disk-i18n-acceptance-2026-08-30.md](docs/data-disk-i18n-acceptance-2026-08-30.md).
+The [August 30 acceptance report](docs/acceptance-2026-08-30.md),
+[data-disk and Chinese UI report](docs/data-disk-i18n-acceptance-2026-08-30.md),
+and [older screenshots](docs/screenshots/) describe earlier versions.
+They are historical records, not evidence that the current redesign is
+deployed or has passed a new release gate.
 
-## Privacy and security
+## Scope and license
 
-GitHub Radar stores public repository metadata, discovery provenance, topics,
-and star observations. It does not clone repository contents or collect user
-profiles. Tokens and host configuration remain outside the database and public
-exports. See [SECURITY.md](SECURITY.md).
+GitHub Radar stores public repository metadata and attention observations.
+It does not clone repositories, collect user profiles, or infer causality.
+Commit/release activity correlation remains a later research module.
 
-## Roadmap
-
-- More topic curation and reusable public datasets.
-- Optional PostgreSQL storage when multiple writers or hosts become necessary.
-- Independent repository-activity modules only after the star panel is stable.
-- Research notebooks that consume exports without changing collector semantics.
-
-Commit, release, README-change, and causal activity analysis are intentionally
-outside v0.1.0.
-
-## License
-
-MIT
+See [SECURITY.md](SECURITY.md) for security guidance. Source code is MIT licensed.

@@ -24,6 +24,13 @@ binds to `127.0.0.1:8787`, and is published through the existing HTTPS reverse
 proxy as an independent host. Do not mount it under a URL prefix because the
 embedded dashboard intentionally uses root-relative routes and assets.
 
+The Web process can add public GitHub projects through `/watch/new`. Direct
+loopback access permits local management; public writes require HTTPS and
+`GITHUB_RADAR_WEB_WRITE_TOKEN` (24–512 characters) in the protected environment
+file. Use an independent random management token, not the GitHub token. The
+reverse proxy must overwrite forwarded scheme headers. Collection and watchlist
+writes share the same SQLite data-disk database.
+
 The systemd unit requires `/home/xingzheng/data` to be a real mount point. The
 Cron command performs the same check before creating a lock or opening SQLite.
 This is deliberate fail-closed behavior: an unmounted data disk must not result

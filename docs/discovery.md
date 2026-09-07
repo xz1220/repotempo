@@ -1,13 +1,14 @@
 # Discovery
 
-Discovery combines four signals that answer different questions.
+GitHub Search is the default online discovery source. Historical imports and
+manual additions complement it. OSS Insight is optional and disabled by default.
 
-- OSS Insight finds short-term momentum. Its `stars` field is growth inside a
-  rolling window, not the repository's absolute GitHub star count.
 - GitHub Repository Search finds mature high-stock projects, topic leaders,
-  recently created movers, and active benchmarks.
+  recently created projects with early interest, and active benchmarks.
 - Legacy import preserves the projects and real observations already collected.
 - The manual watchlist adds explicit research targets.
+- Historical OSS Insight signals use rolling-window growth, not absolute
+  GitHub Star counts. They remain separate from daily observations.
 
 GitHub Search cannot be treated as a complete site crawl. A query returns at
 most 1,000 results and may report `incomplete_results`. Profiles that exceed the
@@ -29,9 +30,18 @@ thresholds at 20,000 Stars and leaves monthly broad coverage disabled until the
 operator explicitly checks `total_count` and available Core capacity. Search
 can discover more projects than a single token can snapshot; it must not be
 allowed to silently grow the active panel beyond its collection budget.
-The recent-created profile uses a 500-Star floor; the 100-Star example would
-currently add roughly 1,800 repositories in one month and is not a sustainable
-default for a one-token fixed panel.
+The global recent-created query uses a 500-Star floor. Targeted AI Agent and
+coding-agent queries use 30 Stars over 30 days, and an LLM query uses 100 Stars
+over 14 days. These narrower queries catch early projects without lowering the
+threshold for the whole site. Query thresholds are configuration, not a hard
+enforced cap on the active population; watch collection duration and quota.
+
+New discoveries automatically enter the registry. A first-seen date means new
+to the radar, not newly created on GitHub. Pushed time and absolute-Star search
+ordering must not be described as measured Star growth.
+
+See [GitHub data and classification](github-data.md) for category rules and
+offline reclassification commands.
 
 ## Authoritative API references
 
