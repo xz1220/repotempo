@@ -1,32 +1,36 @@
 # GitHub Radar information architecture
 
-The September 7, 2026 product direction uses three main reading modes: Trends,
-Daily discoveries, and Project library. Agent categories provide another way
-to enter the same collection. Earlier restrictions on a dashboard homepage,
-sidebar, or standalone discovery page no longer apply.
+Primary navigation has two reading modes: Trends and Project library. Daily
+discoveries use the library's date, ordering, and new-only controls. My watchlist
+is a library tab, and categories are contextual filters.
 
 ## Site map
 
 ```text
 GitHub Radar
 ├── Trends /
-├── Daily discoveries /discoveries
 ├── Project library /repositories
-│   ├── My watchlist /repositories?focus=1
-│   └── Project detail /repositories/{github_repository_id}
-├── Agent categories /topics
-│   └── Category detail /topics/{topic_slug}
-├── Add project /watch/new
+│   ├── New on selected date /repositories?new=1&date=YYYY-MM-DD
+│   ├── My watchlist tab /repositories?focus=1
+│   ├── Add project toolbar action /watch/new
+│   ├── Project detail /repositories/{github_repository_id}
+│   └── Category context /topics and /topics/{topic_slug}
 └── Collection history /runs
 ```
 
-Health endpoints remain `/healthz` and `/readyz`.
+Only Trends and Project library appear in primary navigation. Collection
+history is a utility; `/discoveries` is a compatibility entry for the library's
+new-entry view. Health endpoints remain `/healthz` and `/readyz`.
 
 ## Navigation
 
-A dark fixed desktop sidebar contains the reading destinations, My watchlist,
-and Add project. Collection history belongs to the utility area. The main
-content remains bright; its header supplies page context and a language switch.
+A dark fixed desktop sidebar contains Trends and Project library. Collection
+history belongs to the utility area. The main content remains bright; its
+header supplies page context and a language switch.
+
+My watchlist appears only as a tab inside the project library. Add project
+appears only as a compact button in that page's toolbar, opening `/watch/new`.
+Neither is repeated in the sidebar or global heading.
 
 The sidebar reorganizes on narrow screens. Main destinations remain reachable
 without root horizontal scrolling. Navigation links are ordinary anchors with
@@ -55,24 +59,25 @@ Missing intermediate observations remain gaps. The chart's companion table
 contains exact values and coverage. A period without enough history offers a
 shorter window or another date.
 
-## Daily discoveries
+## New discoveries in the library
 
-This page archives projects by their first entry into the radar. It has a date
-selector, category filtering, readable project records, and continuation
-through additional results.
+The library archives projects by their first entry into the radar. Its date
+selector and “仅看当天新入库” filter provide the daily-discovery view within the
+same records and pagination, combined with any comparison period and ordering.
 
 Each record leads with what the project does. It includes the name, category,
-observed Stars, and detail link. GitHub creation time is shown separately when
-known; entering the radar is not the same as being newly created.
+observed Stars, and detail link. GitHub creation time is shown separately in
+project details when known; entering the radar is not the same as being newly created.
 
-Discovered projects are already registered for continued monitoring. The page
-does not require another add action. An empty date offers another date or a
-manual addition.
+Discovered projects are already registered for continued monitoring. An empty
+date offers another date or clearing the new-only filter. The library toolbar
+retains the single Add project action.
 
 ## Project library
 
-The library is the durable home for every tracked project. Search, category,
-date, period, ordering, and My watchlist narrow the collection.
+The library is the durable home for every tracked project. All projects and
+My watchlist are in-page tabs. Search, category, date, period, ordering, and the
+new-only filter narrow the selected collection.
 
 Rows or mobile records show the project explanation, relevant Star values,
 changes, and category. They preserve new, awaiting-observation, stale, and
@@ -84,8 +89,9 @@ the registry grows.
 
 ## Add project
 
-The form at `/watch/new` accepts a GitHub URL or owner/name, an optional category,
-and a note. Submission uses `POST /watch`.
+The compact library-toolbar button opens `/watch/new`. The form accepts a
+GitHub URL or owner/name, an optional category, and a note. Submission uses
+`POST /watch`.
 
 The server resolves the public repository through GitHub, records its permanent
 ID and an initial absolute Star observation, and opens the project detail.
@@ -170,15 +176,15 @@ into rank one. Ranks always refer to the monitored sample.
 A daily review begins on Trends. The user chooses a window, scans the chart and
 three growth groups, then opens a project or the corresponding library view.
 
-Reading new projects begins on Daily discoveries. The user chooses a date,
-reads descriptions, opens interesting projects, and returns to the archive.
-Those projects continue to appear in the library on later days.
+Reading new projects begins in the project library. The user chooses a date,
+enables the new-on-selected-date filter, and chooses an ordering such as Stars
+or growth. Clearing the filter returns to the wider collection.
 
-An external recommendation begins with Add project. After GitHub validation,
-the project detail is available with a real initial observation and the project
-appears in My watchlist.
+An external recommendation begins with the library's Add project button.
+After GitHub validation, the detail is available with a real initial observation
+and the project appears in the library's My watchlist tab.
 
-A category review begins on Agent categories or a category filter. The user
+A category review begins with a category filter or contextual link. The user
 compares projects serving a similar purpose and can inspect incomplete
 classification or observation coverage.
 
@@ -187,7 +193,7 @@ classification or observation coverage.
 | Concept | Chinese | English |
 | --- | --- | --- |
 | Main trend view | 趋势看板 | Trends |
-| Discovery archive | 每日发现 | Daily discoveries |
+| New-entry filter | 仅看当天新入库 | New on selected date |
 | Persistent catalogue | 项目库 | Project library |
 | Purpose-based taxonomy | Agent 分类 | Agent categories |
 | Operator addition | 添加关注 | Add project |
@@ -210,14 +216,16 @@ Project reading cards and numerical comparison rows use different density for
 their different tasks. Forms remain short. Exact-value evidence can be expanded
 without filling the first screen.
 
-The project library and discovery archive use capped cursor pages. Collection
-history may retain its smaller offset-paginated log. Charts reduce tick density
+The project library, including its new-entry view, uses capped cursor pages.
+Collection history may retain its smaller offset-paginated log. Charts reduce tick density
 before compromising date labels or exact-value access.
 
 ## URLs and compatibility
 
 - `/` is the trend dashboard; `/repositories` is the project library.
-- `/discoveries` is a full page. The previous discovery redirect is replaced.
+- `/discoveries` is a compatibility entry into the library with `new=1`;
+  existing date, sort, and other filters are preserved, and `cursor` is cleared.
+  Missing sort and period default to `sort=stars` and `period=1d`.
 - Old root catalogue links with search, cursor, or `new=1` can redirect to
   `/repositories` while retaining their query values.
 - Browsing state uses `date`, `period=1d|7d|30d`, `sort`, `topic`, `q`,

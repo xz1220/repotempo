@@ -37,22 +37,23 @@ it does or adds an interesting repository for continued observation.
 
 ## Navigation
 
-The current product direction, agreed on September 7, 2026, uses a dashboard
-homepage and a dedicated daily-discovery page. This replaces the earlier
-catalogue-only homepage and its restrictions on separate overview/discovery
-destinations.
+Primary navigation contains only Trends and Project library. The dashboard
+remains the homepage. Daily discoveries are reviewed inside the library using
+the date and “new on selected date” filter, together with any comparison period
+and ordering, including Stars or growth.
 
 | Destination | What the user does |
 | --- | --- |
 | Trends, `/` | The user scans charts and growth groups for a chosen date and period. |
-| Daily discoveries, `/discoveries` | The user reads projects entering the radar on a selected date. |
-| Project library, `/repositories` | The user searches, filters, and revisits the full monitored catalogue. |
-| Agent categories, `/topics` | The user explores projects by purpose and supporting capability. |
-| Add project, `/watch/new` | The operator registers a public project for observation. |
-| Collection history, `/runs` | The operator checks freshness, failures, and completeness. |
+| Project library, `/repositories` | The user searches all projects, reviews new entries, or switches to My watchlist. |
 
-Project and category detail pages retain the same navigation. My watchlist is
-a focused view of the project library, not a separate copy of the data.
+My watchlist is a tab within the project library. Add project appears once as
+a compact library-toolbar action opening `/watch/new`; neither is repeated in
+the sidebar or global page heading.
+
+Category filters and contextual category pages support both reading modes.
+Collection history remains a utility. Existing detail and form routes retain
+the same two-item primary navigation.
 
 ## Data collection
 

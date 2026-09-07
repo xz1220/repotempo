@@ -5,7 +5,7 @@ projects and following what happens after discovery. It stores daily Star
 observations and makes the history readable through charts, project pages,
 categories, and a personal watchlist.
 
-中文界面支持趋势看板、每日发现、项目库、Agent 分类和手动添加关注。
+中文界面只有趋势看板和项目库两个主入口；项目库支持每日新入库筛选、分类、我的关注和手动添加关注。
 项目入库后持续观测，便于回看它从首次发现到后续增长的过程。
 
 ## What you can do
@@ -131,13 +131,16 @@ repair failed ones.
 | Page | What it contains |
 | --- | --- |
 | Trends, `/` | Fixed-cohort charts and fastest, slowest, and slowing growth groups. |
-| Daily discoveries, `/discoveries` | Projects grouped by their first discovery date. |
-| Project library, `/repositories` | Search, category filters, date/period controls, and cursor pagination. |
+| Project library, `/repositories` | Search, category filters, date/period controls, new-entry filtering, My watchlist, and cursor pagination. |
 | Agent categories, `/topics` | Purpose-based categories, supporting tags, and classification coverage. |
 | Add project, `/watch/new` | A form for a public repository URL, optional category, and note. |
 | Collection history, `/runs` | Run outcomes, source warnings, failures, and completeness. |
 
-My watchlist is available at `/repositories?focus=1`. Project details use
+Only Trends and Project library appear in primary navigation. Add project is
+a compact library-toolbar button, and My watchlist is a library tab at
+`/repositories?focus=1`. Daily discoveries use the library's date and ordering
+controls, with `new=1` to show only projects first added on the selected date.
+Old `/discoveries` links redirect to this filtered library view. Project details use
 `/repositories/{github_repository_id}`. Health endpoints are `/healthz` and
 `/readyz`.
 

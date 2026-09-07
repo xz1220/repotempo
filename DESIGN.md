@@ -1,8 +1,8 @@
 # GitHub Radar design system
 
-This document describes the current product direction from September 7, 2026:
-a visual trend dashboard, a daily-discovery archive, and a persistent project
-library. It supersedes the earlier catalogue-only homepage.
+The product uses a visual trend dashboard and a persistent project library.
+Daily discoveries and My watchlist are library views. Primary navigation has
+only Trends and Project library.
 
 ## Product job
 
@@ -10,8 +10,9 @@ Help a researcher see where attention is moving, meet interesting new projects,
 and keep observing them after discovery. A project detail must explain what
 the project does before asking the reader to interpret its numbers.
 
-The three main reading tasks are scanning a trend, browsing today's additions,
-and finding a previously observed project. Each has its own page.
+The main reading tasks are scanning a trend and browsing projects. Today's
+additions and previously observed projects share the library's filters and
+records.
 
 ## Visual direction
 
@@ -29,13 +30,13 @@ comfortable reading space as well as exact tables.
 
 ## App shell
 
-The sidebar groups Trends, Daily discoveries, Project library, and Agent
-categories. My watchlist and Add project are easy to reach; collection history
-and the source-repository link stay in the utility area.
+The sidebar primary navigation contains only Trends and Project library.
+Collection history and the source-repository link stay in the utility area.
+Categories are contextual filters, and My watchlist is a library tab.
 
 The bright content header shows page context and language selection. The page
-heading carries the data date and an Add project action where appropriate.
-A stale-data notice links to collection history.
+heading carries the data date. Add project appears only as a compact button
+in the project-library toolbar. A stale-data notice links to collection history.
 
 Navigation uses ordinary anchors with an active-page state. On narrow screens,
 the shell reorganizes into compact navigation without root horizontal overflow
@@ -50,8 +51,8 @@ for routes, labels, and content order.
 | Route | What the page helps the user understand |
 | --- | --- |
 | `/` | The user sees overall movement, fastest growth, slow growth, and slowing momentum. |
-| `/discoveries` | The user reads projects first discovered on a selected date. |
-| `/repositories` | The user searches and compares the full monitored project library. |
+| `/repositories` | The user searches and compares projects, filters new entries by date, or opens My watchlist. |
+| `/discoveries` | Old discovery links lead into the project library's new-entry view. |
 | `/repositories/{id}` | The user learns what a project does and reviews its observed history. |
 | `/topics` | The user explores product categories and classification coverage. |
 | `/topics/{slug}` | The user examines the projects and observations behind one category. |
@@ -76,24 +77,25 @@ Counts and chart labels identify the date range and comparable sample.
 Operational details belong in an expandable explanation or collection history,
 not in the primary reading path.
 
-## Daily discoveries
+## New discoveries in the library
 
-Use readable project cards or records with the repository name, description,
-category, observed Stars, and a clear detail link. This page is a reading
-surface, not another leaderboard.
+Use the library date and “仅看当天新入库” filter to review additions. The filter
+works with any comparison period and ordering, including Stars or growth.
+Keep the same readable project records, descriptions, categories, and detail links.
 
-The date selector refers to entry into this system. When GitHub creation time
-is available, show it separately. Every discovered project is already in the
-library for continued monitoring.
+The date selector sets the observation date; the new-only filter restricts it
+to that day's entries. GitHub creation time, when available, remains separate
+in project details. Every discovered project is already monitored in the library.
 
-An empty day explains that no projects entered the radar on that date and
-offers date navigation or Add project. Do not imply a collector error merely
-because a date has no additions.
+An empty result offers clearing filters; users can also change the date or
+disable the new-only filter. The toolbar's Add project button remains the
+single addition entry. An empty date is not a collector error.
 
 ## Project library
 
-Search, category, period, date, ordering, and the watchlist filter describe the
-current slice. Keep advanced source and monitoring-state controls secondary.
+All projects and My watchlist are tabs inside the library. Search, category,
+period, date, ordering, and the new-only filter describe the current slice.
+Keep advanced source and monitoring-state controls secondary.
 
 Desktop rows align numbers and leave enough room for descriptions. Mobile uses
 readable records rather than compressing a wide table. New, unclassified,
@@ -103,6 +105,9 @@ Cursor pagination supports a growing library. Sort and filter changes reset
 continuation; browser Back and shared URLs preserve the selected context.
 
 ## Add project
+
+Open the form from the compact project-library toolbar button. Do not repeat
+the action in the sidebar, dashboard, or global page heading.
 
 Accept a public GitHub URL or owner/name. The category and personal note are
 optional. On success, open the detail page with real repository metadata and
