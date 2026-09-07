@@ -15,7 +15,7 @@
   <div><span class="stat-label">{{t "ui.up_projects"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.UpCount}}</strong><span class="stat-marker positive">↗</span></div><p>{{t "ui.up_note"}}</p></div>
   <div><span class="stat-label">{{t "ui.flat_projects"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.FlatCount}}</strong><span class="stat-marker neutral">→</span></div><p>{{t "ui.flat_note"}}</p></div>
   <div><span class="stat-label">{{t "ui.slowdown"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.SlowingCount}}</strong><span class="stat-marker negative">↘</span></div><p>{{tf "ui.slowdown_note" (formatInt .Radar.Coverage.MomentumComparableCount)}}</p></div>
-  <div><span class="stat-label">{{t "ui.new_today"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.NewCount}}</strong><a href="/discoveries?date={{formatDate .Radar.AsOf}}" aria-label="{{t "ui.view_discoveries"}}">{{template "icon-arrow"}}</a></div><p>{{t "ui.new_note"}}</p></div>
+  <div><span class="stat-label">{{t "ui.new_today"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.NewCount}}</strong><a href="{{.NewProjectsURL}}" aria-label="{{t "ui.view_discoveries"}}">{{template "icon-arrow"}}</a></div><p>{{t "ui.new_note"}}</p></div>
 </div>
 
 <div class="dashboard-chart-grid">

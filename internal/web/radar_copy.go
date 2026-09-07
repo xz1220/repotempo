@@ -51,6 +51,8 @@ func init() {
 		"ui.new_today":                                 {"当天新入库", "New to the radar"},
 		"ui.new_note":                                  {"首次进入我们的观察范围", "First discovered on the selected date"},
 		"ui.view_discoveries":                          {"查看每日发现", "View daily discoveries"},
+		"ui.only_new_on_date":                          {"仅看当天新入库", "New on this date only"},
+		"ui.new_filter_help":                           {"仅显示在所选观测日期首次入库的项目，入库日期不等于 GitHub 创建日期。", "Only projects first added on the observation date. This is not their GitHub creation date."},
 		"ui.chart_title":                               {"关注度走势", "Attention over time"},
 		"ui.chart_subtitle":                            {"同一批 %s 个项目 · 起点 = 100", "Same cohort of %s projects · starts at 100"},
 		"ui.chart_help":                                {"这条曲线比较同一批项目，起点设为 100。仅使用起止两天都有成功观测的项目；中间缺少观测时保留断点。项目库新增数量不会直接抬高这条曲线。", "The same projects are compared throughout, normalized to 100 at the start. Both endpoints must have successful observations. Incomplete days remain gaps; new additions do not inflate the curve."},

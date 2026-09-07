@@ -1,17 +1,15 @@
 {{define "content"}}
 <div class="library-toolbar">
   <nav class="library-views" aria-label="{{t "ui.all_library"}}">
-    <a href="/repositories" class="{{if not .Repositories.Filter.OnlyFocus}}is-active{{end}}">{{t "ui.all_library"}}</a>
-    <a href="/repositories?focus=1" class="{{if .Repositories.Filter.OnlyFocus}}is-active{{end}}">{{t "ui.my_watchlist"}}</a>
+    {{range .LibraryViews}}<a href="{{.URL}}" class="{{if .Active}}is-active{{end}}" {{if .Active}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}
   </nav>
-  <a class="text-link" href="/discoveries">{{t "ui.view_discoveries"}} {{template "icon-arrow"}}</a>
+  <a class="button button-secondary library-add" href="/watch/new">{{template "icon-plus"}}{{t "ui.add_project"}}</a>
 </div>
 <nav class="category-tabs" aria-label="{{t "ui.category_filter"}}">{{range .Categories}}<a href="{{.URL}}" class="category-tab {{if .Active}}is-active{{end}}" {{if .Active}}aria-current="page"{{end}}>{{t .Label}}</a>{{end}}</nav>
 <section class="surface library-surface" aria-label="{{t "repositories.metrics_region"}}">
   <form class="library-filters" method="get" action="/repositories" role="search">
     <input type="hidden" name="lang" value="{{.Meta.Locale}}">
     {{if .Repositories.Filter.OnlyFocus}}<input type="hidden" name="focus" value="1">{{end}}
-    {{if .Repositories.Filter.OnlyNew}}<input type="hidden" name="new" value="1">{{end}}
     <div class="field field-search"><label for="repository-search">{{t "repositories.search"}}</label><input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="{{t "ui.search_hint"}}" autocomplete="off"></div>
     <div class="field"><label for="topic-filter">{{t "repositories.topic"}}</label><select name="topic" id="topic-filter"><option value="">{{t "repositories.all_topics"}}</option><option value="__unclassified" {{if eq .Repositories.Filter.TopicSlug "__unclassified"}}selected{{end}}>{{t "category.__unclassified"}}</option>{{range .Repositories.Topics}}<option value="{{.Slug}}" {{if eq $.Repositories.Filter.TopicSlug .Slug}}selected{{end}}>{{if .ParentName}}↳ {{end}}{{topicName .Slug .Name}}</option>{{end}}</select></div>
     <div class="field"><label for="sort-filter">{{t "repositories.sort_label"}}</label><select id="sort-filter" name="sort">
@@ -26,9 +24,10 @@
     </select></div>
     <div class="field"><label for="period-filter">{{t "repositories.period_label"}}</label><select id="period-filter" name="period"><option value="1d" {{if eq .Repositories.Filter.WindowDays 1}}selected{{end}}>{{t "period.1d"}}</option><option value="7d" {{if eq .Repositories.Filter.WindowDays 7}}selected{{end}}>{{t "period.7d"}}</option><option value="30d" {{if eq .Repositories.Filter.WindowDays 30}}selected{{end}}>{{t "period.30d"}}</option></select></div>
     <div class="field"><label for="as-of-date">{{t "repositories.as_of_date"}}</label><input id="as-of-date" name="date" type="date" value="{{formatDate .Repositories.Filter.AsOf}}"></div>
-    <div class="filter-actions"><button class="button button-primary" type="submit">{{t "ui.filter"}}</button></div>
+    <div class="filter-actions"><label class="new-project-filter"><input type="checkbox" name="new" value="1" {{if .Repositories.Filter.OnlyNew}}checked{{end}}>{{t "ui.only_new_on_date"}}</label><button class="button button-primary" type="submit">{{t "ui.filter"}}</button></div>
   </form>
-  <div class="library-count"><p>{{tf "ui.library_note" (formatInt .Repositories.Total) (formatInt .Repositories.Coverage.ComparableCount)}}</p><span>{{formatDate .Repositories.Coverage.BaselineDate}} → {{formatDate .Repositories.Coverage.AsOfDate}}</span></div>
+  {{if .Repositories.Filter.OnlyNew}}<p class="new-project-note">{{t "ui.new_filter_help"}}</p>{{end}}
+  <div class="library-count"><p>{{if .Repositories.Filter.OnlyNew}}{{tf "repositories.count" (formatInt .Repositories.Total)}}{{else}}{{tf "ui.library_note" (formatInt .Repositories.Total) (formatInt .Repositories.Coverage.ComparableCount)}}{{end}}</p><span>{{formatDate .Repositories.Coverage.BaselineDate}} → {{formatDate .Repositories.Coverage.AsOfDate}}</span></div>
   {{if .Repositories.Items}}
   <div class="table-scroll repository-table-scroll" tabindex="0" role="region" aria-label="{{t "repositories.metrics_region"}}">
     <table class="data-table repository-trend-table"><thead><tr><th>{{t "repositories.repository"}}</th><th>{{t "repositories.topic_tags"}}</th><th class="numeric">{{t "metric.current_stars"}}</th><th class="numeric">{{t "ui.period_gain"}}</th><th class="numeric">{{t "repositories.growth_rate"}}</th><th class="numeric">{{t "repositories.sample_rank"}}</th><th>{{t "ui.discovered_on"}}</th></tr></thead>
@@ -49,5 +48,5 @@
   {{else}}<div class="empty-state"><h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p><a class="button button-secondary" href="/repositories">{{t "repositories.clear_filters"}}</a></div>{{end}}
 </section>
 <nav class="cursor-pagination" aria-label="{{t "pagination.label"}}"><p>{{tf "repositories.page_summary" (formatInt (len .Repositories.Items)) (formatInt .Repositories.Total)}}</p><div>{{if .Repositories.Filter.AfterID}}<a class="button button-secondary" href="{{.Repositories.FirstPageURL}}">{{t "ui.first_page"}}</a>{{end}}{{if .Repositories.NextCursor}}<a class="button button-secondary" href="{{.Repositories.NextCursor}}" rel="next">{{t "pagination.next"}} {{template "icon-arrow"}}</a>{{end}}</div></nav>
-<details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}}</p></details>
+<details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}} <a class="text-link" href="/topics">{{t "ui.category_rules"}}</a></p></details>
 {{end}}

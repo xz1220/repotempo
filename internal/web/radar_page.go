@@ -118,6 +118,11 @@ func (h *Handler) radarHome(w http.ResponseWriter, r *http.Request) {
 		CurrentPath:  "/",
 	}
 	view.Meta.AsOfLabel = formatDateLocalized(data.AsOf, h.location, l.Text("page.not_available"))
+	newProjectValues := cloneValues(values)
+	newProjectValues.Set("new", "1")
+	newProjectValues.Set("period", "1d")
+	newProjectValues.Set("sort", "stars")
+	view.NewProjectsURL = queryPath("/repositories", newProjectValues)
 	view.Meta.Stale = rawDate == "" && h.isStale(data.AsOf)
 	view.RadarChart, view.ChartChange, view.ChartCohort = radarHistoryChart(data.History, l)
 	makeBoard := func(title, description, tone, sort string, items []RadarRepository, slowdown bool) leaderboard {

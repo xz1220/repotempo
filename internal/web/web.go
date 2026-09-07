@@ -171,7 +171,7 @@ func (h *Handler) parseTemplates() error {
 			"watchText":       func(key string) string { return watchText(locale, key) },
 		}
 		h.templates[locale] = make(map[string]*template.Template)
-		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "discoveries", "runs", "error", "watch"} {
+		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch"} {
 			tmpl, err := template.New("base.gohtml").Funcs(funcs).ParseFS(
 				assets,
 				"templates/base.gohtml",

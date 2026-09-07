@@ -222,14 +222,6 @@ button > svg,
   color: var(--sidebar-accent);
   font-weight: 650;
 }
-.sidebar-rule {
-  height: 1px;
-  background: var(--sidebar-rule);
-  margin: 24px 12px 14px;
-}
-.sidebar-add {
-  margin: 20px 6px 0;
-}
 .sidebar-bottom {
   margin-top: auto;
   padding-top: 32px;
@@ -1131,6 +1123,11 @@ input[type="checkbox"] {
   border-bottom-color: var(--accent);
   font-weight: 650;
 }
+.library-add {
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
 .library-search {
   display: flex;
   align-items: center;
@@ -1153,6 +1150,32 @@ input[type="checkbox"] {
 }
 .library-filters .field-search {
   flex: 2 1 200px;
+}
+.library-filters .filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.new-project-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.new-project-filter input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.new-project-note {
+  padding: 12px 20px 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 .field label {
   display: block;
@@ -1205,89 +1228,6 @@ input[type="checkbox"] {
 .pagination > div {
   display: flex;
   gap: 8px;
-}
-.discovery-datebar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-.discovery-datebar h2 {
-  font-size: 18px;
-}
-.discovery-datebar p {
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 4px;
-}
-.discovery-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-.discovery-card {
-  padding: 24px;
-  min-width: 0;
-}
-.discovery-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-.repo-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
-.repo-avatar svg {
-  width: 18px;
-  height: 18px;
-}
-.discovery-card .repo-name {
-  font-size: 15px;
-}
-.discovery-card .repository-description {
-  font-size: 12px;
-  min-height: 40px;
-  margin-bottom: 16px;
-}
-.discovery-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-top: 22px;
-  padding-top: 16px;
-  border-top: var(--rule);
-  font-size: 11px;
-  color: var(--muted);
-}
-.discovery-card .tag-list {
-  margin-top: 14px;
-}
-.discovery-card .text-link {
-  font-size: 11px;
-}
-.discovery-evidence {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 12px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.discovery-explanation {
-  font-size: 11px;
-  color: var(--muted);
-  margin: 20px 0;
-  max-width: 90ch;
 }
 .breadcrumb {
   margin-bottom: 14px;
@@ -2016,10 +1956,6 @@ input[type="checkbox"] {
   h1 {
     font-size: 25px;
   }
-  .heading-add {
-    font-size: 11px;
-    padding-inline: 10px;
-  }
   .radar-stat-row p {
     font-size: 9px;
   }
@@ -2074,9 +2010,6 @@ input[type="checkbox"] {
   .library-search input {
     width: 100%;
   }
-  .discovery-grid {
-    grid-template-columns: 1fr;
-  }
 }
 @media (max-width: 800px) {
   .app-sidebar {
@@ -2091,16 +2024,13 @@ input[type="checkbox"] {
   }
   .brand small,
   .sidebar-label,
-  .sidebar-rule,
-  .focus-link,
-  .sidebar-add,
   .sidebar-bottom {
     display: none;
   }
   .primary-nav {
     flex-direction: row;
     gap: 4px;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
   .nav-link {
     min-height: 44px;
@@ -2408,9 +2338,10 @@ input[type="checkbox"] {
   }
   .library-filters .filter-actions {
     flex-basis: 100%;
+    justify-content: space-between;
   }
   .library-filters .filter-actions .button {
-    width: 100%;
+    min-width: 80px;
   }
   .library-count {
     padding: 14px 16px;
@@ -2429,24 +2360,6 @@ input[type="checkbox"] {
   .cursor-pagination > div,
   .pagination > div {
     justify-content: space-between;
-  }
-  .discovery-datebar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
-  }
-  .discovery-card {
-    padding: 20px;
-  }
-  .discovery-card-footer {
-    gap: 12px;
-    font-size: 10px;
-  }
-  .discovery-card .repo-name {
-    font-size: 14px;
-  }
-  .discovery-card .repository-description {
-    min-height: 0;
   }
   .metric-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2541,8 +2454,6 @@ input[type="checkbox"] {
 @media print {
   .app-sidebar,
   .app-header,
-  .heading-add,
-  .sidebar-add,
   .category-tabs,
   .button,
   .library-filters {

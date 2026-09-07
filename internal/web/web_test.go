@@ -103,7 +103,7 @@ func TestMainRoutesRender(t *testing.T) {
 	}{
 		{path: "/", wantStatus: http.StatusOK, wantContent: "Follow what happens next."},
 		{path: "/repositories", wantStatus: http.StatusOK, wantContent: "Project library"},
-		{path: "/discoveries", wantStatus: http.StatusOK, wantContent: "A new day. New discoveries."},
+		{path: "/discoveries", wantStatus: http.StatusFound, wantContent: "Found"},
 		{path: "/repositories/101", wantStatus: http.StatusOK, wantContent: "Valid history starts"},
 		{path: "/topics", wantStatus: http.StatusOK, wantContent: "General agents"},
 		{path: "/topics/ai-agent", wantStatus: http.StatusOK, wantContent: "Top repository share"},
@@ -159,7 +159,7 @@ func TestChineseLocaleRendersAllProductRoutes(t *testing.T) {
 	}{
 		{path: "/", want: "开源项目，持续关注"},
 		{path: "/repositories", want: "项目库"},
-		{path: "/discoveries", want: "每天，都有新发现"},
+		{path: "/repositories?new=1", want: "仅看当天新入库"},
 		{path: "/repositories/101", want: "有效历史起始日"},
 		{path: "/topics", want: "主题指标"},
 		{path: "/topics/ai-agent", want: "头部项目占比"},
@@ -241,11 +241,7 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 		`class="primary-nav"`,
 		`>Projects<`,
 		`>Trends<`,
-		`>Discover<`,
-		`>Categories<`,
 		`>History<`,
-		`href="/watch/new"`,
-		`href="/repositories?focus=1"`,
 		`href="/runs"`,
 	} {
 		if !strings.Contains(home, want) {
@@ -257,11 +253,16 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 		t.Fatal("primary navigation is missing")
 	}
 	navigation := strings.SplitN(navParts[1], "</nav>", 2)[0]
-	if count := strings.Count(navigation, `class="nav-link `); count != 4 {
-		t.Errorf("primary navigation link count = %d, want 4", count)
+	if count := strings.Count(navigation, `class="nav-link `); count != 2 {
+		t.Errorf("primary navigation link count = %d, want 2", count)
 	}
-	if strings.Contains(navigation, `href="/runs"`) {
-		t.Error("collection history should remain a utility, outside primary navigation")
+	for _, path := range []string{"/runs", "/discoveries", "/topics", "/watch/new", "/repositories?focus=1"} {
+		if strings.Contains(navigation, `href="`+path+`"`) {
+			t.Errorf("primary navigation unexpectedly contains %s", path)
+		}
+	}
+	if strings.Contains(home, `href="/watch/new"`) || strings.Contains(home, `href="/repositories?focus=1"`) {
+		t.Error("global add/watchlist shortcuts should not remain on the dashboard")
 	}
 
 	projects := request(t, handler, "/repositories").Body.String()
@@ -274,6 +275,9 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 		if !strings.Contains(projects, want) {
 			t.Errorf("projects does not contain %q: %s", want, projects)
 		}
+	}
+	if count := strings.Count(projects, `href="/watch/new"`); count != 1 {
+		t.Errorf("project library add entry count = %d, want exactly one", count)
 	}
 
 	repository := request(t, handler, "/repositories/101").Body.String()
@@ -289,6 +293,12 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 		!strings.Contains(topic, `href="/topics"`) ||
 		!strings.Contains(topic, `translate="no">General agents</h1>`) {
 		t.Fatalf("topic breadcrumb is missing: %s", topic)
+	}
+	for _, path := range []string{"/topics", "/topics/ai-agent"} {
+		body := request(t, handler, path).Body.String()
+		if !strings.Contains(body, `class="nav-link is-active" href="/repositories" aria-current="page"`) {
+			t.Errorf("%s should keep Projects active", path)
+		}
 	}
 }
 
@@ -331,7 +341,7 @@ func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 		want string
 	}{
 		{path: "/", want: "Waiting for comparable history"},
-		{path: "/discoveries", want: "No discoveries on this date"},
+		{path: "/repositories?new=1", want: "No repositories match"},
 		{path: "/repositories", want: "No repositories match"},
 		{path: "/topics", want: "No topics configured"},
 		{path: "/runs", want: "No job runs recorded"},
@@ -378,7 +388,7 @@ func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
 		`value="rank_change" selected`,
 		`name="focus" value="1"`,
 		`name="new" value="1"`,
-		`120 projects · 1,150 comparable this period`,
+		`120 repositories`,
 		`class="new-badge">New`,
 		`class="rank-transition"`,
 		`7 → 4`,
@@ -391,20 +401,27 @@ func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
 	}
 }
 
-func TestDiscoveriesIsAnIndependentPageWithNewProjectFilter(t *testing.T) {
-	queryer := populatedFake()
-	response := request(t, newTestHandler(t, queryer), "/discoveries?lang=zh-CN&period=30d&q=radar&date=2026-08-30&cursor=abc")
-	if response.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", response.Code)
-	}
-	got := queryer.lastRepositoryQuery
-	if !got.OnlyNew || got.Sort != "newest" || got.Search != "radar" || got.WindowDays != 30 || got.AfterID == nil || got.AsOf.Format("2006-01-02") != "2026-08-30" {
-		t.Fatalf("discovery query = %#v", got)
-	}
-	for _, want := range []string{"每天，都有新发现", `class="discovery-grid"`, `href="/repositories/101"`, "新入库不等于刚创建"} {
-		if !strings.Contains(response.Body.String(), want) {
-			t.Errorf("discovery page missing %q", want)
-		}
+func TestLegacyDiscoveriesRedirectToNewProjectsWithoutLosingFilters(t *testing.T) {
+	for _, test := range []struct{ path, want string }{
+		{"/discoveries", "/repositories?new=1&period=1d&sort=stars"},
+		{"/discoveries?lang=zh-CN&q=radar&date=2026-08-30&focus=1&topic=research-agents&cursor=abc&new=0", "/repositories?date=2026-08-30&focus=1&lang=zh-CN&new=1&period=1d&q=radar&sort=stars&topic=research-agents"},
+		{"/discoveries?period=30d&sort=growth_rate&date=2026-08-29&cursor=abc", "/repositories?date=2026-08-29&new=1&period=30d&sort=growth_rate"},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			queryer := populatedFake()
+			handler := newTestHandler(t, queryer)
+			response := request(t, handler, test.path)
+			if response.Code != http.StatusFound || response.Header().Get("Location") != test.want {
+				t.Fatalf("legacy redirect = %d %q, want 302 %q", response.Code, response.Header().Get("Location"), test.want)
+			}
+			if queryer.lastRepositoryQuery.Limit != 0 {
+				t.Fatal("legacy route queried the library before redirecting")
+			}
+			response = request(t, handler, response.Header().Get("Location"))
+			if response.Code != http.StatusOK || !queryer.lastRepositoryQuery.OnlyNew || queryer.lastRepositoryQuery.AfterID != nil {
+				t.Fatalf("redirected library did not apply new-project filter: %+v", queryer.lastRepositoryQuery)
+			}
+		})
 	}
 }
 

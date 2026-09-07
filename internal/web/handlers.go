@@ -48,6 +48,8 @@ type pageView struct {
 	DiscoveryMix      discoveryMixChart
 	TrendPeriods      []viewOption
 	TrendSorts        []viewOption
+	LibraryViews      []viewOption
+	NewProjectsURL    string
 	Pagination        pagination
 	ErrorStatus       int
 	ErrorTitle        string
@@ -106,12 +108,6 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		Limit:            repositoryPageSize,
 		AfterID:          parseTrendCursor(r.URL.Query().Get("cursor")),
 	}
-	if path == "/discoveries" {
-		filter.OnlyNew = true
-		if r.URL.Query().Get("sort") == "" {
-			filter.Sort = "newest"
-		}
-	}
 	data, err := h.queryer.ListRepositoryTrends(r.Context(), filter)
 	if err != nil {
 		if errors.Is(err, ErrInvalid) && r.URL.Query().Get("cursor") != "" {
@@ -141,19 +137,16 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		Repositories: data,
 		TrendPeriods: repositoryPeriodOptions(path, r.URL.Query(), filter.WindowDays, localized),
 		TrendSorts:   repositorySortOptions(path, r.URL.Query(), filter.Sort, localized),
+		LibraryViews: []viewOption{
+			{Label: localized.Text("ui.all_library"), URL: repositoryOptionURL(path, firstPageValues, "focus", ""), Active: !filter.OnlyFocus},
+			{Label: localized.Text("ui.my_watchlist"), URL: repositoryOptionURL(path, firstPageValues, "focus", "1"), Active: filter.OnlyFocus},
+		},
 	}
 	view.Meta.AsOfLabel = formatDateLocalized(data.Coverage.AsOfDate, h.location, localized.Text("page.not_available"))
 	view.Meta.Stale = rawDate == "" && h.isStale(data.Coverage.AsOfDate)
 	view.CurrentPath = path
-	view.Categories = categoryLinks(path, r.URL.Query())
-	templateName := "repositories"
-	if path == "/discoveries" {
-		view.Meta.Title = localized.Text("ui.discovery_title")
-		view.Meta.Description = localized.Text("ui.discovery_description")
-		view.Meta.ActiveNav = "discoveries"
-		templateName = "discoveries"
-	}
-	h.render(w, r, http.StatusOK, templateName, view)
+	view.Categories = categoryLinks(path, firstPageValues)
+	h.render(w, r, http.StatusOK, "repositories", view)
 }
 
 func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
@@ -210,7 +203,7 @@ func (h *Handler) topics(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	view := pageView{
-		Meta:          h.meta(localized, "meta.topics.title", "meta.topics.description", "topics", data.Warnings),
+		Meta:          h.meta(localized, "meta.topics.title", "meta.topics.description", "repositories", data.Warnings),
 		Topics:        data,
 		TopicRanking:  ranking,
 		CategoryCards: categoryCards(data.Items, localized),
@@ -238,7 +231,7 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 		h.serverError(w, r, err)
 		return
 	}
-	meta := h.metaText(localized, localized.TopicName(data.Topic.Slug, data.Topic.Name), localized.Text("meta.topic.description"), "topics", data.Warnings)
+	meta := h.metaText(localized, localized.TopicName(data.Topic.Slug, data.Topic.Name), localized.Text("meta.topic.description"), "repositories", data.Warnings)
 	meta.TitleKind = "topic"
 	if !data.AsOf.IsZero() {
 		meta.AsOfLabel = formatDateLocalized(data.AsOf, h.location, localized.Text("page.not_available"))
@@ -252,7 +245,16 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) discoveries(w http.ResponseWriter, r *http.Request) {
-	h.repositoryIndex(w, r, "/discoveries")
+	values := r.URL.Query()
+	values.Set("new", "1")
+	values.Del("cursor")
+	if values.Get("period") == "" {
+		values.Set("period", "1d")
+	}
+	if values.Get("sort") == "" {
+		values.Set("sort", "stars")
+	}
+	http.Redirect(w, r, queryPath("/repositories", values), http.StatusFound)
 }
 
 func (h *Handler) runs(w http.ResponseWriter, r *http.Request) {

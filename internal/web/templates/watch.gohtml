@@ -1,3 +1,9 @@
+{{define "page-meta"}}
+  <nav class="breadcrumb" aria-label="{{t "breadcrumb.label"}}">
+    <a class="breadcrumb-link" href="/repositories"><span aria-hidden="true">←</span><span>{{t "nav.repositories"}}</span></a>
+  </nav>
+{{end}}
+
 {{define "content"}}
 <section class="watch-panel" aria-label="{{watchText "title"}}">
   {{if .Watch.Error}}<div class="notice notice-warning" role="alert"><p>{{.Watch.Error}}</p></div>{{end}}

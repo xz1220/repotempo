@@ -21,13 +21,9 @@
     <span class="sidebar-label">{{t "ui.workspace"}}</span>
     <nav class="primary-nav" aria-label="{{t "nav.primary"}}">
       <a class="nav-link {{if eq .Meta.ActiveNav "dashboard"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "dashboard"}}aria-current="page"{{end}}>{{template "icon-chart"}}<span>{{t "nav.dashboard"}}</span></a>
-      <a class="nav-link {{if eq .Meta.ActiveNav "discoveries"}}is-active{{end}}" href="/discoveries" {{if eq .Meta.ActiveNav "discoveries"}}aria-current="page"{{end}}>{{template "icon-compass"}}<span>{{t "nav.discoveries"}}</span></a>
-      <a class="nav-link {{if eq .Meta.ActiveNav "repositories"}}is-active{{end}}" href="/repositories" {{if eq .Meta.ActiveNav "repositories"}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span></a>
-      <a class="nav-link {{if eq .Meta.ActiveNav "topics"}}is-active{{end}}" href="/topics" {{if eq .Meta.ActiveNav "topics"}}aria-current="page"{{end}}>{{template "icon-layers"}}<span>{{t "nav.topics"}}</span></a>
+      {{$inLibrary := or (eq .Meta.ActiveNav "repositories") (eq .Meta.ActiveNav "watch")}}
+      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="/repositories" {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span></a>
     </nav>
-    <div class="sidebar-rule"></div>
-    <a class="nav-link focus-link" href="/repositories?focus=1">{{template "icon-bookmark"}}<span>{{t "ui.my_watchlist"}}</span></a>
-    <a class="button button-primary sidebar-add" href="/watch/new">{{template "icon-plus"}}{{t "ui.add_project"}}</a>
     <div class="sidebar-bottom">
       <a class="nav-link {{if eq .Meta.ActiveNav "runs"}}is-active{{end}}" href="/runs">{{template "icon-history"}}<span>{{t "nav.history"}}</span></a>
       <p>{{t "ui.source_note"}}</p>
@@ -54,7 +50,6 @@
         </div>
         <div class="page-heading-tools">
           {{if ne .Meta.ActiveNav "watch"}}<span class="as-of">{{tf "ui.data_date" .Meta.AsOfLabel}}</span>{{end}}
-          {{if ne .Meta.ActiveNav "watch"}}<a class="button button-primary heading-add" href="/watch/new">{{template "icon-plus"}}{{t "ui.add_project"}}</a>{{end}}
         </div>
       </header>
       {{if .Meta.Stale}}<div class="notice notice-warning" role="status">{{template "icon-history"}}<p>{{tf "ui.stale_notice" .Meta.AsOfLabel}} <a href="/runs">{{t "ui.inspect_collection"}}</a></p></div>{{end}}
