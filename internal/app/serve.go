@@ -21,7 +21,7 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 		Logger:           runtime.logger,
 		Now:              runtime.now,
 		Location:         domain.ShanghaiLocation(),
-		SiteName:         "GitHub Radar",
+		SiteName:         "RepoTempo",
 		Locale:           runtime.settings.Locale,
 		Watcher:          runtime,
 		AllowLocalWrites: isLoopbackListenAddress(address),

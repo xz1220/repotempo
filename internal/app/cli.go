@@ -454,9 +454,9 @@ func (cli *CLI) runServe(ctx context.Context, settings Settings, jsonOutput bool
 	if jsonOutput {
 		cli.writeJSON(outputEnvelope{Command: "serve", Status: "running", Result: map[string]string{"listen_address": listenAddress}})
 	} else {
-		message := "GitHub Radar is listening on http://%s\n"
+		message := "RepoTempo is listening on http://%s\n"
 		if settings.Locale == "zh-CN" {
-			message = "GitHub Radar 正在监听 http://%s\n"
+			message = "RepoTempo 正在监听 http://%s\n"
 		}
 		_, _ = fmt.Fprintf(cli.Stdout, message, listenAddress)
 	}
@@ -541,7 +541,7 @@ func (cli *CLI) writeError(command string, jsonOutput bool, settings Settings, c
 		}
 		cli.writeJSON(outputEnvelope{Command: command, Status: status, Error: message})
 	} else {
-		_, _ = fmt.Fprintf(cli.Stderr, "github-radar %s: %s\n", command, message)
+		_, _ = fmt.Fprintf(cli.Stderr, "repotempo %s: %s\n", command, message)
 	}
 	return code
 }
@@ -553,10 +553,10 @@ func (cli *CLI) writeJSON(value any) {
 }
 
 func (cli *CLI) printUsage(writer io.Writer) {
-	_, _ = fmt.Fprint(writer, `Usage: github-radar [--json] [--database PATH] [--config PATH] COMMAND [OPTIONS]
+	_, _ = fmt.Fprint(writer, `Usage: repotempo [--json] [--database PATH] [--config PATH] COMMAND [OPTIONS]
 
 Commands:
-  discover       Discover candidates from OSS Insight, GitHub Search, legacy, and manual inputs
+  discover       Discover from GitHub Trending first, with Search and manual supplements
   snapshot       Capture today's absolute GitHub stars for every active repository
   import-legacy  Import legacy SQLite and verified CSV history
   analysis       Import a stored Codex/manual project interpretation from JSON
@@ -565,10 +565,11 @@ Commands:
   export         Export csv, json, or sqlite
   doctor         Check local runtime configuration and disk usage
   run-daily      Run due discovery, snapshots, and csv/json exports
-  serve          Start the read-only Web dashboard
+  serve          Start the Web dashboard and protected watchlist management
 
 Exit codes: 0 success, 1 failure, 2 usage error, 3 partial success.
-GitHub tokens are accepted only through GITHUB_RADAR_GITHUB_TOKEN.
+GitHub tokens are accepted only through environment variables.
+GITHUB_RADAR_* settings and the github-radar executable remain compatible.
 `)
 }
 

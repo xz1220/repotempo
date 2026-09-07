@@ -136,13 +136,13 @@ func TestLibraryKeepsMissingEvidenceSeparateFromObservedZero(t *testing.T) {
 func TestLibraryPaginationPreservesFocusAndFreezesObservationDate(t *testing.T) {
 	queryer := populatedFake()
 	queryer.repositories.Total, queryer.repositories.HasMore, queryer.repositories.NextCursor = 120, true, "2t"
-	body := html.UnescapeString(request(t, newTestHandler(t, queryer), "/repositories?focus=1&q=agent&topic=research-agents&period=30d&sort=stars&new=1&cursor=2s&lang=zh-CN").Body.String())
+	body := html.UnescapeString(request(t, newTestHandler(t, queryer), "/repositories?focus=1&q=agent&topic=research-agents&period=30d&sort=stars&source=github_trending&new=1&cursor=2s&lang=zh-CN").Body.String())
 	if !queryer.lastRepositoryQuery.OnlyFocus {
 		t.Fatal("focus filter not sent to storage")
 	}
 	for _, want := range []string{
-		`href="/repositories?cursor=2t&date=2026-08-30&focus=1&lang=zh-CN&new=1&period=30d&q=agent&sort=stars&topic=research-agents"`,
-		`href="/repositories?date=2026-08-30&focus=1&lang=zh-CN&new=1&period=30d&q=agent&sort=stars&topic=research-agents"`,
+		`href="/repositories?cursor=2t&date=2026-08-30&focus=1&lang=zh-CN&new=1&period=30d&q=agent&sort=stars&source=github_trending&topic=research-agents"`,
+		`href="/repositories?date=2026-08-30&focus=1&lang=zh-CN&new=1&period=30d&q=agent&sort=stars&source=github_trending&topic=research-agents"`,
 		`name="focus" value="1"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -163,7 +163,7 @@ func TestLibraryPaginationPreservesFocusAndFreezesObservationDate(t *testing.T) 
 		if err != nil || location.Path != "/repositories" || location.Query().Has("cursor") {
 			t.Fatalf("invalid library view URL %q", link[1])
 		}
-		for key, want := range map[string]string{"date": "2026-08-30", "topic": "research-agents", "new": "1", "sort": "stars", "q": "agent", "lang": "zh-CN", "period": "30d"} {
+		for key, want := range map[string]string{"date": "2026-08-30", "topic": "research-agents", "source": "github_trending", "new": "1", "sort": "stars", "q": "agent", "lang": "zh-CN", "period": "30d"} {
 			if got := location.Query().Get(key); got != want {
 				t.Errorf("view %d lost %s: got %q, want %q", index, key, got, want)
 			}
@@ -174,6 +174,50 @@ func TestLibraryPaginationPreservesFocusAndFreezesObservationDate(t *testing.T) 
 		}
 		if location.Query().Get("focus") != wantFocus {
 			t.Errorf("view %d focus = %q, want %q", index, location.Query().Get("focus"), wantFocus)
+		}
+	}
+}
+
+func TestLibraryDiscoverySourceFilterAndCountStayScoped(t *testing.T) {
+	for _, locale := range []string{localeEnglish, localeChinese} {
+		queryer := populatedFake()
+		queryer.repositories.Total = 1
+		handler := newTestHandlerWithLocale(t, queryer, locale)
+		for _, suffix := range []string{"&q=acme", "&sort=low_growth", "&sort=slowdown", "&new=1"} {
+			response := request(t, handler, "/repositories?source=github_trending"+suffix)
+			if response.Code != http.StatusOK || queryer.lastRepositoryQuery.Source != "github_trending" {
+				t.Fatalf("source filter not sent to storage: status=%d query=%+v", response.Code, queryer.lastRepositoryQuery)
+			}
+			body := html.UnescapeString(response.Body.String())
+			selects := regexp.MustCompile(`<select\b[^>]*name="source"[^>]*>(.*?)</select>`).FindAllString(body, -1)
+			if len(selects) != 1 {
+				t.Fatalf("expected one discovery-source selector, got %d", len(selects))
+			}
+			for _, source := range []string{"", "github_trending", "github_search", "ossinsight", "legacy", "manual"} {
+				if !strings.Contains(selects[0], `value="`+source+`"`) {
+					t.Errorf("source selector missing %q", source)
+				}
+			}
+			l := newLocalizer(locale)
+			for _, want := range []string{`value="github_trending" selected>GitHub Trending</option>`, l.Text("repositories.all_sources")} {
+				if !strings.Contains(selects[0], want) {
+					t.Errorf("source selector missing %q", want)
+				}
+			}
+			count := l.Textf("repositories.count", "1")
+			mixedCount := l.Textf("ui.library_note", "1", formatInt(queryer.repositories.Coverage.ComparableCount))
+			if !strings.Contains(body, `<div class="library-count"><p>`+count+`</p>`) || strings.Contains(body, mixedCount) {
+				t.Fatal("filtered count was mixed with the unfiltered comparable population")
+			}
+		}
+		queryer.repository.Repository.FirstSeenSource = "github_search"
+		queryer.repository.Repository.DiscoverySources = []string{"github_search", "github_trending"}
+		body := html.UnescapeString(request(t, handler, "/repositories/101").Body.String())
+		l := newLocalizer(locale)
+		for _, want := range []string{`<dt>` + l.Text("repository.first_source") + `</dt><dd>GitHub Search</dd>`, `<dt>` + l.Text("repository.discovery_sources") + `</dt><dd>GitHub Search · GitHub Trending</dd>`} {
+			if !strings.Contains(body, want) {
+				t.Errorf("detail did not distinguish first source and all sources: %q", want)
+			}
 		}
 	}
 }

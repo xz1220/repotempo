@@ -177,7 +177,7 @@ func TestCLIServeUsesChineseStartupMessage(t *testing.T) {
 	if code := cli.Run(context.Background(), []string{"serve"}); code != ExitSuccess {
 		t.Fatalf("exit code = %d", code)
 	}
-	if got := stdout.String(); got != "GitHub Radar 正在监听 http://127.0.0.1:8787\n" {
+	if got := stdout.String(); got != "RepoTempo 正在监听 http://127.0.0.1:8787\n" {
 		t.Fatalf("stdout = %q", got)
 	}
 }

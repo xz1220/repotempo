@@ -1,4 +1,4 @@
-/* GitHub Radar · research dashboard · Impeccable product register
+/* RepoTempo · research dashboard · Impeccable product register
    Quiet surfaces, meaningful charts, familiar navigation, Chinese-first reading. */
 *,
 :before,
@@ -177,6 +177,7 @@ button > svg,
 .brand small {
   display: block;
   font-size: 10px;
+  line-height: 1.35;
   font-weight: 400;
   letter-spacing: 0.03em;
   color: var(--sidebar-text);

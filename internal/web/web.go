@@ -67,7 +67,7 @@ func New(queryer Queryer, options Options) (*Handler, error) {
 		}
 	}
 	if strings.TrimSpace(options.SiteName) == "" {
-		options.SiteName = "GitHub Radar"
+		options.SiteName = "RepoTempo"
 	}
 
 	staticAssets, err := fs.Sub(assets, "static")

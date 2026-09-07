@@ -302,6 +302,27 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 	}
 }
 
+func TestRepoTempoBrandAndSourceAttributionRenderInBothLanguages(t *testing.T) {
+	for _, locale := range []string{localeEnglish, localeChinese} {
+		handler := newTestHandlerWithLocale(t, populatedFake(), locale)
+		subtitle := "independent GitHub trends tracker"
+		if locale == localeChinese {
+			subtitle = "开源趋势观察"
+		}
+		for _, path := range []string{"/", "/repositories", "/repositories/101", "/watch/new"} {
+			body := html.UnescapeString(request(t, handler, path).Body.String())
+			for _, want := range []string{" · RepoTempo</title>", "RepoTempo · MIT", subtitle, `href="https://github.com/xz1220/repotempo"`, "GitHub Trending", "Search"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("%s (%s) missing new branding/source attribution %q", path, locale, want)
+				}
+			}
+			if strings.Contains(body, "GitHub Radar") || strings.Contains(body, "https://github.com/xz1220/github-radar") {
+				t.Errorf("%s (%s) still uses the old public brand", path, locale)
+			}
+		}
+	}
+}
+
 func TestUnsupportedLocaleFallsBackToEnglish(t *testing.T) {
 	handler := newTestHandlerWithLocale(t, populatedFake(), "fr-FR")
 	response := request(t, handler, "/?lang=fr-FR")

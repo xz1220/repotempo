@@ -114,6 +114,7 @@ type RepositoryMetric struct {
 	Delta30D          *int64
 	Topics            []TopicRef
 	FirstSeenSource   string
+	DiscoverySources  []string
 	FirstSeenProfile  string
 	FirstSeenAt       time.Time
 	MonitoringStatus  string

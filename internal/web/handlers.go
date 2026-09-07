@@ -122,6 +122,7 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	data.Filter = filter
 	data.Filter.AsOf = data.Coverage.AsOfDate
 	data.Path = path
+	data.Sources = []string{"github_trending", "github_search", "ossinsight", "legacy", "manual"}
 	firstPageValues := cloneValues(r.URL.Query())
 	firstPageValues.Del("cursor")
 	firstPageValues.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))

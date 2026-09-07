@@ -15,8 +15,8 @@
   <a class="skip-link" href="#main-content">{{t "nav.skip"}}</a>
   <aside class="app-sidebar">
     <a class="brand" href="/" aria-label="{{.Meta.SiteName}}">
-      <span class="brand-mark">{{template "icon-radar"}}</span>
-      <span>GitHub<span class="brand-light"> Radar</span><small>{{t "ui.brand_note"}}</small></span>
+      <span class="brand-mark">{{template "icon-chart"}}</span>
+      <span>{{.Meta.SiteName}}<small>{{t "ui.brand_note"}}</small></span>
     </a>
     <span class="sidebar-label">{{t "ui.workspace"}}</span>
     <nav class="primary-nav" aria-label="{{t "nav.primary"}}">
@@ -27,7 +27,7 @@
     <div class="sidebar-bottom">
       <a class="nav-link {{if eq .Meta.ActiveNav "runs"}}is-active{{end}}" href="/runs">{{template "icon-history"}}<span>{{t "nav.history"}}</span></a>
       <p>{{t "ui.source_note"}}</p>
-      <a class="sidebar-source" href="https://github.com/xz1220/github-radar" target="_blank" rel="noopener noreferrer">GitHub Radar <span>↗</span></a>
+      <a class="sidebar-source" href="https://github.com/xz1220/repotempo" target="_blank" rel="noopener noreferrer">{{.Meta.SiteName}} <span>↗</span></a>
     </div>
   </aside>
   <div class="app-main">
@@ -56,7 +56,7 @@
       {{range .Meta.Warnings}}<div class="notice notice-warning" role="status"><p>{{.}}</p></div>{{end}}
       {{template "content" .}}
     </main>
-    <footer class="app-footer"><p>{{t "page.footer"}}</p><span>GitHub Radar · MIT</span></footer>
+    <footer class="app-footer"><p>{{t "page.footer"}}</p><span>{{.Meta.SiteName}} · MIT</span></footer>
   </div>
 </body>
 </html>

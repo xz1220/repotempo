@@ -28,11 +28,11 @@ func init() {
 		"nav.repositories":                             {"项目库", "Projects"},
 		"nav.discoveries":                              {"每日发现", "Discover"},
 		"nav.topics":                                   {"Agent 分类", "Categories"},
-		"ui.brand_note":                                {"开源项目观察", "Open-source observatory"},
+		"ui.brand_note":                                {"开源趋势观察", "independent GitHub trends tracker"},
 		"ui.workspace":                                 {"工作区", "WORKSPACE"},
 		"ui.my_watchlist":                              {"我的关注", "My watchlist"},
 		"ui.add_project":                               {"添加关注", "Add project"},
-		"ui.source_note":                               {"直接观测 GitHub 数据", "Observed directly from GitHub"},
+		"ui.source_note":                               {"从 Trending 发现，持续观察 Star", "Discover on Trending. Follow daily stars."},
 		"ui.observation_workspace":                     {"开源观察", "Observatory"},
 		"ui.data_date":                                 {"数据日期 %s", "Data as of %s"},
 		"ui.stale_notice":                              {"当前数据停留在 %s，近期走势尚未采集。", "Data stops at %s. Recent movement has not been collected."},
@@ -119,7 +119,7 @@ func init() {
 		"repositories.sort_newest":                     {"最近入库", "Recently discovered"},
 		"repositories.sort_low_growth":                 {"增长平缓", "Slowest growth"},
 		"repositories.sort_slowdown":                   {"势头回落", "Losing momentum"},
-		"page.footer":                                  {"基于真实 GitHub 观测。关注信号，保留缺失。", "Based on real GitHub observations. Missing data remains missing."},
+		"page.footer":                                  {"GitHub Trending 发现，Search 补充，Star 持续观察。", "Discover via GitHub Trending, supplement with Search, and follow daily stars."},
 	}
 	for key, pair := range pairs {
 		messageCatalog[localeChinese][key] = pair[0]

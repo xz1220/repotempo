@@ -302,6 +302,14 @@ func mapRepositoryMetrics(values []domain.RepositoryMetric) []web.RepositoryMetr
 	return result
 }
 
+func discoverySourceStrings(sources []domain.DiscoverySource) []string {
+	result := make([]string, 0, len(sources))
+	for _, value := range sources {
+		result = append(result, string(value))
+	}
+	return result
+}
+
 func mapRepositoryMetric(value domain.RepositoryMetric) web.RepositoryMetric {
 	repository := value.Repository
 	return web.RepositoryMetric{
@@ -316,6 +324,7 @@ func mapRepositoryMetric(value domain.RepositoryMetric) web.RepositoryMetric {
 		Delta30D:         value.Growth.ThirtyDay,
 		Topics:           mapTopicRefs(value.Topics),
 		FirstSeenSource:  string(repository.FirstSeenSource),
+		DiscoverySources: discoverySourceStrings(repository.DiscoverySources),
 		FirstSeenProfile: repository.FirstSeenProfile,
 		FirstSeenAt:      repository.FirstSeenAt,
 		MonitoringStatus: string(repository.MonitoringStatus),
@@ -344,6 +353,7 @@ func mapRepositoryTrends(values []domain.RepositoryTrendMetric) []web.Repository
 			CurrentStars:      value.CurrentStars,
 			Topics:            mapTopicRefs(value.Topics),
 			FirstSeenSource:   string(repository.FirstSeenSource),
+			DiscoverySources:  discoverySourceStrings(repository.DiscoverySources),
 			FirstSeenProfile:  repository.FirstSeenProfile,
 			FirstSeenAt:       repository.FirstSeenAt,
 			MonitoringStatus:  string(repository.MonitoringStatus),

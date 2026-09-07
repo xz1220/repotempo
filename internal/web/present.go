@@ -427,6 +427,8 @@ func sourceColorClass(source string) string {
 		return "source-fill-1"
 	case "github_search":
 		return "source-fill-2"
+	case "github_trending":
+		return "source-fill-5"
 	case "legacy":
 		return "source-fill-3"
 	case "manual":
