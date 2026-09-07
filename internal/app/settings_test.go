@@ -7,6 +7,7 @@ import (
 
 func TestLoadSettingsDoesNotExposeToken(t *testing.T) {
 	t.Setenv("GITHUB_RADAR_GITHUB_TOKEN", "test-token-not-a-secret")
+	t.Setenv("GITHUB_RADAR_WEB_WRITE_TOKEN", "test-management-token-not-a-secret")
 	settings, err := LoadSettings()
 	if err != nil {
 		t.Fatal(err)
@@ -15,8 +16,28 @@ func TestLoadSettingsDoesNotExposeToken(t *testing.T) {
 		t.Fatal("expected configured token marker")
 	}
 	for _, value := range settings.DiagnosticFields() {
-		if value == settings.GitHubToken {
+		if value == settings.GitHubToken || value == settings.WebWriteToken {
 			t.Fatal("diagnostic fields exposed the token")
+		}
+	}
+}
+
+func TestLoadSettingsRejectsShortWebWriteToken(t *testing.T) {
+	t.Setenv("GITHUB_RADAR_WEB_WRITE_TOKEN", "short")
+	if _, err := LoadSettings(); err == nil {
+		t.Fatal("short management token accepted")
+	}
+}
+
+func TestOnlyLoopbackListenersAllowLocalWrites(t *testing.T) {
+	for _, address := range []string{"127.0.0.1:8878", "[::1]:8878", "localhost:8878"} {
+		if !isLoopbackListenAddress(address) {
+			t.Fatalf("local listener rejected: %s", address)
+		}
+	}
+	for _, address := range []string{":8878", "0.0.0.0:8878", "[::]:8878", "192.0.2.1:8878", "localhost.evil.test:8878"} {
+		if isLoopbackListenAddress(address) {
+			t.Fatalf("public listener allowed: %s", address)
 		}
 	}
 }
