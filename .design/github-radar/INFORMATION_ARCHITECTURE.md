@@ -1,222 +1,227 @@
-# Information architecture: GitHub Radar
+# GitHub Radar information architecture
+
+The September 7, 2026 product direction uses three main reading modes: Trends,
+Daily discoveries, and Project library. Agent categories provide another way
+to enter the same collection. Earlier restrictions on a dashboard homepage,
+sidebar, or standalone discovery page no longer apply.
 
 ## Site map
 
-- Project monitoring `/` (canonical home)
-  - Compatibility collection route `/repositories`
-  - Project detail `/repositories/{github_repository_id}`
-- Topics `/topics`
-  - Topic detail `/topics/{topic_slug}`
-- Collection history `/runs` (utility destination)
-- Former discoveries route `/discoveries` → `/?new=1`
-- Service endpoints `/healthz`, `/readyz`
+```text
+GitHub Radar
+├── Trends /
+├── Daily discoveries /discoveries
+├── Project library /repositories
+│   ├── My watchlist /repositories?focus=1
+│   └── Project detail /repositories/{github_repository_id}
+├── Agent categories /topics
+│   └── Category detail /topics/{topic_slug}
+├── Add project /watch/new
+└── Collection history /runs
+```
 
-The application has one stable app bar and contextual controls within each
-route. It does not need a sidebar, command palette, separate overview, or third
-navigation hierarchy.
+Health endpoints remain `/healthz` and `/readyz`.
 
-## Navigation model
+## Navigation
 
-- **Primary navigation:** Projects and Topics, in that order. Projects points to
-  the canonical `/` route.
-- **Contextual controls:** URL-backed period, sort, date, filters, cursor, and
-  section links that change or narrow the current view.
-- **Utility navigation:** Collection history, language switch, and product
-  identity. Collection history stays available without presenting operational
-  evidence as a primary research mode.
-- **Object orientation:** project and topic detail pages add one breadcrumb back
-  to their collection page.
-- **Compatibility:** `/repositories` renders the same catalogue as `/` so old
-  links continue to work. `/discoveries` redirects to the canonical catalogue
-  with `new=1` and preserves other applicable query values.
-- **Mobile:** the single app bar may wrap or reduce spacing. Core links are at
-  least 44px tall where possible; compact language, tag, and breadcrumb links
-  remain legible and keyboard-visible. Labels stay intact, and the page never
-  gains root horizontal overflow.
+A dark fixed desktop sidebar contains the reading destinations, My watchlist,
+and Add project. Collection history belongs to the utility area. The main
+content remains bright; its header supplies page context and a language switch.
 
-## Content hierarchy
+The sidebar reorganizes on narrow screens. Main destinations remain reachable
+without root horizontal scrolling. Navigation links are ordinary anchors with
+active-route states, not simulated application tabs.
 
-### Project monitoring (home)
+Project and category details include a breadcrumb. Date, period, category, and
+list filters use URL state so links remain useful after refresh, sharing, and
+browser Back.
 
-1. Period and ordering: 1 / 7 / 30 days; momentum, rank change, Star stock, or
-   growth rate.
-2. Scope: search, hierarchical topic, endpoint date, and new-on-date switch;
-   source and monitoring state are advanced filters.
-3. Comparison coverage: exact baseline and endpoint dates, scoped repository
-   count, successfully observed count, comparable count, and newly discovered
-   count.
-4. Project catalogue: identity, new badge, current Star, period change, growth
-   rate, daily velocity, monitored-sample rank transition, and topics.
-5. Cursor continuation and empty-state recovery.
+## Trends
 
-There is no separate aggregate overview. Since the monitored registry grows
-monotonically, registry-wide total Stars and raw daily totals are not the
-primary decision signal.
+The homepage answers which observed projects are moving now and where to look
+next. It presents information in this order:
 
-### Project detail
+1. The selected data date, period, and category.
+2. Counts for gaining Stars, unchanged Stars, slowing momentum, and new entries.
+3. A fixed-cohort attention chart and positive/zero/negative distribution.
+4. Fastest-growth, slow-growth, and slowing-momentum project groups.
+5. A short explanation of the comparison and links to the relevant projects.
 
-1. Breadcrumb, repository identity, GitHub link, and state.
-2. Persisted project interpretation: Chinese summary, key points, use cases,
-   technical notes, and analysis provenance.
-3. Current scale and short-window changes.
-4. Discovery, topic, language, valid-history, and rename provenance.
-5. Absolute Star history and available OSS Insight rank evidence.
-6. Failed observations and exact snapshot table.
+The fixed cohort contains repositories observed successfully at both exact
+endpoints. Its attention index starts at 100. Adding another project to the
+library cannot directly raise the curve.
 
-When no stored analysis exists, the page states that interpretation is pending
-and falls back explicitly to a manual note or GitHub description. The collector
-does not create this analysis; Codex or a researcher prepares it offline and an
-import workflow persists it for read-only display.
+Missing intermediate observations remain gaps. The chart's companion table
+contains exact values and coverage. A period without enough history offers a
+shorter window or another date.
 
-### Topics
+## Daily discoveries
 
-1. Classification coverage: monitored, classified, unclassified, and coverage
-   percentage using current active assignments.
-2. Period selector and hierarchy-aware topic growth ranking; every delta names
-   its exact-endpoint comparable count.
-3. Exact topic metrics with parent and child roles visible.
-4. Guidance when a period lacks a strict baseline.
+This page archives projects by their first entry into the radar. It has a date
+selector, category filtering, readable project records, and continuation
+through additional results.
 
-A selected parent includes repositories assigned to the parent or any direct
-child. A selected child contains only that child. The current model remains a
-two-level taxonomy; unknown repositories are not forced into an invented topic.
+Each record leads with what the project does. It includes the name, category,
+observed Stars, and detail link. GitHub creation time is shown separately when
+known; entering the radar is not the same as being newly created.
 
-### Topic detail
+Discovered projects are already registered for continued monitoring. The page
+does not require another add action. An empty date offers another date or a
+manual addition.
 
-1. Breadcrumb and topic identity.
-2. Rolled-up scale, growth, concentration, and optional leader exclusion.
-3. Topic Star history for one fixed first-date/endpoint cohort, with incomplete
-   intermediate dates preserved as gaps.
-4. Representative projects and exact repository metrics.
+## Project library
 
-### Collection history
+The library is the durable home for every tracked project. Search, category,
+date, period, ordering, and My watchlist narrow the collection.
 
-1. Latest successful snapshot date and current coverage.
-2. Run outcomes and counts.
-3. Failure targets, API quota, and search-integrity evidence.
-4. Pagination through older operational evidence.
+Rows or mobile records show the project explanation, relevant Star values,
+changes, and category. They preserve new, awaiting-observation, stale, and
+unclassified states instead of hiding incomplete projects.
 
-Collection history is reached from a compact utility link, not a top-level tab.
+Cursor continuation supports a large collection. Changing the sort or a filter
+starts a new traversal. A fixed selected date keeps pagination meaningful while
+the registry grows.
+
+## Add project
+
+The form at `/watch/new` accepts a GitHub URL or owner/name, an optional category,
+and a note. Submission uses `POST /watch`.
+
+The server resolves the public repository through GitHub, records its permanent
+ID and an initial absolute Star observation, and opens the project detail.
+Adding an existing project preserves its existing note and classification.
+
+Without an explicit category, the system can add conservative automatic
+suggestions. A selected category is a manual decision.
+
+Direct requests to a loopback-bound local server can add projects. A public
+deployment requires HTTPS and a configured operator token. Unavailable write
+access and recoverable GitHub errors have explicit form states.
+
+## Project detail
+
+Content order:
+
+1. Repository identity, GitHub link, original description, and state.
+2. Stored research interpretation, when available, with its provenance.
+3. Current observed scale and comparable period changes.
+4. Star history, category, discovery date, and effective history start.
+5. Exact observations and collection evidence.
+
+A saved interpretation explains capabilities and use cases. Without one, the
+page still explains the project using its original description and clearly
+marks further research as unavailable.
+
+Codex or a researcher prepares interpretations outside the Web interface. The
+current body retains source, model, time, and revision; the revision counter
+does not imply that earlier bodies remain available.
+
+## Agent categories
+
+The roots are coding agents, research agents, browser/computer agents, workflow
+agents, agent platforms, general agents, and AI infrastructure. Supporting
+tags retain a two-level hierarchy.
+
+Category pages show classification coverage and comparable sample sizes. A
+parent includes direct child assignments; a child selection remains scoped to
+that child. Unclassified is an explicit filter.
+
+A project can have several categories. Manual assignments and manual removals
+are protected against later automatic suggestions. Generic words such as
+skills, agent, or browser automation alone do not establish an AI product type.
+
+## Category detail and collection history
+
+Category detail shows what the category means, the repositories behind it, and
+its observed trend. It keeps the fixed-cohort and exact-endpoint rules visible
+where they affect interpretation.
+
+Collection history shows run outcomes, successful and failed counts, source
+warnings, rate-limit evidence, and search completeness. Stale-data notices
+link here. It is an operational utility rather than a reading-mode tab.
 
 ## Comparison model
 
-For an endpoint `D` and a selected window `W` in `{1, 7, 30}`, the baseline is
-the exact calendar date `D - W`.
+Let `D` be the selected endpoint and `W` the number of days in the period.
 
-- **Scope count:** repositories remaining after topic, discovery-source, and
-  monitoring-state scope is applied.
-- **Observed count:** scoped repositories with a successful observation on `D`.
-- **Comparable count:** scoped repositories with successful observations on
-  both `D - W` and `D`.
-- **New count:** scoped, endpoint-observed repositories whose local first-seen
-  date is `D`.
-- **Star delta:** endpoint Stars minus baseline Stars for a comparable
-  repository.
-- **Growth rate:** Star delta divided by baseline Stars when the baseline is
-  greater than zero.
-- **Daily velocity:** Star delta divided by `W`.
-- **Sample rank:** `DENSE_RANK` by Star count across the same comparable scoped
-  cohort at each endpoint.
-- **Rank change:** baseline rank minus endpoint rank; a positive number means
-  movement upward.
+| Measure | Meaning |
+| --- | --- |
+| Current-period gain | Stars at `D` minus Stars at `D-W`, using two successful exact observations. |
+| Previous-period gain | Stars at `D-W` minus Stars at `D-2W`, using two successful exact observations. |
+| Momentum change | Current-period gain minus previous-period gain, requiring all three dates. |
+| Growth rate | Current-period gain divided by baseline Stars, when baseline Stars are positive. |
+| Daily velocity | Current-period gain divided by the window length. |
+| Sample rank change | Baseline rank minus endpoint rank within the same scoped cohort. |
+| New on date | The repository first entered this system on the selected date. |
 
-Failed, missing, or non-exact endpoint observations never become zero and never
-borrow a nearby value. Text search and the new-only switch narrow what is shown
-after cohort ranks have been calculated, preventing a search result from being
-relabelled rank one.
+Fastest growth uses the largest positive gain. Slow growth uses zero and the
+smallest positive gains. Slowing momentum requires negative momentum change;
+the project may still have gained Stars.
 
-## Critical user flows
+A failed or missing observation is never zero. Last-known values show their
+actual date and do not replace exact comparison endpoints.
 
-### Follow previously discovered projects
+Topic, discovery source, monitoring state, and focus define a comparison scope.
+Text search and the new-only display filter do not turn a matching project
+into rank one. Ranks always refer to the monitored sample.
 
-1. Open Projects at `/`.
-2. Select the endpoint date and 1 / 7 / 30-day window.
-3. Choose momentum, rank change, Star stock, or growth-rate ordering.
-4. Narrow by a parent topic, child topic, or Unclassified when useful.
-5. Continue through the stable cursor and open a project detail without losing
-   the meaning of the comparison URL.
+## Common reading sessions
 
-### Review today's additions without losing historical context
+A daily review begins on Trends. The user chooses a window, scans the chart and
+three growth groups, then opens a project or the corresponding library view.
 
-1. Open Projects and enable “new on this date”, or follow an old
-   `/discoveries` link.
-2. Read the new badge in the same catalogue used for existing projects.
-3. Disable the filter to compare those projects with the monitored population.
+Reading new projects begins on Daily discoveries. The user chooses a date,
+reads descriptions, opens interesting projects, and returns to the archive.
+Those projects continue to appear in the library on later days.
 
-### Investigate one project
+An external recommendation begins with Add project. After GitHub validation,
+the project detail is available with a real initial observation and the project
+appears in My watchlist.
 
-1. Open a project from the monitoring catalogue.
-2. Read the stored interpretation and its provenance before relying on the
-   GitHub description alone.
-3. Compare current scale, Star history, and any rank evidence.
-4. Check discovery source, topics, valid-history start, rename history, and
-   failed dates.
-5. Use browser Back to return to the URL-backed catalogue state.
+A category review begins on Agent categories or a category filter. The user
+compares projects serving a similar purpose and can inspect incomplete
+classification or observation coverage.
 
-### Validate the dataset
+## Labels
 
-1. Open History from the app-bar utility.
-2. Check coverage and the latest successful date.
-3. Inspect a partial or failed run.
-4. Review target failures, quota evidence, and search completeness.
-
-## Naming conventions
-
-| Concept | Chinese label | English label | Notes |
-| --- | --- | --- | --- |
-| canonical project collection | 项目监测 | Project monitoring | `/`; not “Overview” |
-| monitored GitHub repository | 项目 | Project | Use “repository” only in GitHub-specific evidence |
-| taxonomy category | 主题 | Topic | Preserve configured topic names verbatim |
-| parent scope | 含子主题 | Includes child topics | Parent metrics and filters roll up direct children |
-| no active topic assignment | 未分类 | Unclassified | Explicit state and filter; never silently hidden |
-| first entry into the registry | 首次发现 | First discovery | Never imply repository creation time |
-| new-on-date state | 新发现 | New | Row badge/filter, not a primary route |
-| collector execution evidence | 采集历史 | Collection history | `/runs`; “run” remains a record-level term |
-| cumulative GitHub stars | Star | Star | Do not translate the GitHub metric name |
-| exact-endpoint period change | 增长 / 变化 | Growth / change | Always name the window |
-| cohort-relative rank | 监测样本内排名 | Monitored-sample rank | Never imply all-GitHub rank |
-| stored repository explanation | 项目解读 | Project interpretation | Show source, revision, and analysis date |
-
-## Component reuse map
-
-| Component | Used on | Variations |
+| Concept | Chinese | English |
 | --- | --- | --- |
-| Single app bar | all HTML pages | active primary route, history state, and language |
-| Page heading | all product routes | object detail adds breadcrumb |
-| View options | Project monitoring and Topics | period or ordering; state represented in URL |
-| Filter toolbar | Project monitoring | GET form with progressive advanced filters |
-| Cohort summary | Project monitoring | exact dates and comparison coverage |
-| Trend catalogue | Project monitoring | desktop table and mobile record list |
-| Analysis block | Project detail | stored interpretation or explicit fallback state |
-| Chart frame | project and topic detail | chart type and exact-value alternative vary |
-| Evidence table/list | projects, topics, and runs | columns and mobile reduction vary by task |
-| Empty state | every data surface | explains why and gives the next useful action |
+| Main trend view | 趋势看板 | Trends |
+| Discovery archive | 每日发现 | Daily discoveries |
+| Persistent catalogue | 项目库 | Project library |
+| Purpose-based taxonomy | Agent 分类 | Agent categories |
+| Operator addition | 添加关注 | Add project |
+| Focused projects | 我的关注 | My watchlist |
+| No supported classification | 待分类 | Unclassified |
+| First local registration | 首次发现 / 入库日期 | First discovery |
+| Actual GitHub creation | 创建于 | Created |
+| Largest positive period gains | 涨得最快 | Fastest growth |
+| Zero or small positive gains | 增长平缓 | Slowest growth |
+| Lower gains than the previous window | 势头回落 | Losing momentum |
+| Collector evidence | 采集历史 | Collection history |
+| Stored research reading | 项目解读 | Project interpretation |
 
-## Content growth plan
+## Components and growth
 
-- Projects use opaque keyset cursors, capped server-side page sizes, and a fixed
-  endpoint date so a growing registry does not reshuffle an active traversal.
-- Run history retains offset pagination because it is an append-only operational
-  log with a much smaller interaction surface.
-- Topics remain a two-level taxonomy; parent, child, and unclassified roles stay
-  visible while taxonomy expansion and backfill happen separately.
-- Wide evidence tables gain task-specific mobile reductions, not global
-  horizontal page scrolling.
-- Historical charts aggregate or reduce ticks before rendering more points.
-- Analysis storage keeps source, model, revision, and timestamps so regenerated
-  interpretations can be audited instead of silently replacing provenance.
+The sidebar, page header, period controls, category controls, project identity,
+state labels, chart frames, and empty-state patterns are shared.
 
-## URL strategy
+Project reading cards and numerical comparison rows use different density for
+their different tasks. Forms remain short. Exact-value evidence can be expanded
+without filling the first screen.
 
-- Canonical project monitoring is `/`; `/repositories` remains compatible.
-- Resource patterns remain `/repositories/{id}` and `/topics/{slug}`.
-- Project state uses `period=1d|7d|30d`, `sort`, `date`, `q`, `topic`, `source`,
-  `status`, `new=1`, and an opaque `cursor` query parameter.
-- The Unclassified topic filter uses a reserved value and is presented through a
-  human label; users do not need to understand its storage representation.
-- Topic ranking period, leader exclusion, run-history continuation, and language
-  selection also use query parameters and survive refresh, sharing, and browser
-  back.
-- Navigation uses anchors and GET forms, not JavaScript-only state.
-- Language may be selected through `?lang=zh-CN|en` and persisted by the
-  existing same-site cookie.
+The project library and discovery archive use capped cursor pages. Collection
+history may retain its smaller offset-paginated log. Charts reduce tick density
+before compromising date labels or exact-value access.
+
+## URLs and compatibility
+
+- `/` is the trend dashboard; `/repositories` is the project library.
+- `/discoveries` is a full page. The previous discovery redirect is replaced.
+- Old root catalogue links with search, cursor, or `new=1` can redirect to
+  `/repositories` while retaining their query values.
+- Browsing state uses `date`, `period=1d|7d|30d`, `sort`, `topic`, `q`,
+  `source`, `status`, `focus=1`, `new=1`, and `cursor` where applicable.
+- Category labels hide reserved filter values from the normal reading path.
+- Language uses `lang=zh-CN|en` and the existing same-site preference cookie.
+- Operator credentials never appear in query strings.
