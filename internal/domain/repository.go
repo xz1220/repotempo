@@ -5,15 +5,16 @@ import "time"
 type DiscoverySource string
 
 const (
-	DiscoverySourceOSSInsight   DiscoverySource = "ossinsight"
-	DiscoverySourceGitHubSearch DiscoverySource = "github_search"
-	DiscoverySourceLegacy       DiscoverySource = "legacy"
-	DiscoverySourceManual       DiscoverySource = "manual"
+	DiscoverySourceOSSInsight     DiscoverySource = "ossinsight"
+	DiscoverySourceGitHubSearch   DiscoverySource = "github_search"
+	DiscoverySourceGitHubTrending DiscoverySource = "github_trending"
+	DiscoverySourceLegacy         DiscoverySource = "legacy"
+	DiscoverySourceManual         DiscoverySource = "manual"
 )
 
 func (source DiscoverySource) Valid() bool {
 	switch source {
-	case DiscoverySourceOSSInsight, DiscoverySourceGitHubSearch, DiscoverySourceLegacy, DiscoverySourceManual:
+	case DiscoverySourceOSSInsight, DiscoverySourceGitHubSearch, DiscoverySourceGitHubTrending, DiscoverySourceLegacy, DiscoverySourceManual:
 		return true
 	default:
 		return false

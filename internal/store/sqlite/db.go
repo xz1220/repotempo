@@ -132,6 +132,13 @@ func applyMigrations(ctx context.Context, database *sql.DB) error {
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", file.name, err)
 		}
+		if file.version == 4 {
+			if err := applyRepositoryRebuildMigration(ctx, database, file.version, string(script)); err != nil {
+				return fmt.Errorf("apply migration %s: %w", file.name, err)
+			}
+			currentVersion = file.version
+			continue
+		}
 		transaction, err := database.BeginTx(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("begin migration %s: %w", file.name, err)

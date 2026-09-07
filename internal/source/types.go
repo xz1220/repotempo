@@ -170,7 +170,7 @@ func mergeCandidate(dst, src Candidate) Candidate {
 
 func sourcePriority(value string) int {
 	switch value {
-	case "github_search", "github-search", "manual":
+	case "github_search", "github-search", "github_trending", "manual":
 		return 3
 	case "ossinsight":
 		return 2

@@ -65,7 +65,7 @@ func (registry Registry) Merge(ctx context.Context, candidates []source.Candidat
 			})
 			continue
 		}
-		if candidate.Repository.Fork && discoverySource != domain.DiscoverySourceManual {
+		if candidate.Repository.Fork && discoverySource != domain.DiscoverySourceManual && discoverySource != domain.DiscoverySourceGitHubTrending {
 			report.SkippedCount++
 			continue
 		}
@@ -168,6 +168,8 @@ func mapSource(value string) (domain.DiscoverySource, bool) {
 		return domain.DiscoverySourceOSSInsight, true
 	case "github_search", "github-search":
 		return domain.DiscoverySourceGitHubSearch, true
+	case "github_trending", "github-trending":
+		return domain.DiscoverySourceGitHubTrending, true
 	case "legacy":
 		return domain.DiscoverySourceLegacy, true
 	case "manual":

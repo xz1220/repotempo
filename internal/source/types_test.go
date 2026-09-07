@@ -39,3 +39,20 @@ func TestMergeCandidatesDoesNotLetLegacyNameRegressGitHubName(t *testing.T) {
 		t.Fatalf("previous names = %v", merged[0].PreviousNames)
 	}
 }
+
+func TestVerifiedTrendingIdentityHasGitHubAPIPriority(t *testing.T) {
+	merged := MergeCandidates(
+		[]Candidate{{Repository: Repository{ID: 1, FullName: "github/current"}, Source: "github_trending"}},
+		[]Candidate{{Repository: Repository{ID: 1, FullName: "legacy/old"}, Source: "legacy"}},
+		[]Candidate{{Repository: Repository{ID: 1, FullName: "oss/old"}, Source: "ossinsight"}},
+	)
+	if len(merged) != 1 || merged[0].Repository.FullName != "github/current" || merged[0].Source != "github_trending" {
+		t.Fatalf("verified GitHub Trending identity was replaced by older sources: %#v", merged)
+	}
+	if sourcePriority("github_trending") != sourcePriority("github_search") {
+		t.Fatal("API-verified Trending and Search identities should have equal priority")
+	}
+	if merged[0].Metadata["discovery_sources"] != "github_trending,legacy,ossinsight" {
+		t.Fatalf("Trending provenance was lost: %#v", merged[0].Metadata)
+	}
+}
