@@ -22,6 +22,7 @@ import (
 	"github.com/xz1220/github-radar/internal/service/watch"
 	"github.com/xz1220/github-radar/internal/source/github"
 	"github.com/xz1220/github-radar/internal/source/ossinsight"
+	"github.com/xz1220/github-radar/internal/source/trending"
 	"github.com/xz1220/github-radar/internal/store/sqlite"
 )
 
@@ -47,6 +48,7 @@ type Runtime struct {
 	discovery    *config.Discovery
 	github       *github.Client
 	oss          *ossinsight.Client
+	trending     *trending.Client
 }
 
 var _ CommandApplication = (*Runtime)(nil)
@@ -199,6 +201,16 @@ func (runtime *Runtime) dependencies() (config.Discovery, *github.Client, *ossin
 		})
 		if err != nil {
 			return config.Discovery{}, nil, nil, fmt.Errorf("configure OSS Insight client: %w", err)
+		}
+	}
+	if discoveryConfig.Trending.IsEnabled() {
+		runtime.trending, err = trending.NewClient(trending.ClientOptions{
+			BaseURL: discoveryConfig.Trending.BaseURL, HTTPClient: runtime.httpClient,
+			Timeout: discoveryConfig.Trending.Timeout.Value(), Interval: discoveryConfig.Trending.Interval.Value(),
+			UserAgent: discoveryConfig.GitHub.UserAgent, Now: runtime.now,
+		})
+		if err != nil {
+			return config.Discovery{}, nil, nil, fmt.Errorf("configure GitHub Trending client: %w", err)
 		}
 	}
 	runtime.loaded = true

@@ -175,6 +175,16 @@ func (runtime *Runtime) planDaily(ctx context.Context) (DailyReport, error) {
 		}
 		discoveryReport.Profiles = append(discoveryReport.Profiles, SearchProfileReport{Name: profile.Name, Due: due, Skipped: !due, QueryReports: []SearchQueryReport{}})
 	}
+	if discoveryConfig.Trending.IsEnabled() {
+		complete, err := runtime.trendingCompletedToday(ctx, discoveryConfig.Trending.Periods)
+		if err != nil {
+			return DailyReport{}, err
+		}
+		discoveryReport.Trending = &TrendingDiscoveryReport{Periods: append([]string(nil), discoveryConfig.Trending.Periods...), Skipped: complete}
+		if complete {
+			discoveryReport.Trending.SkipReason = "already captured and resolved today"
+		}
+	}
 	return DailyReport{
 		DryRun:    true,
 		Runtime:   runtimeReport,

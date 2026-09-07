@@ -11,6 +11,7 @@ import (
 	"github.com/xz1220/github-radar/internal/service/watch"
 	"github.com/xz1220/github-radar/internal/source"
 	"github.com/xz1220/github-radar/internal/source/legacydb"
+	"github.com/xz1220/github-radar/internal/source/trending"
 )
 
 const (
@@ -84,6 +85,7 @@ type DiscoverReport struct {
 	Warnings         []source.Warning               `json:"warnings"`
 	Failures         []OperationFailure             `json:"failures"`
 	Profiles         []SearchProfileReport          `json:"profiles"`
+	Trending         *TrendingDiscoveryReport       `json:"trending,omitempty"`
 	OSS              *OSSDiscoveryReport            `json:"ossinsight,omitempty"`
 	Legacy           *legacydb.Stats                `json:"legacy,omitempty"`
 	Registry         *discovery.RegistryReport      `json:"registry,omitempty"`
@@ -92,6 +94,17 @@ type DiscoverReport struct {
 
 func (report DiscoverReport) Partial() bool {
 	return report.FailureCount > 0 || len(report.Failures) > 0
+}
+
+// Each job retains board evidence independently of absolute-Star snapshots.
+type TrendingDiscoveryReport struct {
+	Periods       []string                `json:"periods"`
+	Skipped       bool                    `json:"skipped"`
+	SkipReason    string                  `json:"skip_reason,omitempty"`
+	Windows       []trending.WindowResult `json:"windows"`
+	ResolvedCount int                     `json:"resolved_count"`
+	ResolvedIDs   map[string]int64        `json:"resolved_repository_ids,omitempty"`
+	FailureCount  int                     `json:"failure_count"`
 }
 
 type SnapshotCommandReport struct {

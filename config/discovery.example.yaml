@@ -5,7 +5,7 @@ version: 1
 github:
   api_base_url: https://api.github.com/
   api_version: "2026-03-10"
-  user_agent: github-radar/0.1
+  user_agent: repotempo/0.2
   timeout: 20s
   core_interval: 100ms
   # Authenticated Repository Search normally allows 30 requests/minute.
@@ -13,6 +13,15 @@ github:
   secondary_backoff: 1m
   server_backoff: 1s
   max_retries: 3
+
+# Primary discovery: daily captures of the public daily, weekly and monthly boards.
+# Search profiles below supplement these boards, not measure Star-growth ranks.
+trending:
+  enabled: true
+  base_url: https://github.com/
+  timeout: 20s
+  interval: 2s
+  periods: [daily, weekly, monthly]
 
 ossinsight:
   # Optional legacy adapter. GitHub Search + Repository APIs are sufficient.

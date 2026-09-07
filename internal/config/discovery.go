@@ -35,6 +35,7 @@ func (d Duration) Value() time.Duration { return time.Duration(d) }
 type Discovery struct {
 	Version    int             `yaml:"version"`
 	GitHub     GitHub          `yaml:"github"`
+	Trending   Trending        `yaml:"trending"`
 	OSSInsight OSSInsight      `yaml:"ossinsight"`
 	Profiles   []SearchProfile `yaml:"profiles"`
 	Manual     Manual          `yaml:"manual"`
@@ -60,6 +61,18 @@ type OSSInsight struct {
 	Timeout  Duration    `yaml:"timeout"`
 	Windows  []OSSWindow `yaml:"windows"`
 }
+
+// Trending discovers candidates from public pages, not absolute-Star history.
+// Omission remains disabled for backwards-compatible existing configurations.
+type Trending struct {
+	Enabled  *bool    `yaml:"enabled"`
+	BaseURL  string   `yaml:"base_url"`
+	Timeout  Duration `yaml:"timeout"`
+	Interval Duration `yaml:"interval"`
+	Periods  []string `yaml:"periods"`
+}
+
+func (t Trending) IsEnabled() bool { return t.Enabled != nil && *t.Enabled }
 
 type OSSWindow struct {
 	Name   string `yaml:"name"`
@@ -220,6 +233,30 @@ func (c Discovery) Validate() error {
 	}
 	if c.GitHub.MaxRetries > 5 {
 		return errors.New("github.max_retries must not exceed 5")
+	}
+	if c.Trending.IsEnabled() {
+		if err := validateURL("trending.base_url", c.Trending.BaseURL); err != nil {
+			return err
+		}
+		if c.Trending.Timeout.Value() <= 0 || c.Trending.Timeout.Value() > time.Minute {
+			return errors.New("trending.timeout must be positive and at most 1m")
+		}
+		if c.Trending.Interval.Value() < time.Second {
+			return errors.New("trending.interval must be at least 1s")
+		}
+		if len(c.Trending.Periods) == 0 {
+			return errors.New("trending.periods must not be empty when enabled")
+		}
+		seen := map[string]bool{}
+		for _, period := range c.Trending.Periods {
+			if period != "daily" && period != "weekly" && period != "monthly" {
+				return fmt.Errorf("unsupported Trending period %q", period)
+			}
+			if seen[period] {
+				return fmt.Errorf("duplicate Trending period %q", period)
+			}
+			seen[period] = true
+		}
 	}
 	if c.OSSInsight.IsEnabled() {
 		if err := validateURL("ossinsight.base_url", c.OSSInsight.BaseURL); err != nil {

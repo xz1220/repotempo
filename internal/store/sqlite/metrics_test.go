@@ -370,7 +370,7 @@ func TestRepositoryTrendParentTopicIncludesChildren(t *testing.T) {
 	}
 }
 
-func TestRepositorySourceFilterUsesFirstDiscoverySource(t *testing.T) {
+func TestRepositoryTrendSourceFilterIncludesLaterDiscoveryChannels(t *testing.T) {
 	store, _ := newTestStore(t)
 	ctx := context.Background()
 	addRepositoryFromSource(t, store, 1, "owner/github-first", domain.DiscoverySourceGitHubSearch, testNow.Add(-10*24*time.Hour))
@@ -387,9 +387,10 @@ func TestRepositorySourceFilterUsesFirstDiscoverySource(t *testing.T) {
 		DiscoverySource: domain.DiscoverySourceOSSInsight,
 		Limit:           10,
 	})
-	if err != nil || len(page.Items) != 1 || page.Items[0].Repository.GitHubRepoID != 2 {
-		t.Fatalf("first-source trend filter = (%+v, %v)", page.Items, err)
+	if err != nil || len(page.Items) != 2 {
+		t.Fatalf("any-source trend filter = (%+v, %v)", page.Items, err)
 	}
+	// The legacy metric API retains its original first-discovery semantics.
 	metrics, err := store.ListRepositoryMetrics(ctx, domain.RepositoryMetricQuery{
 		AsOf:            date("2026-08-30"),
 		DiscoverySource: domain.DiscoverySourceOSSInsight,

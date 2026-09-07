@@ -114,8 +114,8 @@ WHERE date(r.first_seen_at, '+8 hours') <= ?`
 		arguments = append(arguments, query.TopicSlug, query.TopicSlug)
 	}
 	if query.DiscoverySource != "" {
-		statement += " AND r.first_seen_source = ?"
-		arguments = append(arguments, query.DiscoverySource)
+		statement += " AND (r.first_seen_source = ? OR EXISTS (SELECT 1 FROM json_each(r.discovery_sources_json) channel WHERE channel.value = ?))"
+		arguments = append(arguments, query.DiscoverySource, query.DiscoverySource)
 	}
 	if query.MonitoringStatus != "" {
 		statement += " AND r.monitoring_status = ?"

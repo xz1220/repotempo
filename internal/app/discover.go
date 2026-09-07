@@ -23,7 +23,7 @@ import (
 
 func (runtime *Runtime) Discover(ctx context.Context, options DiscoverOptions) (DiscoverReport, error) {
 	if !validDiscoverSource(options.Source) {
-		return DiscoverReport{}, fmt.Errorf("discover source must be ossinsight, github-search, legacy, or all")
+		return DiscoverReport{}, fmt.Errorf("discover source must be github-trending, github-search, ossinsight, legacy, or all")
 	}
 	if options.Profile != "" && options.Source != "github-search" && options.Source != "all" {
 		return DiscoverReport{}, fmt.Errorf("--profile requires source github-search or all")
@@ -96,6 +96,13 @@ func (runtime *Runtime) runDiscovery(ctx context.Context, options DiscoverOption
 	now := runtime.now().UTC()
 	searchNow := now.In(domain.ShanghaiLocation())
 	candidates := make([]source.Candidate, 0)
+
+	// Trending leads discovery; metadata/identity are verified through the API.
+	// A board failure is recorded, but neither Search nor tracked snapshots stop.
+	if options.Source == "github-trending" || options.Source == "all" {
+		trendingCandidates := runtime.discoverTrending(ctx, options, discoveryConfig, githubClient, &report)
+		candidates = append(candidates, trendingCandidates...)
+	}
 
 	if options.Source == "ossinsight" || options.Source == "all" {
 		if !discoveryConfig.OSSInsight.IsEnabled() {
@@ -218,7 +225,7 @@ func (runtime *Runtime) runDiscovery(ctx context.Context, options DiscoverOption
 
 func validDiscoverSource(value string) bool {
 	switch value {
-	case "ossinsight", "github-search", "legacy", "all":
+	case "github-trending", "ossinsight", "github-search", "legacy", "all":
 		return true
 	default:
 		return false
