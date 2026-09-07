@@ -258,7 +258,7 @@ func TestRepositoryTrendsUseStrictCohortRanksAndKeysetPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list repository trends: %v", err)
 	}
-	if page.Total != 4 || !page.HasMore || page.Coverage.ScopeCount != 5 ||
+	if page.Total != 5 || !page.HasMore || page.Coverage.ScopeCount != 5 ||
 		page.Coverage.ObservedCount != 4 || page.Coverage.ComparableCount != 3 ||
 		page.Coverage.NewCount != 1 {
 		t.Fatalf("trend page metadata = %+v", page)
@@ -284,11 +284,20 @@ func TestRepositoryTrendsUseStrictCohortRanksAndKeysetPagination(t *testing.T) {
 		t.Fatalf("list next trend page: %v", err)
 	}
 	if len(next.Items) != 2 || next.Items[0].Repository.GitHubRepoID != 1 ||
-		next.Items[1].Repository.GitHubRepoID != 4 || next.HasMore {
+		next.Items[1].Repository.GitHubRepoID != 5 || !next.HasMore {
 		t.Fatalf("next trend page = %+v", next.Items)
 	}
-	if !next.Items[1].IsNew || next.Items[1].BaselineStars != nil || next.Items[1].RankChange != nil {
-		t.Fatalf("new repository trend = %+v", next.Items[1])
+	if !next.Items[1].IsStale || next.Items[1].CurrentStars != nil || next.Items[1].LastObservedStars == nil || *next.Items[1].LastObservedStars != 500 {
+		t.Fatalf("stale repository trend = %+v", next.Items[1])
+	}
+	after = next.Items[1].Repository.GitHubRepoID
+	last, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
+		AsOf: date("2026-08-30"), WindowDays: 7,
+		Sort: domain.RepositoryTrendSortRankChange, Limit: 2, AfterID: &after,
+	})
+	if err != nil || len(last.Items) != 1 || last.HasMore || last.Items[0].Repository.GitHubRepoID != 4 ||
+		!last.Items[0].IsNew || last.Items[0].BaselineStars != nil || last.Items[0].RankChange != nil {
+		t.Fatalf("last trend page = %+v, error = %v", last, err)
 	}
 
 	searched, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
