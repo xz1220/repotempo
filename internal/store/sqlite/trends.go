@@ -13,15 +13,19 @@ import (
 const unclassifiedTopicFilter = "__unclassified"
 
 type trendValues struct {
-	CurrentStars  *int64
-	BaselineStars *int64
-	CurrentRank   *int64
-	BaselineRank  *int64
-	RankChange    *int64
-	StarDelta     *int64
-	GrowthRate    *float64
-	DailyVelocity *float64
-	IsNew         bool
+	CurrentStars      *int64
+	BaselineStars     *int64
+	CurrentRank       *int64
+	BaselineRank      *int64
+	RankChange        *int64
+	StarDelta         *int64
+	GrowthRate        *float64
+	DailyVelocity     *float64
+	IsNew             bool
+	LastObservedDate  *domain.Date
+	LastObservedStars *int64
+	PreviousDelta     *int64
+	MomentumChange    *int64
 }
 
 func (store *Store) LatestSnapshotDate(ctx context.Context) (domain.Date, error) {
@@ -64,7 +68,8 @@ func normalizeTrendQuery(query domain.RepositoryTrendQuery) (domain.RepositoryTr
 		query.Sort = domain.RepositoryTrendSortVelocity
 	case domain.RepositoryTrendSortRankChange, domain.RepositoryTrendSortStars,
 		domain.RepositoryTrendSortDelta, domain.RepositoryTrendSortGrowthRate,
-		domain.RepositoryTrendSortVelocity:
+		domain.RepositoryTrendSortVelocity, domain.RepositoryTrendSortLowGrowth,
+		domain.RepositoryTrendSortSlowdown, domain.RepositoryTrendSortNewest:
 	default:
 		return domain.RepositoryTrendQuery{}, fmt.Errorf("%w: invalid trend sort %q", corestore.ErrInvalid, query.Sort)
 	}
@@ -116,6 +121,9 @@ WHERE date(r.first_seen_at, '+8 hours') <= ?`
 		statement += " AND r.monitoring_status = ?"
 		arguments = append(arguments, query.MonitoringStatus)
 	}
+	if query.OnlyFocus {
+		statement += " AND r.is_focus = 1"
+	}
 	return statement, arguments
 }
 
@@ -129,51 +137,89 @@ func trendFilteredWhere(query domain.RepositoryTrendQuery, alias string) (string
 	if query.OnlyNew {
 		conditions = append(conditions, alias+".is_new = 1")
 	}
+	if query.Sort == domain.RepositoryTrendSortLowGrowth {
+		conditions = append(conditions, alias+".star_delta >= 0")
+	}
+	if query.Sort == domain.RepositoryTrendSortSlowdown {
+		conditions = append(conditions, alias+".momentum_change < 0")
+	}
 	return strings.Join(conditions, " AND "), arguments
 }
 
+// Rank within the comparable partition itself: joining a window-function CTE
+// back by repository ID makes SQLite scan that CTE for every registry row.
+// The separate cohort is used only by the fixed-population chart query.
 func trendBaseCTE(scope string) string {
 	return `
 WITH scope AS (` + scope + `
+), comparison_dates AS (
+    SELECT ? AS as_of_date, ? AS baseline_date, ? AS window_days, ? AS new_date
 ), end_observation AS (
     SELECT repository_id, star_count
     FROM daily_snapshots
-    WHERE snapshot_date = ? AND fetch_status = 'success'
+    WHERE snapshot_date = (SELECT as_of_date FROM comparison_dates) AND fetch_status = 'success'
 ), baseline_observation AS (
     SELECT repository_id, star_count
     FROM daily_snapshots
-    WHERE snapshot_date = ? AND fetch_status = 'success'
-), common_ranked AS (
+    WHERE snapshot_date = (SELECT baseline_date FROM comparison_dates) AND fetch_status = 'success'
+), previous_observation AS (
+    SELECT repository_id, star_count
+    FROM daily_snapshots
+    WHERE snapshot_date = (SELECT date(baseline_date, '-' || window_days || ' days') FROM comparison_dates)
+      AND fetch_status = 'success'
+), latest_observation AS (
+    SELECT snapshot.repository_id, snapshot.star_count, snapshot.snapshot_date
+    FROM scope
+    CROSS JOIN daily_snapshots snapshot ON snapshot.repository_id = scope.github_repo_id
+      AND snapshot.fetch_status = 'success'
+      AND snapshot.snapshot_date = (
+        SELECT MAX(history.snapshot_date) FROM daily_snapshots history
+        WHERE history.repository_id = scope.github_repo_id AND history.fetch_status = 'success'
+          AND history.snapshot_date <= (SELECT as_of_date FROM comparison_dates)
+      )
+), common_cohort AS (
     SELECT
         scope.github_repo_id,
         baseline.star_count AS baseline_stars,
-        endpoint.star_count AS current_stars,
-        DENSE_RANK() OVER (ORDER BY baseline.star_count DESC) AS baseline_rank,
-        DENSE_RANK() OVER (ORDER BY endpoint.star_count DESC) AS current_rank
+        endpoint.star_count AS current_stars
     FROM scope
     JOIN end_observation endpoint ON endpoint.repository_id = scope.github_repo_id
     JOIN baseline_observation baseline ON baseline.repository_id = scope.github_repo_id
-), scored AS (
+), observed AS (
     SELECT
         scope.github_repo_id,
         scope.full_name,
         scope.description,
+        scope.first_seen_at,
         endpoint.star_count AS current_stars,
+        latest.star_count AS last_observed_stars,
+        latest.snapshot_date AS last_observed_date,
         baseline.star_count AS baseline_stars,
-        ranked.current_rank,
-        ranked.baseline_rank,
-        ranked.baseline_rank - ranked.current_rank AS rank_change,
         CASE WHEN baseline.star_count IS NOT NULL
              THEN endpoint.star_count - baseline.star_count END AS star_delta,
         CASE WHEN baseline.star_count > 0
              THEN 1.0 * (endpoint.star_count - baseline.star_count) / baseline.star_count END AS growth_rate,
         CASE WHEN baseline.star_count IS NOT NULL
-             THEN 1.0 * (endpoint.star_count - baseline.star_count) / ? END AS daily_velocity,
-        CASE WHEN date(scope.first_seen_at, '+8 hours') = ? THEN 1 ELSE 0 END AS is_new
+             THEN 1.0 * (endpoint.star_count - baseline.star_count) / (SELECT window_days FROM comparison_dates) END AS daily_velocity,
+        CASE WHEN previous.star_count IS NOT NULL AND baseline.star_count IS NOT NULL
+             THEN baseline.star_count - previous.star_count END AS previous_delta,
+        CASE WHEN previous.star_count IS NOT NULL AND baseline.star_count IS NOT NULL
+             THEN endpoint.star_count - 2 * baseline.star_count + previous.star_count END AS momentum_change,
+        CASE WHEN date(scope.first_seen_at, '+8 hours') = (SELECT new_date FROM comparison_dates) THEN 1 ELSE 0 END AS is_new
     FROM scope
-    JOIN end_observation endpoint ON endpoint.repository_id = scope.github_repo_id
+    LEFT JOIN end_observation endpoint ON endpoint.repository_id = scope.github_repo_id
     LEFT JOIN baseline_observation baseline ON baseline.repository_id = scope.github_repo_id
-    LEFT JOIN common_ranked ranked ON ranked.github_repo_id = scope.github_repo_id
+    LEFT JOIN previous_observation previous ON previous.repository_id = scope.github_repo_id
+    LEFT JOIN latest_observation latest ON latest.repository_id = scope.github_repo_id
+), scored AS (
+    SELECT observed.*,
+        CASE WHEN star_delta IS NOT NULL THEN DENSE_RANK() OVER current_window END AS current_rank,
+        CASE WHEN star_delta IS NOT NULL THEN DENSE_RANK() OVER baseline_window END AS baseline_rank,
+        CASE WHEN star_delta IS NOT NULL
+             THEN DENSE_RANK() OVER baseline_window - DENSE_RANK() OVER current_window END AS rank_change
+    FROM observed
+    WINDOW current_window AS (PARTITION BY star_delta IS NULL ORDER BY current_stars DESC),
+           baseline_window AS (PARTITION BY star_delta IS NULL ORDER BY baseline_stars DESC)
 )`
 }
 
@@ -188,11 +234,11 @@ func (store *Store) trendCoverage(
 	statement := trendBaseCTE(scope) + `
 SELECT
     (SELECT COUNT(*) FROM scope),
-    COUNT(*),
-    COALESCE(SUM(CASE WHEN baseline_stars IS NOT NULL THEN 1 ELSE 0 END), 0),
+    COUNT(current_stars),
+    COUNT(star_delta),
     COALESCE(SUM(is_new), 0),
     COALESCE(SUM(CASE WHEN ` + filteredWhere + ` THEN 1 ELSE 0 END), 0)
-FROM scored`
+FROM observed scored`
 	arguments := append([]any{}, scopeArguments...)
 	arguments = append(arguments, query.AsOf, baseline, query.WindowDays, query.AsOf)
 	arguments = append(arguments, filteredArguments...)
@@ -219,11 +265,17 @@ func trendSortExpression(sortValue domain.RepositoryTrendSort, alias string) str
 	case domain.RepositoryTrendSortRankChange:
 		return "ABS(" + prefix + "rank_change)"
 	case domain.RepositoryTrendSortStars:
-		return prefix + "current_stars"
+		return "COALESCE(" + prefix + "current_stars, " + prefix + "last_observed_stars)"
 	case domain.RepositoryTrendSortDelta:
 		return prefix + "star_delta"
 	case domain.RepositoryTrendSortGrowthRate:
 		return prefix + "growth_rate"
+	case domain.RepositoryTrendSortLowGrowth:
+		return "CASE WHEN " + prefix + "star_delta >= 0 THEN -" + prefix + "star_delta END"
+	case domain.RepositoryTrendSortSlowdown:
+		return "CASE WHEN " + prefix + "momentum_change < 0 THEN -" + prefix + "momentum_change END"
+	case domain.RepositoryTrendSortNewest:
+		return "julianday(" + prefix + "first_seen_at)"
 	default:
 		return prefix + "daily_velocity"
 	}
@@ -261,7 +313,7 @@ filtered AS (
 		statement += `, cursor_values AS (
     SELECT ` + sortExpression + ` AS sort_value,
            (` + sortExpression + ` IS NULL) AS sort_is_null,
-           filtered.current_stars,
+           COALESCE(filtered.current_stars, filtered.last_observed_stars, -1) AS sort_stars,
            filtered.github_repo_id
     FROM filtered
     WHERE filtered.github_repo_id = ?
@@ -279,7 +331,11 @@ SELECT
     filtered.star_delta,
     filtered.growth_rate,
     filtered.daily_velocity,
-    filtered.is_new
+    filtered.is_new,
+    filtered.last_observed_date,
+    filtered.last_observed_stars,
+    filtered.previous_delta,
+    filtered.momentum_change
 FROM filtered`
 	if query.AfterID != nil {
 		statement += ` CROSS JOIN cursor_values cursor
@@ -288,13 +344,13 @@ WHERE
     OR ((` + sortExpression + ` IS NULL) = cursor.sort_is_null AND (
         (cursor.sort_is_null = 0 AND ` + sortExpression + ` < cursor.sort_value)
         OR ((cursor.sort_is_null = 1 OR ` + sortExpression + ` = cursor.sort_value) AND (
-            filtered.current_stars < cursor.current_stars
-            OR (filtered.current_stars = cursor.current_stars AND filtered.github_repo_id > cursor.github_repo_id)
+            COALESCE(filtered.current_stars, filtered.last_observed_stars, -1) < cursor.sort_stars
+            OR (COALESCE(filtered.current_stars, filtered.last_observed_stars, -1) = cursor.sort_stars AND filtered.github_repo_id > cursor.github_repo_id)
         ))
     ))`
 	}
 	statement += ` ORDER BY (` + sortExpression + ` IS NULL) ASC, ` + sortExpression + ` DESC,
-    filtered.current_stars DESC, filtered.github_repo_id ASC
+    COALESCE(filtered.current_stars, filtered.last_observed_stars, -1) DESC, filtered.github_repo_id ASC
 LIMIT ?`
 	arguments = append(arguments, query.Limit+1)
 
@@ -309,6 +365,8 @@ LIMIT ?`
 		var repositoryID int64
 		var current, baselineStars, currentRank, baselineRank, rankChange, delta sql.NullInt64
 		var growthRate, velocity sql.NullFloat64
+		var lastDate sql.NullString
+		var lastStars, previousDelta, momentumChange sql.NullInt64
 		var isNew int
 		if err := rows.Scan(
 			&repositoryID,
@@ -321,20 +379,36 @@ LIMIT ?`
 			&growthRate,
 			&velocity,
 			&isNew,
+			&lastDate,
+			&lastStars,
+			&previousDelta,
+			&momentumChange,
 		); err != nil {
 			return domain.RepositoryTrendPage{}, fmt.Errorf("scan repository trend: %w", err)
 		}
+		var lastObservedDate *domain.Date
+		if lastDate.Valid {
+			parsed, err := domain.ParseDate(lastDate.String)
+			if err != nil {
+				return domain.RepositoryTrendPage{}, fmt.Errorf("parse last observed date: %w", err)
+			}
+			lastObservedDate = &parsed
+		}
 		repositoryIDs = append(repositoryIDs, repositoryID)
 		valuesByID[repositoryID] = trendValues{
-			CurrentStars:  nullInt64Pointer(current),
-			BaselineStars: nullInt64Pointer(baselineStars),
-			CurrentRank:   nullInt64Pointer(currentRank),
-			BaselineRank:  nullInt64Pointer(baselineRank),
-			RankChange:    nullInt64Pointer(rankChange),
-			StarDelta:     nullInt64Pointer(delta),
-			GrowthRate:    nullFloat64Pointer(growthRate),
-			DailyVelocity: nullFloat64Pointer(velocity),
-			IsNew:         isNew != 0,
+			CurrentStars:      nullInt64Pointer(current),
+			BaselineStars:     nullInt64Pointer(baselineStars),
+			CurrentRank:       nullInt64Pointer(currentRank),
+			BaselineRank:      nullInt64Pointer(baselineRank),
+			RankChange:        nullInt64Pointer(rankChange),
+			StarDelta:         nullInt64Pointer(delta),
+			GrowthRate:        nullFloat64Pointer(growthRate),
+			DailyVelocity:     nullFloat64Pointer(velocity),
+			IsNew:             isNew != 0,
+			LastObservedDate:  lastObservedDate,
+			LastObservedStars: nullInt64Pointer(lastStars),
+			PreviousDelta:     nullInt64Pointer(previousDelta),
+			MomentumChange:    nullInt64Pointer(momentumChange),
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -365,17 +439,22 @@ LIMIT ?`
 		}
 		values := valuesByID[repositoryID]
 		page.Items = append(page.Items, domain.RepositoryTrendMetric{
-			Repository:    repository,
-			Topics:        topics[repositoryID],
-			CurrentStars:  values.CurrentStars,
-			BaselineStars: values.BaselineStars,
-			CurrentRank:   values.CurrentRank,
-			BaselineRank:  values.BaselineRank,
-			RankChange:    values.RankChange,
-			StarDelta:     values.StarDelta,
-			GrowthRate:    values.GrowthRate,
-			DailyVelocity: values.DailyVelocity,
-			IsNew:         values.IsNew,
+			Repository:        repository,
+			Topics:            topics[repositoryID],
+			CurrentStars:      values.CurrentStars,
+			BaselineStars:     values.BaselineStars,
+			CurrentRank:       values.CurrentRank,
+			BaselineRank:      values.BaselineRank,
+			RankChange:        values.RankChange,
+			StarDelta:         values.StarDelta,
+			GrowthRate:        values.GrowthRate,
+			DailyVelocity:     values.DailyVelocity,
+			IsNew:             values.IsNew,
+			LastObservedDate:  values.LastObservedDate,
+			LastObservedStars: values.LastObservedStars,
+			IsStale:           values.CurrentStars == nil,
+			PreviousDelta:     values.PreviousDelta,
+			MomentumChange:    values.MomentumChange,
 		})
 	}
 	return page, nil
