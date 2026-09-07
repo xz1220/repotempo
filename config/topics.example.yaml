@@ -1,10 +1,48 @@
-# Two levels are supported in v0.1. Slugs are stable external identifiers;
-# rename the display name instead of changing a slug after data is assigned.
+# Roots describe what a project does. Components remain second-level tags.
+# Existing slugs and assignments are preserved; some parents are corrected.
 version: 1
 topics:
+  - slug: coding-agents
+    name: Coding Agents
+    description: AI assistants that write, review, debug, or maintain software.
+    status: active
+  - slug: research-agents
+    name: Research Agents
+    description: Agents that search, investigate, synthesize sources, and produce research.
+    status: active
+  - slug: browser-computer-agents
+    name: Browser and Computer Agents
+    description: Agents that operate websites, browsers, desktop applications, and computers.
+    status: active
+  - slug: workflow-agents
+    name: Workflow Agents
+    description: AI agents for business processes, personal tasks, and repeatable automation.
+    status: active
+  - slug: agent-platforms
+    name: Agent Platforms
+    description: Frameworks and workspaces for building, coordinating, and supervising agents.
+    status: active
+    children:
+      - slug: multi-agent
+        name: Multi-Agent
+        description: Collaboration, delegation, routing, and coordination among AI agents.
+        status: active
+      - slug: workbench
+        name: Workbench
+        description: Interactive environments for building, supervising, and debugging agents.
+        status: active
+      - slug: client-and-remote-access
+        name: Client and Remote Access
+        description: Desktop, mobile, remote-control, and distributed agent interfaces.
+        status: active
   - slug: ai-agent
-    name: AI Agent
-    description: Systems that plan, reason, and act through tools to complete goals.
+    name: General AI Agents
+    description: General-purpose AI agents or agents whose product type is not yet established.
+    status: active
+
+  - slug: ai-infrastructure
+    name: AI Infrastructure
+    description: Reusable models, inference engines, data systems, and agent components; these are not necessarily agent products.
     status: active
     children:
       - slug: skills
@@ -14,10 +52,6 @@ topics:
       - slug: harness
         name: Harness
         description: Agent runtimes, execution loops, sandboxes, and orchestration shells.
-        status: active
-      - slug: multi-agent
-        name: Multi-Agent
-        description: Collaboration, delegation, routing, and coordination among agents.
         status: active
       - slug: memory
         name: Memory
@@ -31,17 +65,3 @@ topics:
         name: Reliability
         description: Evaluation, observability, guardrails, recovery, and verification.
         status: active
-      - slug: workbench
-        name: Workbench
-        description: Interactive environments for building, supervising, and debugging agents.
-        status: active
-      - slug: client-and-remote-access
-        name: Client and Remote Access
-        description: Desktop, mobile, remote-control, and distributed agent interfaces.
-        status: active
-
-  - slug: ai-infrastructure
-    name: AI Infrastructure
-    description: Model serving, inference, data, and developer infrastructure used by AI systems.
-    status: active
-

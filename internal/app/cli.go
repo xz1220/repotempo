@@ -256,7 +256,7 @@ func (cli *CLI) runImport(ctx context.Context, settings Settings, jsonOutput boo
 
 func (cli *CLI) runTopic(ctx context.Context, settings Settings, jsonOutput bool, args []string) int {
 	if len(args) == 0 {
-		return cli.writeError("topic", jsonOutput, settings, ExitUsage, errors.New("topic requires list, assign, or remove"))
+		return cli.writeError("topic", jsonOutput, settings, ExitUsage, errors.New("topic requires list, assign, remove, or reclassify"))
 	}
 	action := args[0]
 	flags := cli.flagSet("topic " + action)
@@ -267,6 +267,21 @@ func (cli *CLI) runTopic(ctx context.Context, settings Settings, jsonOutput bool
 		return cli.flagError("topic "+action, jsonOutput, settings, err)
 	}
 	switch action {
+	case "reclassify":
+		if *repository != "" || *topicSlug != "" {
+			return cli.writeError("topic reclassify", jsonOutput, settings, ExitUsage, errors.New("reclassify uses all saved repositories; --repo and --topic do not apply"))
+		}
+		return cli.invokeMode(ctx, settings, *dryRun, jsonOutput, "topic reclassify", func(application CommandApplication) (any, string, int, error) {
+			classifier, ok := application.(interface {
+				ReclassifyTopics(context.Context, bool) (ClassificationReport, error)
+			})
+			if !ok {
+				return nil, "", ExitFailure, errors.New("application does not support topic reclassification")
+			}
+			report, err := classifier.ReclassifyTopics(ctx, *dryRun)
+			human := fmt.Sprintf("Classified %d of %d repositories using saved metadata; %d assignment changes, %d manual decisions protected (dry-run=%t).", report.MatchedCount, report.RepositoryCount, report.ChangedCount, report.ProtectedCount, report.DryRun)
+			return report, human, ExitSuccess, err
+		})
 	case "list":
 		return cli.invoke(ctx, settings, jsonOutput, "topic list", func(application CommandApplication) (any, string, int, error) {
 			topics, err := application.ListTopics(ctx)
@@ -545,7 +560,7 @@ Commands:
   snapshot       Capture today's absolute GitHub stars for every active repository
   import-legacy  Import legacy SQLite and verified CSV history
   analysis       Import a stored Codex/manual project interpretation from JSON
-  topic          List, assign, or remove topics
+  topic          List, assign, remove, or reclassify topics
   watch          Add, pause, or resume a repository
   export         Export csv, json, or sqlite
   doctor         Check local runtime configuration and disk usage

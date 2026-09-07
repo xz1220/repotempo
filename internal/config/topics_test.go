@@ -12,7 +12,7 @@ func TestLoadTopicsExampleAndFlatten(t *testing.T) {
 		t.Fatal(err)
 	}
 	flat := topics.Flatten()
-	if got, want := len(flat), 10; got != want {
+	if got, want := len(flat), 15; got != want {
 		t.Fatalf("flat topics = %d, want %d", got, want)
 	}
 	wantChildren := map[string]bool{
@@ -22,8 +22,12 @@ func TestLoadTopicsExampleAndFlatten(t *testing.T) {
 	}
 	for _, topic := range flat {
 		if wantChildren[topic.Slug] {
-			if topic.ParentSlug != "ai-agent" {
-				t.Fatalf("topic %s parent = %q, want ai-agent", topic.Slug, topic.ParentSlug)
+			wantParent := "ai-infrastructure"
+			if topic.Slug == "multi-agent" || topic.Slug == "workbench" || topic.Slug == "client-and-remote-access" {
+				wantParent = "agent-platforms"
+			}
+			if topic.ParentSlug != wantParent {
+				t.Fatalf("topic %s parent = %q, want %s", topic.Slug, topic.ParentSlug, wantParent)
 			}
 			delete(wantChildren, topic.Slug)
 		}
