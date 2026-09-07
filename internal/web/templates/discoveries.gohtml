@@ -1,47 +1,21 @@
 {{define "content"}}
-  <section class="page-primary-view" aria-labelledby="source-coverage">
-    <div class="section-heading"><div><h2 id="source-coverage">{{t "discoveries.source_coverage"}}</h2><p>{{t "discoveries.source_coverage_help"}}</p></div></div>
-    {{if .DiscoveryMix.HasData}}
-      <figure class="source-mix-figure">
-        <svg class="source-mix-chart" viewBox="0 0 1000 40" preserveAspectRatio="none" role="img" aria-labelledby="source-mix-title source-mix-description">
-          <title id="source-mix-title">{{t "discoveries.source_mix_title"}}</title>
-          <desc id="source-mix-description">{{t "discoveries.source_mix_description"}}</desc>
-          <rect class="source-mix-track" x="0" y="0" width="1000" height="40" rx="6"></rect>
-          {{range .DiscoveryMix.Segments}}{{if gt .RepositoryCount 0}}<rect class="{{.ColorClass}}" x="{{.X}}" y="0" width="{{.Width}}" height="40"><title>{{.Tooltip}}</title></rect>{{end}}{{end}}
-        </svg>
-        <figcaption>
-          <p>{{tf "discoveries.source_mix_total" (formatInt .DiscoveryMix.Total)}}</p>
-          <ol class="source-mix-legend" aria-label="{{t "discoveries.source_mix_legend"}}">
-            {{range .DiscoveryMix.Segments}}
-              <li>
-                <span class="source-key {{.ColorClass}}" aria-hidden="true">{{.Ordinal}}</span>
-                <span class="source-legend-label">{{.SourceLabel}}</span>
-                <span class="source-legend-value">{{formatInt .RepositoryCount}} · {{.Percent}}</span>
-              </li>
-            {{end}}
-          </ol>
-        </figcaption>
-      </figure>
-    {{else}}
-      <div class="empty-state"><h3>{{t "discoveries.no_discoveries"}}</h3><p>{{t "discoveries.no_discoveries_help"}}</p></div>
-    {{end}}
-  </section>
-
-  <section class="page-drilldown" aria-labelledby="search-profiles">
-    <div class="section-heading"><div><h2 id="search-profiles">{{t "discoveries.search_profiles"}}</h2><p>{{t "discoveries.search_profiles_help"}}</p></div></div>
-    {{if .Discoveries.Profiles}}
-      <div class="table-scroll" role="region" aria-label="{{t "discoveries.profile_outcomes"}}" tabindex="0">
-        <table class="data-table">
-          <thead><tr><th scope="col">{{t "discoveries.profile"}}</th><th scope="col" class="numeric">{{t "discoveries.new_valid"}}</th><th scope="col" class="numeric">{{t "discoveries.candidates"}}</th><th scope="col">{{t "discoveries.completeness"}}</th><th scope="col" class="numeric">{{t "discoveries.query_splits"}}</th><th scope="col">{{t "discoveries.last_run_column"}}</th></tr></thead>
-          <tbody>
-            {{range .Discoveries.Profiles}}
-              <tr><td class="mono-value" translate="no">{{.Name}}</td><td class="numeric metric-value">{{formatInt .NewRepositories}}</td><td class="numeric">{{formatInt .CandidateCount}}</td><td>{{if .IncompleteResults}}<span class="status-badge status-warning"><span aria-hidden="true"></span>{{t "discoveries.incomplete"}}</span>{{else}}<span class="status-badge status-success"><span aria-hidden="true"></span>{{t "discoveries.complete"}}</span>{{end}}</td><td class="numeric">{{formatInt .QuerySplitCount}}</td><td>{{formatTimePtr .LastRunAt}}</td></tr>
-            {{end}}
-          </tbody>
-        </table>
-      </div>
-    {{else}}
-      <div class="empty-state"><h3>{{t "discoveries.no_profiles"}}</h3><p>{{t "discoveries.no_profiles_help"}}</p></div>
-    {{end}}
-  </section>
+<div class="discovery-datebar">
+  <div><h2>{{formatDate .Repositories.Filter.AsOf}}</h2><p>{{tf "repositories.count" (formatInt .Repositories.Total)}} · {{t "ui.auto_tracking"}}</p></div>
+  <form class="date-form" action="/discoveries" method="get"><input type="hidden" name="lang" value="{{.Meta.Locale}}"><input type="hidden" name="topic" value="{{.Repositories.Filter.TopicSlug}}"><label class="sr-only" for="discovery-date">{{t "ui.discovered_on"}}</label><input id="discovery-date" type="date" name="date" value="{{formatDate .Repositories.Filter.AsOf}}"><button class="button button-secondary" type="submit">{{t "ui.view_date"}}</button></form>
+</div>
+<nav class="category-tabs" aria-label="{{t "ui.category_filter"}}">{{range .Categories}}<a href="{{.URL}}" class="category-tab {{if .Active}}is-active{{end}}" {{if .Active}}aria-current="page"{{end}}>{{t .Label}}</a>{{end}}</nav>
+{{if .Repositories.Items}}
+<div class="discovery-grid">
+{{range .Repositories.Items}}<article class="surface discovery-card">
+  <div class="discovery-card-header"><span class="repo-avatar">{{template "icon-grid"}}</span><span class="new-badge">{{t "repositories.new_badge"}}</span></div>
+  <a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>
+  <p class="repository-description">{{if .Description}}{{.Description}}{{else}}{{t "ui.no_description"}}{{end}}</p>
+  <div class="discovery-evidence"><span>★ {{if .CurrentStars}}{{formatIntPtr .CurrentStars}}{{else}}{{formatIntPtr .LastObservedStars}}{{end}}</span>{{if .PrimaryLanguage}}<span>{{.PrimaryLanguage}}</span>{{end}}<span>{{sourceLabel .FirstSeenSource}}</span></div>
+  <div class="tag-list">{{range .Topics}}<a class="tag" href="/repositories?topic={{.Slug}}">{{topicName .Slug .Name}}</a>{{else}}<span class="tag tag-muted">{{t "category.__unclassified"}}</span>{{end}}</div>
+  <div class="discovery-card-footer"><span>{{if .GitHubCreatedAt}}{{t "ui.created_on"}} {{formatDatePtr .GitHubCreatedAt}}{{else}}{{t "ui.created_unknown"}}{{end}}</span><a class="text-link" href="/repositories/{{.ID}}">{{t "ui.details"}} {{template "icon-arrow"}}</a></div>
+</article>{{end}}
+</div>
+<nav class="cursor-pagination" aria-label="{{t "pagination.label"}}"><p>{{tf "repositories.page_summary" (formatInt (len .Repositories.Items)) (formatInt .Repositories.Total)}}</p><div>{{if .Repositories.Filter.AfterID}}<a class="button button-secondary" href="{{.Repositories.FirstPageURL}}">{{t "ui.first_page"}}</a>{{end}}{{if .Repositories.NextCursor}}<a class="button button-secondary" href="{{.Repositories.NextCursor}}" rel="next">{{t "pagination.next"}} {{template "icon-arrow"}}</a>{{end}}</div></nav>
+{{else}}<div class="empty-state"><h3>{{t "ui.no_discoveries"}}</h3><p>{{t "ui.no_discoveries_help"}}</p><a class="button button-primary" href="/watch/new">{{template "icon-plus"}}{{t "ui.add_project"}}</a></div>{{end}}
+<p class="discovery-explanation">{{t "ui.discovery_explanation"}}</p>
 {{end}}

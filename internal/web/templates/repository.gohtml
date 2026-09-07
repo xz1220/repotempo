@@ -1,6 +1,6 @@
 {{define "page-meta"}}
   <nav class="breadcrumb" aria-label="{{t "breadcrumb.label"}}">
-    <a class="breadcrumb-link" href="/"><span aria-hidden="true">←</span><span>{{t "nav.repositories"}}</span></a>
+    <a class="breadcrumb-link" href="/repositories"><span aria-hidden="true">←</span><span>{{t "nav.repositories"}}</span></a>
   </nav>
 {{end}}
 
@@ -11,6 +11,7 @@
       <div class="entity-actions">
         {{with githubURL .Repository.Repository.HTMLURL}}<a class="button button-secondary" href="{{.}}" target="_blank" rel="noopener noreferrer">{{t "repository.open_github"}}</a>{{end}}
         <span class="status-badge {{statusClass .Repository.Repository.MonitoringStatus}}"><span aria-hidden="true"></span>{{statusLabel .Repository.Repository.MonitoringStatus}}</span>
+        {{if .Repository.Repository.IsFocus}}<span class="new-badge">{{t "ui.my_watchlist"}}</span>{{end}}
         {{if ne .Repository.Repository.GitHubStatus "active"}}<span class="status-badge {{statusClass .Repository.Repository.GitHubStatus}}"><span aria-hidden="true"></span>{{tf "repository.github_status" (statusLabel .Repository.Repository.GitHubStatus)}}</span>{{end}}
       </div>
       {{if and .Repository.Repository.Description .Repository.Analysis}}<p class="entity-description">{{.Repository.Repository.Description}}</p>{{end}}
@@ -18,7 +19,7 @@
 
     <section class="repository-analysis" aria-labelledby="repository-analysis-title">
       <div class="section-heading compact">
-        <div><h2 id="repository-analysis-title">{{t "repository.analysis_title"}}</h2><p>{{t "repository.analysis_help"}}</p></div>
+        <div><h2 id="repository-analysis-title">{{t "ui.about_project"}}</h2><p>{{if .Repository.Analysis}}{{t "ui.analysis_available"}}{{else}}{{t "ui.github_description"}}{{end}}</p></div>
       </div>
       {{with .Repository.Analysis}}
         {{if .SummaryZH}}<p class="analysis-summary" lang="zh-CN">{{.SummaryZH}}</p>{{end}}
@@ -30,8 +31,9 @@
         <p class="analysis-provenance">{{tf "repository.analysis_provenance" .Source .Revision (formatDate .AnalyzedAt)}}{{if .Model}} · <span translate="no">{{.Model}}</span>{{end}}</p>
       {{else}}
         <div class="analysis-pending">
-          <span>{{t "repository.analysis_pending"}}</span>
-          {{if .Repository.Repository.ManualNote}}<p lang="zh-CN">{{.Repository.Repository.ManualNote}}</p>{{else if .Repository.Repository.Description}}<p>{{tf "repository.analysis_github_fallback" .Repository.Repository.Description}}</p>{{else}}<p>{{t "repository.analysis_no_description"}}</p>{{end}}
+          {{if .Repository.Repository.Description}}<p>{{.Repository.Repository.Description}}</p>{{else}}<p>{{t "repository.analysis_no_description"}}</p>{{end}}
+          {{if .Repository.Repository.ManualNote}}<p class="watch-note">{{t "ui.watch_reason"}}{{.Repository.Repository.ManualNote}}</p>{{end}}
+          {{with githubURL .Repository.Repository.HTMLURL}}<a class="text-link readme-link" href="{{.}}#readme" target="_blank" rel="noopener noreferrer">{{t "ui.read_readme"}} ↗</a>{{end}}
         </div>
       {{end}}
     </section>
@@ -55,7 +57,7 @@
         <div><dt>{{t "repository.primary_language"}}</dt><dd>{{if .Repository.Repository.PrimaryLanguage}}{{.Repository.Repository.PrimaryLanguage}}{{else}}{{t "page.not_available"}}{{end}}</dd></div>
         <div>
           <dt>{{t "repository.topics"}}</dt>
-          <dd><div class="tag-list">{{range .Repository.Repository.Topics}}<a class="tag" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>{{else}}<span class="muted">{{t "repositories.unassigned"}}</span>{{end}}</div></dd>
+          <dd><div class="tag-list">{{range .Repository.Repository.Topics}}<a class="tag" href="/topics/{{.Slug}}">{{topicName .Slug .Name}}</a>{{else}}<span class="muted">{{t "category.__unclassified"}}</span>{{end}}</div></dd>
         </div>
       </dl>
     </div>
@@ -70,9 +72,9 @@
   </section>
 
   {{template "chart" .StarChart}}
-  <div class="supporting-chart">
+  {{if .RankChart.HasData}}<details class="supporting-chart"><summary>{{t "ui.oss_history"}}</summary>
     {{template "chart" .RankChart}}
-  </div>
+  </details>{{end}}
 
   <div class="split-layout detail-sections">
     <section aria-labelledby="failed-observations">

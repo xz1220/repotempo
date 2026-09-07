@@ -7,45 +7,22 @@
     <dl>
       <div><dt>{{t "topics.coverage_total"}}</dt><dd>{{formatInt .Topics.Classification.RepositoryCount}}</dd></div>
       <div><dt>{{t "topics.coverage_classified"}}</dt><dd>{{formatInt .Topics.Classification.ClassifiedCount}}</dd></div>
-      <div><dt>{{t "topics.coverage_unclassified"}}</dt><dd><a href="/?topic=__unclassified">{{formatInt .Topics.Classification.UnclassifiedCount}}</a></dd></div>
+      <div><dt>{{t "topics.coverage_unclassified"}}</dt><dd><a href="/repositories?topic=__unclassified">{{formatInt .Topics.Classification.UnclassifiedCount}}</a></dd></div>
       <div><dt>{{t "topics.coverage_percent"}}</dt><dd>{{formatPercent .Topics.Classification.Percent}}</dd></div>
     </dl>
   </section>
 
-  <section class="page-primary-view" aria-labelledby="topic-ranking">
-    <div class="topic-ranking-header">
-      <div>
-        <h2 id="topic-ranking">{{t "topics.ranking_title"}}</h2>
-        <p>{{tf "topics.ranking_help" .TopicRanking.PeriodLabel}}</p>
-      </div>
-      <nav class="period-switch" aria-label="{{t "topics.ranking_period"}}">
-        {{range .TopicRanking.Options}}<a class="period-option {{if .Active}}is-active{{end}}" href="{{.URL}}" {{if .Active}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}
-      </nav>
-    </div>
-    {{if .TopicRanking.HasData}}
-      <ol class="topic-ranking-list" aria-label="{{tf "topics.ranking_region" .TopicRanking.PeriodLabel}}">
-        {{range .TopicRanking.Items}}
-          <li>
-            <span class="topic-rank-number" aria-hidden="true">{{.Rank}}</span>
-            <div class="topic-rank-identity">
-              <a class="topic-name" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>
-              <p>{{tf "topics.ranking_meta" (formatIntPtr .CurrentStars) (formatInt .ComparableCount) (formatInt .RepositoryCount)}}</p>
-            </div>
-            <strong class="topic-rank-delta">{{formatSigned .Delta}}</strong>
-            <svg class="topic-rank-bar" viewBox="0 0 1000 12" preserveAspectRatio="none" role="img" aria-label="{{.Tooltip}}">
-              <title>{{.Tooltip}}</title>
-              {{if $.TopicRanking.ShowBaseline}}<line class="topic-rank-baseline" x1="{{$.TopicRanking.BaselineX}}" x2="{{$.TopicRanking.BaselineX}}" y1="0" y2="12"></line>{{end}}
-              <rect class="{{.BarClass}}" x="{{.BarX}}" y="1" width="{{.BarWidth}}" height="10" rx="2"></rect>
-            </svg>
-          </li>
-        {{end}}
-      </ol>
-    {{else}}
-      <div class="empty-state compact-empty topic-ranking-empty"><h3>{{t "topics.no_ranking"}}</h3><p>{{tf "topics.no_ranking_help" .TopicRanking.PeriodLabel}}</p></div>
-    {{end}}
-  </section>
 
-  <section class="page-drilldown" aria-labelledby="topic-list">
+<div class="category-catalog">
+{{range .CategoryCards}}<article class="surface category-card">
+  <div class="category-card-heading"><a class="topic-name" href="/topics/{{.Slug}}">{{.Name}}</a><span>{{tf "repositories.count" (formatInt .Count)}}</span></div>
+  <p>{{.Description}}</p>
+  {{if .Children}}<div class="tag-list">{{range .Children}}<a class="tag" href="/repositories?topic={{.Slug}}">{{.Name}}</a>{{end}}</div>{{end}}
+  <a class="text-link" href="/repositories?topic={{.Slug}}">{{t "ui.category_library"}} {{template "icon-arrow"}}</a>
+</article>{{end}}
+</div>
+<details class="method-note"><summary>{{t "ui.category_rules"}}</summary><p>{{t "ui.category_rules_help"}}</p></details>
+  <details class="category-growth-details"><summary>{{t "ui.category_metrics"}}</summary><section class="page-drilldown" aria-labelledby="topic-list">
     <div class="section-heading result-heading">
       <div><h2 id="topic-list">{{tf "topics.count" (formatInt (len .Topics.Items))}}</h2><p>{{t "topics.boundary_help"}}</p></div>
     </div>
@@ -56,8 +33,8 @@
           <tbody>
             {{range .Topics.Items}}
               <tr>
-                <td><a class="topic-name" href="/topics/{{.Slug}}" translate="no">{{.Name}}</a>{{if .Description}}<p class="cell-description">{{.Description}}</p>{{end}}</td>
-                <td>{{if .ParentName}}<a class="text-link" href="/topics/{{.ParentSlug}}" translate="no">{{.ParentName}}</a>{{else}}<span class="muted">{{t "topics.top_level"}}</span>{{end}}</td>
+                <td><a class="topic-name" href="/topics/{{.Slug}}" >{{topicName .Slug .Name}}</a>{{if .Description}}<p class="cell-description">{{.Description}}</p>{{end}}</td>
+                <td>{{if .ParentName}}<a class="text-link" href="/topics/{{.ParentSlug}}" >{{topicName .ParentSlug .ParentName}}</a>{{else}}<span class="muted">{{t "topics.top_level"}}</span>{{end}}</td>
                 <td class="numeric">{{formatInt .RepositoryCount}}</td>
                 <td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td>
                 <td class="numeric metric-delta">{{formatSigned .Delta1D}}<span class="cell-secondary">{{tf "topics.comparable_short" (formatInt .Comparable1D) (formatInt .RepositoryCount)}}</span></td>
@@ -71,5 +48,5 @@
     {{else}}
       <div class="empty-state"><h3>{{t "topics.no_topics"}}</h3><p>{{t "topics.no_topics_help"}}</p></div>
     {{end}}
-  </section>
+  </section></details>
 {{end}}

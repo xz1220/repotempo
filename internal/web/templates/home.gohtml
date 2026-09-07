@@ -1,183 +1,69 @@
 {{define "content"}}
-  <div class="home-primary-grid">
-    <section class="home-health-rail" aria-labelledby="monitoring-summary">
-      <div class="section-heading home-rail-heading">
-        <div>
-          <h2 id="monitoring-summary">{{t "home.summary"}}</h2>
-          <p>{{t "home.summary_help"}}</p>
-        </div>
+<div class="dashboard-toolbar">
+  <nav class="period-switch" aria-label="{{t "repositories.period_label"}}">{{range .TrendPeriods}}<a class="period-option {{if .Active}}is-active{{end}}" href="{{.URL}}" {{if .Active}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
+  <form class="date-form" method="get" action="/">
+    <input type="hidden" name="period" value="{{.Radar.Filter.WindowDays}}d">
+    <input type="hidden" name="topic" value="{{.Radar.Filter.TopicSlug}}">
+    <label class="sr-only" for="dashboard-date">{{t "repositories.as_of_date"}}</label>
+    <input type="date" id="dashboard-date" name="date" value="{{formatDate .Radar.AsOf}}">
+    <button class="button button-secondary" type="submit">{{t "ui.view_date"}}</button>
+  </form>
+</div>
+<nav class="category-tabs" aria-label="{{t "ui.category_filter"}}">{{range .Categories}}<a href="{{.URL}}" class="category-tab {{if .Active}}is-active{{end}}" {{if .Active}}aria-current="page"{{end}}>{{t .Label}}</a>{{end}}</nav>
+
+<div class="radar-stat-row" aria-label="{{t "ui.window_summary"}}">
+  <div><span class="stat-label">{{t "ui.up_projects"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.UpCount}}</strong><span class="stat-marker positive">↗</span></div><p>{{t "ui.up_note"}}</p></div>
+  <div><span class="stat-label">{{t "ui.flat_projects"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.FlatCount}}</strong><span class="stat-marker neutral">→</span></div><p>{{t "ui.flat_note"}}</p></div>
+  <div><span class="stat-label">{{t "ui.slowdown"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.SlowingCount}}</strong><span class="stat-marker negative">↘</span></div><p>{{tf "ui.slowdown_note" (formatInt .Radar.Coverage.MomentumComparableCount)}}</p></div>
+  <div><span class="stat-label">{{t "ui.new_today"}}</span><div class="stat-reading"><strong>{{formatInt .Radar.Coverage.NewCount}}</strong><a href="/discoveries?date={{formatDate .Radar.AsOf}}" aria-label="{{t "ui.view_discoveries"}}">{{template "icon-arrow"}}</a></div><p>{{t "ui.new_note"}}</p></div>
+</div>
+
+<div class="dashboard-chart-grid">
+  <section class="surface trend-surface" aria-labelledby="radar-chart-title">
+    <div class="surface-heading"><div><h2 id="radar-chart-title">{{t "ui.chart_title"}}</h2><p>{{tf "ui.chart_subtitle" (formatInt .ChartCohort)}}</p></div><span class="chart-change {{floatDeltaClass .ChartChange}}">{{formatPercent .ChartChange}}</span></div>
+    {{if .RadarChart.HasData}}
+      <div class="chart-frame radar-chart-frame">
+        <div class="chart-y-label chart-y-top">{{.RadarChart.MaxLabel}}</div><div class="chart-y-label chart-y-bottom">{{.RadarChart.MinLabel}}</div>
+        <svg class="line-chart" viewBox="0 0 800 224" role="img" aria-label="{{t "ui.chart_help"}}" preserveAspectRatio="none">
+          <line class="chart-grid" x1="16" y1="14" x2="784" y2="14"/><line class="chart-grid" x1="16" y1="76" x2="784" y2="76"/><line class="chart-grid" x1="16" y1="137" x2="784" y2="137"/><line class="chart-grid" x1="16" y1="198" x2="784" y2="198"/>
+          {{range .RadarChart.Segments}}<polyline class="chart-line" points="{{.Points}}"/>{{end}}
+          {{range .RadarChart.Points}}<circle class="chart-dot" cx="{{.X}}" cy="{{.Y}}" r="3"><title>{{.Label}} · {{.Value}}</title></circle>{{end}}
+        </svg>
+        <div class="chart-x-label chart-x-start">{{.RadarChart.StartLabel}}</div><div class="chart-x-label chart-x-end">{{.RadarChart.EndLabel}}</div>
       </div>
+    {{else}}<div class="chart-empty"><span>{{template "icon-chart"}}</span><h3>{{t "ui.no_trend"}}</h3><p>{{t "ui.no_trend_help"}}</p></div>{{end}}
+    <details class="chart-details"><summary>{{t "ui.chart_method"}}</summary><p>{{t "ui.chart_help"}}</p><div class="table-scroll"><table class="data-table compact-table"><thead><tr><th>{{t "repository.date"}}</th><th class="numeric">{{t "ui.index"}}</th></tr></thead><tbody>{{range .RadarChart.Observations}}<tr><td>{{.Label}}</td><td class="numeric">{{if .Missing}}{{t "page.not_available"}}{{else}}{{.Value}}{{end}}</td></tr>{{end}}</tbody></table></div></details>
+  </section>
+  <section class="surface distribution-surface" aria-labelledby="distribution-title">
+    <div class="surface-heading"><div><h2 id="distribution-title">{{t "ui.direction_title"}}</h2><p>{{t "ui.direction_help"}}</p></div></div>
+    <div class="direction-donut">
+      <svg viewBox="0 0 200 200" aria-label="{{tf "ui.direction_aria" (formatInt .Radar.Coverage.UpCount) (formatInt .Radar.Coverage.FlatCount) (formatInt .Radar.Coverage.DownCount)}}" role="img">
+        <circle class="direction-track" cx="100" cy="100" r="78" fill="none" stroke-width="15"/>
+        {{range .DirectionSegments}}<circle class="{{.Class}}" cx="100" cy="100" r="78" fill="none" stroke-width="15" pathLength="100" stroke-dasharray="{{.Dash}}" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 100 100)"/>{{end}}
+      </svg>
+      <div><strong>{{formatInt .Radar.Coverage.ComparableCount}}</strong><span>{{t "ui.comparable"}}</span></div>
+    </div>
+    <dl class="direction-legend">
+      <div><dt><i class="legend-dot positive"></i>{{t "ui.growing"}}</dt><dd>{{formatInt .Radar.Coverage.UpCount}}</dd></div>
+      <div><dt><i class="legend-dot neutral"></i>{{t "ui.flat"}}</dt><dd>{{formatInt .Radar.Coverage.FlatCount}}</dd></div>
+      <div><dt><i class="legend-dot negative"></i>{{t "ui.declining"}}</dt><dd>{{formatInt .Radar.Coverage.DownCount}}</dd></div>
+    </dl>
+    <p class="coverage-footnote">{{tf "ui.coverage_note" (formatInt .Radar.Coverage.ObservedCount) (formatInt .Radar.Coverage.ScopeCount)}} · <a href="/runs">{{t "ui.inspect_collection"}}</a></p>
+  </section>
+</div>
 
-      <div class="home-coverage-summary">
-        <dl class="home-coverage-metric">
-          <div>
-            <dt id="coverage-metric-label">{{t "metric.coverage"}}</dt>
-            <dd>{{printf "%.1f%%" (coveragePercent .Dashboard.Coverage)}}</dd>
-          </div>
-          <div>
-            <dt>{{t "metric.failed_today"}}</dt>
-            <dd class="{{if gt .Dashboard.Coverage.Failed 0}}value-danger{{end}}">{{formatInt .Dashboard.Coverage.Failed}}</dd>
-          </div>
-        </dl>
-        <p class="coverage-label">{{tf "home.snapshot_success" (formatInt .Dashboard.Coverage.Successful) (formatInt .Dashboard.Coverage.Target)}}</p>
-        <progress max="100" value="{{printf "%.1f" (coveragePercent .Dashboard.Coverage)}}" aria-labelledby="coverage-metric-label">{{printf "%.1f%%" (coveragePercent .Dashboard.Coverage)}}</progress>
-        <p class="home-snapshot-date muted">{{tf "home.snapshot_date" (formatDate .Dashboard.Coverage.Date)}}</p>
-      </div>
-
-      <dl class="home-growth-metrics">
-        <div>
-          <dt>{{t "metric.stars_today"}}</dt>
-          <dd>{{formatSigned .Dashboard.NewStars1D}}</dd>
-        </div>
-        <div>
-          <dt>{{t "metric.stars_7d"}}</dt>
-          <dd>{{formatSigned .Dashboard.NewStars7D}}</dd>
-        </div>
-        <div>
-          <dt>{{t "metric.stars_30d"}}</dt>
-          <dd>{{formatSigned .Dashboard.NewStars30D}}</dd>
-        </div>
-      </dl>
-
-      <dl class="home-inventory-metrics">
-        <div>
-          <dt>{{t "metric.repositories"}}</dt>
-          <dd>{{formatInt .Dashboard.RepositoryTotal}}</dd>
-        </div>
-        <div>
-          <dt>{{t "metric.active"}}</dt>
-          <dd>{{formatInt .Dashboard.ActiveRepositoryTotal}}</dd>
-        </div>
-        <div>
-          <dt>{{t "metric.topics"}}</dt>
-          <dd>{{formatInt .Dashboard.TopicTotal}}</dd>
-        </div>
-      </dl>
-      <p class="home-growth-note muted">{{t "home.growth_note"}}</p>
-    </section>
-
-    <section class="growth-section home-growth-panel" aria-labelledby="daily-star-growth">
-      <div class="section-heading">
-        <div>
-          <h2 id="daily-star-growth">{{.GrowthChart.Title}}</h2>
-          <p>{{.GrowthChart.Description}}</p>
-        </div>
-      </div>
-      {{if .GrowthChart.HasComparable}}
-        <figure class="growth-figure">
-          <div class="growth-chart-scroll" role="region" aria-label="{{t "home.growth_chart_region"}}" tabindex="0">
-          <svg class="growth-chart" viewBox="0 0 900 240" role="img" aria-labelledby="growth-chart-title growth-chart-description">
-            <title id="growth-chart-title">{{.GrowthChart.Title}}</title>
-            <desc id="growth-chart-description">{{.GrowthChart.Description}}</desc>
-            <line class="growth-grid" x1="54" x2="880" y1="18" y2="18"></line>
-            <line class="growth-grid" x1="54" x2="880" y1="194" y2="194"></line>
-            <line class="growth-zero-axis" x1="54" x2="880" y1="{{.GrowthChart.AxisY}}" y2="{{.GrowthChart.AxisY}}"></line>
-            {{if .GrowthChart.TopLabel}}<text class="growth-axis-label" x="44" y="22" text-anchor="end">{{.GrowthChart.TopLabel}}</text>{{end}}
-            <text class="growth-axis-label" x="44" y="{{.GrowthChart.AxisY}}" dy="0.32em" text-anchor="end">{{.GrowthChart.ZeroLabel}}</text>
-            {{if .GrowthChart.BottomLabel}}<text class="growth-axis-label" x="44" y="198" text-anchor="end">{{.GrowthChart.BottomLabel}}</text>{{end}}
-            {{range .GrowthChart.Bars}}
-              {{if .Missing}}
-                <circle class="{{.Class}}" cx="{{.CenterX}}" cy="{{.Y}}" r="3"><title>{{.Tooltip}}</title></circle>
-              {{else}}
-                <rect class="{{.Class}}" x="{{.X}}" y="{{.Y}}" width="{{.Width}}" height="{{.Height}}" rx="1.5"><title>{{.Tooltip}}</title></rect>
-              {{end}}
-            {{end}}
-            {{range .GrowthChart.DateLabels}}<text class="growth-date-label" x="{{.X}}" y="224" text-anchor="{{.Anchor}}">{{.Text}}</text>{{end}}
-          </svg>
-          </div>
-          <figcaption>
-            <p class="chart-scroll-hint">{{t "home.growth_scroll_hint"}}</p>
-            <ul class="growth-legend" aria-label="{{t "home.growth_legend"}}">
-              <li><span class="legend-sample legend-positive" aria-hidden="true"></span>{{t "home.growth_positive"}}</li>
-              <li><span class="legend-sample legend-negative" aria-hidden="true"></span>{{t "home.growth_negative"}}</li>
-              <li><span class="legend-sample legend-missing" aria-hidden="true"></span>{{t "home.growth_missing"}}</li>
-            </ul>
-          </figcaption>
-        </figure>
-      {{else}}
-        <div class="empty-state">
-          <h3>{{t "home.no_growth_history"}}</h3>
-          <p>{{t "home.no_growth_history_help"}}</p>
-        </div>
+<div class="section-heading leaderboard-heading"><div><h2>{{t "ui.watch_movement"}}</h2><p>{{tf "ui.comparison_dates" (formatDate .Radar.BaselineDate) (formatDate .Radar.AsOf)}}</p></div><a class="text-link" href="/repositories">{{t "ui.all_projects"}} {{template "icon-arrow"}}</a></div>
+<div class="leaderboard-grid">
+  {{range $board := .Boards}}
+  <section class="surface leaderboard" aria-label="{{.Title}}">
+    <div class="surface-heading"><div><h3><span class="board-dot {{.Tone}}"></span>{{.Title}}</h3><p>{{.Description}}</p></div><a class="board-more" href="{{.URL}}" aria-label="{{.Title}}">{{template "icon-arrow"}}</a></div>
+    {{if .Rows}}<ol class="leaderboard-list">
+      {{range .Rows}}
+      <li><span class="leader-rank">{{.Rank}}</span><div class="leader-identity"><a href="/repositories/{{.ID}}" class="repo-name" translate="no">{{.FullName}}</a><p>{{if .PrimaryLanguage}}<span>{{.PrimaryLanguage}}</span> · {{end}}★ {{formatIntPtr .CurrentStars}}</p><svg class="leader-bar" viewBox="0 0 100 3" preserveAspectRatio="none" aria-hidden="true"><rect width="{{.BarWidth}}" height="3" rx="1.5"/></svg></div><div class="leader-value"><strong class="{{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}</strong>{{if $board.IsSlowdown}}<small class="metric-negative">{{formatSigned .PreviousDelta}} → {{formatSigned .StarDelta}}</small>{{else}}<small>{{formatPercent .GrowthRate}}</small>{{end}}</div></li>
       {{end}}
-      {{if .GrowthChart.HasPoints}}
-        <details class="chart-details">
-          <summary>{{t "home.growth_details"}}</summary>
-          <div class="table-scroll" role="region" aria-label="{{t "home.growth_details_region"}}" tabindex="0">
-            <table class="data-table growth-detail-table">
-              <thead><tr><th scope="col">{{t "repository.date"}}</th><th scope="col" class="numeric">{{t "home.daily_delta"}}</th><th scope="col" class="numeric">{{t "home.comparable_repositories"}}</th><th scope="col" class="numeric">{{t "home.gap_spanning_repositories"}}</th></tr></thead>
-              <tbody>
-                {{range .Dashboard.GrowthHistory}}
-                  <tr><td class="mono-value">{{formatDate .Date}}</td><td class="numeric metric-delta">{{formatSigned .Delta}}</td><td class="numeric">{{formatInt .ComparableRepositoryCount}}</td><td class="numeric">{{formatInt .GapSpanningRepositoryCount}}</td></tr>
-                {{end}}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      {{end}}
-    </section>
-  </div>
-
-  <div class="split-layout home-sections">
-    <section aria-labelledby="fastest-repositories">
-      <div class="section-heading">
-        <div>
-          <h2 id="fastest-repositories">{{t "home.fastest_repositories"}}</h2>
-          <p>{{t "home.fastest_repositories_help"}}</p>
-        </div>
-        <a class="text-link" href="/repositories">{{t "home.view_all_repositories"}}</a>
-      </div>
-      {{if .Dashboard.FastestRepositories}}
-        <ol class="rank-list">
-          {{range .Dashboard.FastestRepositories}}
-            <li>
-              <div class="rank-position" aria-hidden="true"></div>
-              <div class="rank-main">
-                <a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>
-                <p>{{if .PrimaryLanguage}}{{.PrimaryLanguage}}{{else}}{{t "home.language_unavailable"}}{{end}}{{with .Topics}} · <span translate="no">{{range $index, $topic := .}}{{if $index}}, {{end}}{{$topic.Name}}{{end}}</span>{{end}}</p>
-              </div>
-              <div class="rank-values">
-                <strong>{{formatSigned .Delta1D}}</strong>
-                <span>{{tf "home.total_stars" (formatIntPtr .CurrentStars)}}</span>
-              </div>
-            </li>
-          {{end}}
-        </ol>
-      {{else}}
-        <div class="empty-state">
-          <h3>{{t "home.no_growth"}}</h3>
-          <p>{{t "home.no_growth_help"}}</p>
-        </div>
-      {{end}}
-    </section>
-
-    <section aria-labelledby="recent-runs">
-      <div class="section-heading">
-        <div>
-          <h2 id="recent-runs">{{t "home.recent_runs"}}</h2>
-          <p>{{t "home.recent_runs_help"}}</p>
-        </div>
-        <a class="text-link" href="/runs">{{t "home.inspect_all_runs"}}</a>
-      </div>
-      {{if .Dashboard.RecentRuns}}
-        <ul class="run-summary-list">
-          {{range .Dashboard.RecentRuns}}
-            <li>
-              <span class="status-badge {{statusClass .Status}}"><span aria-hidden="true"></span>{{statusLabel .Status}}</span>
-              <div>
-                <strong>{{.JobType}}</strong>
-                <time datetime="{{.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{formatDateTime .StartedAt}}</time>
-              </div>
-              <p><strong>{{formatInt .SuccessCount}}</strong> / {{formatInt .TargetCount}}</p>
-            </li>
-          {{end}}
-        </ul>
-      {{else}}
-        <div class="empty-state">
-          <h3>{{t "home.no_runs"}}</h3>
-          <p>{{t "home.no_runs_help"}}</p>
-        </div>
-      {{end}}
-    </section>
-  </div>
+    </ol>{{else}}<div class="board-empty">{{template "icon-chart"}}<p>{{t "ui.no_board_data"}}</p></div>{{end}}
+  </section>
+  {{end}}
+</div>
+<details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}}</p><p>{{tf "ui.slowdown_window" (formatDate .Radar.PreviousDate) (formatDate .Radar.BaselineDate) (formatDate .Radar.AsOf)}}</p></details>
 {{end}}

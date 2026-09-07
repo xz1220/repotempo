@@ -13,57 +13,70 @@
 </head>
 <body>
   <a class="skip-link" href="#main-content">{{t "nav.skip"}}</a>
-  <header class="app-header">
-    <div class="header-inner">
-      <a class="brand" href="/" aria-label="{{tf "nav.brand_projects" .Meta.SiteName}}">
-        <span class="brand-mark" aria-hidden="true">GR</span>
-        <span>{{.Meta.SiteName}}</span>
-      </a>
-      <nav id="primary-navigation" class="primary-nav" aria-label="{{t "nav.primary"}}">
-        <a class="nav-link {{if eq .Meta.ActiveNav "repositories"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "repositories"}}aria-current="page"{{end}}>{{t "nav.repositories"}}</a>
-        <a class="nav-link {{if eq .Meta.ActiveNav "topics"}}is-active{{end}}" href="/topics" {{if eq .Meta.ActiveNav "topics"}}aria-current="page"{{end}}>{{t "nav.topics"}}</a>
+  <aside class="app-sidebar">
+    <a class="brand" href="/" aria-label="{{.Meta.SiteName}}">
+      <span class="brand-mark">{{template "icon-radar"}}</span>
+      <span>GitHub<span class="brand-light"> Radar</span><small>{{t "ui.brand_note"}}</small></span>
+    </a>
+    <span class="sidebar-label">{{t "ui.workspace"}}</span>
+    <nav class="primary-nav" aria-label="{{t "nav.primary"}}">
+      <a class="nav-link {{if eq .Meta.ActiveNav "dashboard"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "dashboard"}}aria-current="page"{{end}}>{{template "icon-chart"}}<span>{{t "nav.dashboard"}}</span></a>
+      <a class="nav-link {{if eq .Meta.ActiveNav "discoveries"}}is-active{{end}}" href="/discoveries" {{if eq .Meta.ActiveNav "discoveries"}}aria-current="page"{{end}}>{{template "icon-compass"}}<span>{{t "nav.discoveries"}}</span></a>
+      <a class="nav-link {{if eq .Meta.ActiveNav "repositories"}}is-active{{end}}" href="/repositories" {{if eq .Meta.ActiveNav "repositories"}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span></a>
+      <a class="nav-link {{if eq .Meta.ActiveNav "topics"}}is-active{{end}}" href="/topics" {{if eq .Meta.ActiveNav "topics"}}aria-current="page"{{end}}>{{template "icon-layers"}}<span>{{t "nav.topics"}}</span></a>
+    </nav>
+    <div class="sidebar-rule"></div>
+    <a class="nav-link focus-link" href="/repositories?focus=1">{{template "icon-bookmark"}}<span>{{t "ui.my_watchlist"}}</span></a>
+    <a class="button button-primary sidebar-add" href="/watch/new">{{template "icon-plus"}}{{t "ui.add_project"}}</a>
+    <div class="sidebar-bottom">
+      <a class="nav-link {{if eq .Meta.ActiveNav "runs"}}is-active{{end}}" href="/runs">{{template "icon-history"}}<span>{{t "nav.history"}}</span></a>
+      <p>{{t "ui.source_note"}}</p>
+      <a class="sidebar-source" href="https://github.com/xz1220/github-radar" target="_blank" rel="noopener noreferrer">GitHub Radar <span>↗</span></a>
+    </div>
+  </aside>
+  <div class="app-main">
+    <header class="app-header">
+      <div class="header-context"><span class="status-dot" aria-hidden="true"></span><span>{{t "ui.observation_workspace"}}</span><span class="header-slash">/</span><span>{{.Meta.Title}}</span></div>
+      <div class="header-right">
+      <a class="mobile-history" href="/runs" aria-label="{{t "nav.history"}}">{{template "icon-history"}}</a>
+      <nav class="language-switch" aria-label="{{t "language.label"}}">
+        <a href="{{.Meta.ChineseURL}}" lang="zh-CN" {{if eq .Meta.Locale "zh-CN"}}aria-current="true"{{end}}>中文</a>
+        <a href="{{.Meta.EnglishURL}}" lang="en" {{if eq .Meta.Locale "en"}}aria-current="true"{{end}}>EN</a>
       </nav>
-      <div class="header-utilities">
-        <a class="history-link {{if eq .Meta.ActiveNav "runs"}}is-active{{end}}" href="/runs" {{if eq .Meta.ActiveNav "runs"}}aria-current="page"{{end}}>{{t "nav.history"}}</a>
-        <nav class="language-switch" aria-label="{{t "language.label"}}">
-          <a href="{{.Meta.ChineseURL}}" lang="zh-CN" {{if eq .Meta.Locale "zh-CN"}}aria-current="true"{{end}}>{{t "language.chinese"}}</a>
-          <a href="{{.Meta.EnglishURL}}" lang="en" {{if eq .Meta.Locale "en"}}aria-current="true"{{end}}>{{t "language.english"}}</a>
-        </nav>
       </div>
-    </div>
-  </header>
-
-  <main id="main-content" class="page-shell">
-    <header class="page-heading">
-      <div class="page-heading-copy">
-        {{block "page-meta" .}}{{end}}
-        <h1 class="{{if eq .Meta.TitleKind "repository"}}entity-title-repository{{else if eq .Meta.TitleKind "topic"}}entity-title-topic{{end}}" {{if .Meta.TitleKind}}translate="no"{{end}}>{{.Meta.Title}}</h1>
-        <p>{{.Meta.Description}}</p>
-      </div>
-      <p class="as-of">{{tf "page.as_of" .Meta.AsOfLabel}}</p>
     </header>
-
-    {{range .Meta.Warnings}}
-      <div class="notice notice-warning" role="status">
-        <span class="notice-symbol" aria-hidden="true">!</span>
-        <p>{{.}}</p>
-      </div>
-    {{end}}
-
-    {{template "content" .}}
-  </main>
-
-  <footer class="app-footer">
-    <div>
-      <strong>{{.Meta.SiteName}}</strong>
-      <p>{{t "page.footer"}}</p>
-    </div>
-    <p class="footer-links"><a href="https://github.com/xz1220/github-radar" target="_blank" rel="noopener noreferrer">GitHub</a><span>MIT</span></p>
-  </footer>
+    <main id="main-content" class="page-shell">
+      <header class="page-heading">
+        <div class="page-heading-copy">
+          {{block "page-meta" .}}{{end}}
+          <h1 class="{{if eq .Meta.TitleKind "repository"}}entity-title-repository{{end}}" {{if .Meta.TitleKind}}translate="no"{{end}}>{{.Meta.Title}}</h1>
+          <p>{{.Meta.Description}}</p>
+        </div>
+        <div class="page-heading-tools">
+          {{if ne .Meta.ActiveNav "watch"}}<span class="as-of">{{tf "ui.data_date" .Meta.AsOfLabel}}</span>{{end}}
+          {{if ne .Meta.ActiveNav "watch"}}<a class="button button-primary heading-add" href="/watch/new">{{template "icon-plus"}}{{t "ui.add_project"}}</a>{{end}}
+        </div>
+      </header>
+      {{if .Meta.Stale}}<div class="notice notice-warning" role="status">{{template "icon-history"}}<p>{{tf "ui.stale_notice" .Meta.AsOfLabel}} <a href="/runs">{{t "ui.inspect_collection"}}</a></p></div>{{end}}
+      {{range .Meta.Warnings}}<div class="notice notice-warning" role="status"><p>{{.}}</p></div>{{end}}
+      {{template "content" .}}
+    </main>
+    <footer class="app-footer"><p>{{t "page.footer"}}</p><span>GitHub Radar · MIT</span></footer>
+  </div>
 </body>
 </html>
 {{end}}
 
+{{define "icon-radar"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M12 12 19 5M12 3v3M3 12h3M12 18v3M18 12h3" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>{{end}}
+{{define "icon-chart"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 2 5-7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-compass"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5L16 8Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-grid"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="4" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="4" y="14" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="14" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.7"/></svg>{{end}}
+{{define "icon-layers"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Zm0 4 9 5 9-5M3 16l9 5 9-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-bookmark"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4V4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-plus"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>{{end}}
+{{define "icon-history"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 10a9 9 0 1 1 1 7M3 4v6h6m3-3v6l4 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-arrow"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-search"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{{end}}
 {{define "chart"}}
   <section class="chart-panel" aria-labelledby="{{.ID}}">
     <div class="section-heading compact">

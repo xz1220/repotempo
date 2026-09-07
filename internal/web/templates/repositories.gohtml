@@ -1,161 +1,53 @@
 {{define "content"}}
-  <section class="monitor-controls" aria-labelledby="repository-filters">
-    <div class="monitor-view-row">
-      <div class="view-options" aria-label="{{t "repositories.period_label"}}">
-        <span>{{t "repositories.period_label"}}</span>
-        {{range .TrendPeriods}}<a class="view-option {{if .Active}}is-active{{end}}" href="{{.URL}}" {{if .Active}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}
-      </div>
-      <div class="view-options" aria-label="{{t "repositories.sort_label"}}">
-        <span>{{t "repositories.sort_label"}}</span>
-        {{range .TrendSorts}}<a class="view-option {{if .Active}}is-active{{end}}" href="{{.URL}}" {{if .Active}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}
-      </div>
-    </div>
-
-    <h2 id="repository-filters" class="sr-only">{{t "repositories.filters"}}</h2>
-    <form class="monitor-filter-bar" method="get" action="{{.Repositories.Path}}" role="search">
-      {{if eq .Repositories.Filter.WindowDays 1}}<input type="hidden" name="period" value="1d">{{else if eq .Repositories.Filter.WindowDays 30}}<input type="hidden" name="period" value="30d">{{else}}<input type="hidden" name="period" value="7d">{{end}}
-      <input type="hidden" name="sort" value="{{.Repositories.Filter.Sort}}">
-      <div class="field field-search">
-        <label for="repository-search">{{t "repositories.search"}}</label>
-        <input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="{{t "repositories.search_placeholder"}}" autocomplete="off" spellcheck="false">
-      </div>
-      <div class="field field-topic">
-        <label for="topic-filter">{{t "repositories.topic"}}</label>
-        <select id="topic-filter" name="topic">
-          <option value="">{{t "repositories.all_topics"}}</option>
-          <option value="__unclassified" {{if eq .Repositories.Filter.TopicSlug "__unclassified"}}selected{{end}}>{{t "repositories.unassigned"}}</option>
-          {{range .Repositories.Topics}}
-            <option value="{{.Slug}}" {{if eq $.Repositories.Filter.TopicSlug .Slug}}selected{{end}} translate="no">{{if .ParentName}}↳ {{.Name}}{{else}}{{.Name}}{{if .IsParent}} · {{t "repositories.includes_children"}}{{end}}{{end}}</option>
-          {{end}}
-        </select>
-      </div>
-      <div class="field field-date">
-        <label for="as-of-date">{{t "repositories.as_of_date"}}</label>
-        <input id="as-of-date" name="date" type="date" value="{{formatDate .Repositories.Filter.AsOf}}">
-      </div>
-      <label class="new-filter" for="new-filter">
-        <input id="new-filter" name="new" type="checkbox" value="1" {{if .Repositories.Filter.OnlyNew}}checked{{end}}>
-        <span>{{tf "repositories.new_filter" (formatInt .Repositories.Coverage.NewCount)}}</span>
-      </label>
-      <div class="filter-actions">
-        <button class="button button-primary" type="submit">{{t "repositories.apply_filters"}}</button>
-        {{if or .Repositories.Filter.Search .Repositories.Filter.TopicSlug .Repositories.Filter.Source .Repositories.Filter.MonitoringStatus .Repositories.Filter.OnlyNew}}
-          <a class="button button-secondary" href="{{.Repositories.Path}}">{{t "repositories.clear_filters"}}</a>
-        {{end}}
-      </div>
-      <details class="advanced-filters" {{if or .Repositories.Filter.Source .Repositories.Filter.MonitoringStatus}}open{{end}}>
-        <summary>{{t "repositories.advanced_filters"}}</summary>
-        <div class="advanced-filter-fields">
-          <div class="field">
-            <label for="source-filter">{{t "repositories.first_source"}}</label>
-            <select id="source-filter" name="source">
-              <option value="">{{t "repositories.all_sources"}}</option>
-              {{range .Repositories.Sources}}<option value="{{.}}" {{if eq $.Repositories.Filter.Source .}}selected{{end}}>{{sourceLabel .}}</option>{{end}}
-            </select>
-          </div>
-          <div class="field">
-            <label for="status-filter">{{t "repositories.monitoring"}}</label>
-            <select id="status-filter" name="status">
-              <option value="">{{t "repositories.all_statuses"}}</option>
-              {{range .Repositories.MonitoringStatuses}}<option value="{{.}}" {{if eq $.Repositories.Filter.MonitoringStatus .}}selected{{end}}>{{statusLabel .}}</option>{{end}}
-            </select>
-          </div>
-        </div>
-      </details>
-    </form>
-  </section>
-
-  <section class="page-primary-view" aria-labelledby="repository-results">
-    <div class="comparison-summary">
-      <div><strong>{{formatInt .Repositories.Coverage.ComparableCount}}</strong><span>{{t "repositories.comparable_count"}}</span></div>
-      <div><strong>{{formatInt .Repositories.Coverage.ObservedCount}}</strong><span>{{t "repositories.observed_count"}}</span></div>
-      <div><strong>{{formatInt .Repositories.Coverage.ScopeCount}}</strong><span>{{t "repositories.scope_count"}}</span></div>
-      <div><strong>{{formatInt .Repositories.Coverage.NewCount}}</strong><span>{{t "repositories.new_count"}}</span></div>
-      <p>{{tf "repositories.comparison_range" (formatDate .Repositories.Coverage.BaselineDate) (formatDate .Repositories.Coverage.AsOfDate)}}</p>
-    </div>
-
-    <div class="section-heading result-heading">
-      <div>
-        <h2 id="repository-results">{{tf "repositories.count" (formatInt .Repositories.Total)}}</h2>
-        <p>{{t "repositories.trend_methodology"}}</p>
-      </div>
-    </div>
-
-    {{if and (eq .Repositories.Coverage.ComparableCount 0) (not .Repositories.Filter.OnlyNew)}}
-      <div class="notice notice-warning" role="status"><span class="notice-symbol" aria-hidden="true">!</span><p>{{t "repositories.no_comparable_window"}}</p></div>
-    {{end}}
-
-    {{if .Repositories.Items}}
-      <div class="table-scroll repository-table-scroll" role="region" aria-label="{{t "repositories.metrics_region"}}" tabindex="0">
-        <table class="data-table repository-trend-table">
-          <thead><tr>
-            <th scope="col">{{t "repositories.repository"}}</th>
-            <th scope="col" class="numeric">{{t "metric.current_stars"}}</th>
-            <th scope="col" class="numeric">{{t "repositories.star_delta"}}</th>
-            <th scope="col" class="numeric">{{t "repositories.growth_rate"}}</th>
-            <th scope="col" class="numeric">{{t "repositories.daily_velocity"}}</th>
-            <th scope="col" class="numeric">{{t "repositories.sample_rank"}}</th>
-            <th scope="col">{{t "repositories.topic_tags"}}</th>
-          </tr></thead>
-          <tbody>
-            {{range $repository := .Repositories.Items}}
-              <tr class="repository-record">
-                <td class="repo-cell">
-                  <div class="repository-identity-line">
-                    <a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>
-                    {{if .IsNew}}<span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}
-                    {{with githubURL .HTMLURL}}<a class="external-link" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="{{tf "repositories.open_github_for" $repository.FullName}}">GitHub</a>{{end}}
-                  </div>
-                  {{if .Description}}<p class="repository-description">{{.Description}}</p>{{end}}
-                </td>
-                <td class="numeric metric-value">{{formatIntPtr .CurrentStars}}</td>
-                <td class="numeric {{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}</td>
-                <td class="numeric {{floatDeltaClass .GrowthRate}}">{{formatPercent .GrowthRate}}</td>
-                <td class="numeric {{floatDeltaClass .DailyVelocity}}">{{formatDecimalSigned .DailyVelocity}}</td>
-                <td class="numeric">
-                  {{if .CurrentRank}}
-                    <span class="rank-transition"><span>{{formatIntPtr .BaselineRank}}</span><span aria-hidden="true">→</span><strong>{{formatIntPtr .CurrentRank}}</strong></span>
-                    <small class="{{deltaClass .RankChange}}">{{tf "repositories.rank_change" (formatSigned .RankChange)}}</small>
-                  {{else}}<span class="muted">{{t "repositories.no_baseline"}}</span>{{end}}
-                </td>
-                <td><div class="tag-list">{{range .Topics}}<a class="tag" href="/?topic={{.Slug}}" translate="no">{{.Name}}</a>{{else}}<a class="tag tag-muted" href="/?topic=__unclassified">{{t "repositories.unassigned"}}</a>{{end}}</div></td>
-              </tr>
-            {{end}}
-          </tbody>
-        </table>
-      </div>
-
-      <ol class="repository-record-list" aria-label="{{t "repositories.metrics_region"}}">
-        {{range $repository := .Repositories.Items}}
-          <li>
-            <header class="repository-mobile-header">
-              <div>
-                <div class="repository-identity-line"><a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>{{if .IsNew}}<span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}</div>
-                {{if .Description}}<p class="repository-description">{{.Description}}</p>{{end}}
-              </div>
-              {{with githubURL .HTMLURL}}<a class="external-link" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="{{tf "repositories.open_github_for" $repository.FullName}}">GitHub</a>{{end}}
-            </header>
-            <dl class="repository-mobile-metrics">
-              <div><dt>{{t "metric.current_stars"}}</dt><dd class="metric-value">{{formatIntPtr .CurrentStars}}</dd></div>
-              <div><dt>{{t "repositories.star_delta"}}</dt><dd class="{{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}</dd></div>
-              <div><dt>{{t "repositories.daily_velocity"}}</dt><dd class="{{floatDeltaClass .DailyVelocity}}">{{formatDecimalSigned .DailyVelocity}}</dd></div>
-              <div><dt>{{t "repositories.sample_rank"}}</dt><dd>{{if .CurrentRank}}{{formatIntPtr .BaselineRank}} → {{formatIntPtr .CurrentRank}}{{else}}{{t "repositories.no_baseline"}}{{end}}</dd></div>
-              <div class="repository-mobile-wide"><dt>{{t "repositories.topic_tags"}}</dt><dd><div class="tag-list">{{range .Topics}}<a class="tag" href="/?topic={{.Slug}}" translate="no">{{.Name}}</a>{{else}}<a class="tag tag-muted" href="/?topic=__unclassified">{{t "repositories.unassigned"}}</a>{{end}}</div></dd></div>
-            </dl>
-          </li>
-        {{end}}
-      </ol>
-
-      <nav class="cursor-pagination" aria-label="{{t "pagination.label"}}">
-        <p>{{tf "repositories.page_summary" (formatInt (len .Repositories.Items)) (formatInt .Repositories.Total)}}</p>
-        {{if .Repositories.NextCursor}}<a class="button button-secondary" href="{{.Repositories.NextCursor}}" rel="next">{{t "repositories.load_more"}}</a>{{end}}
-      </nav>
-    {{else}}
-      <div class="empty-state">
-        <h3>{{t "repositories.no_match"}}</h3>
-        <p>{{t "repositories.no_match_help"}}</p>
-        <a class="button button-secondary" href="{{.Repositories.Path}}">{{t "repositories.clear_filters"}}</a>
-      </div>
-    {{end}}
-  </section>
+<div class="library-toolbar">
+  <nav class="library-views" aria-label="{{t "ui.all_library"}}">
+    <a href="/repositories" class="{{if not .Repositories.Filter.OnlyFocus}}is-active{{end}}">{{t "ui.all_library"}}</a>
+    <a href="/repositories?focus=1" class="{{if .Repositories.Filter.OnlyFocus}}is-active{{end}}">{{t "ui.my_watchlist"}}</a>
+  </nav>
+  <a class="text-link" href="/discoveries">{{t "ui.view_discoveries"}} {{template "icon-arrow"}}</a>
+</div>
+<nav class="category-tabs" aria-label="{{t "ui.category_filter"}}">{{range .Categories}}<a href="{{.URL}}" class="category-tab {{if .Active}}is-active{{end}}" {{if .Active}}aria-current="page"{{end}}>{{t .Label}}</a>{{end}}</nav>
+<section class="surface library-surface" aria-label="{{t "repositories.metrics_region"}}">
+  <form class="library-filters" method="get" action="/repositories" role="search">
+    <input type="hidden" name="lang" value="{{.Meta.Locale}}">
+    {{if .Repositories.Filter.OnlyFocus}}<input type="hidden" name="focus" value="1">{{end}}
+    {{if .Repositories.Filter.OnlyNew}}<input type="hidden" name="new" value="1">{{end}}
+    <div class="field field-search"><label for="repository-search">{{t "repositories.search"}}</label><input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="{{t "ui.search_hint"}}" autocomplete="off"></div>
+    <div class="field"><label for="topic-filter">{{t "repositories.topic"}}</label><select name="topic" id="topic-filter"><option value="">{{t "repositories.all_topics"}}</option><option value="__unclassified" {{if eq .Repositories.Filter.TopicSlug "__unclassified"}}selected{{end}}>{{t "category.__unclassified"}}</option>{{range .Repositories.Topics}}<option value="{{.Slug}}" {{if eq $.Repositories.Filter.TopicSlug .Slug}}selected{{end}}>{{if .ParentName}}↳ {{end}}{{topicName .Slug .Name}}</option>{{end}}</select></div>
+    <div class="field"><label for="sort-filter">{{t "repositories.sort_label"}}</label><select id="sort-filter" name="sort">
+      <option value="velocity" {{if eq .Repositories.Filter.Sort "velocity"}}selected{{end}}>{{t "ui.fastest"}}</option>
+      <option value="delta" {{if eq .Repositories.Filter.Sort "delta"}}selected{{end}}>{{t "ui.period_gain"}}</option>
+      <option value="growth_rate" {{if eq .Repositories.Filter.Sort "growth_rate"}}selected{{end}}>{{t "repositories.sort_growth_rate"}}</option>
+      <option value="low_growth" {{if eq .Repositories.Filter.Sort "low_growth"}}selected{{end}}>{{t "ui.slowest"}}</option>
+      <option value="slowdown" {{if eq .Repositories.Filter.Sort "slowdown"}}selected{{end}}>{{t "ui.slowdown"}}</option>
+      <option value="stars" {{if eq .Repositories.Filter.Sort "stars"}}selected{{end}}>{{t "repositories.sort_stars"}}</option>
+      <option value="rank_change" {{if eq .Repositories.Filter.Sort "rank_change"}}selected{{end}}>{{t "repositories.sort_rank_change"}}</option>
+      <option value="newest" {{if eq .Repositories.Filter.Sort "newest"}}selected{{end}}>{{t "repositories.sort_newest"}}</option>
+    </select></div>
+    <div class="field"><label for="period-filter">{{t "repositories.period_label"}}</label><select id="period-filter" name="period"><option value="1d" {{if eq .Repositories.Filter.WindowDays 1}}selected{{end}}>{{t "period.1d"}}</option><option value="7d" {{if eq .Repositories.Filter.WindowDays 7}}selected{{end}}>{{t "period.7d"}}</option><option value="30d" {{if eq .Repositories.Filter.WindowDays 30}}selected{{end}}>{{t "period.30d"}}</option></select></div>
+    <div class="field"><label for="as-of-date">{{t "repositories.as_of_date"}}</label><input id="as-of-date" name="date" type="date" value="{{formatDate .Repositories.Filter.AsOf}}"></div>
+    <div class="filter-actions"><button class="button button-primary" type="submit">{{t "ui.filter"}}</button></div>
+  </form>
+  <div class="library-count"><p>{{tf "ui.library_note" (formatInt .Repositories.Total) (formatInt .Repositories.Coverage.ComparableCount)}}</p><span>{{formatDate .Repositories.Coverage.BaselineDate}} → {{formatDate .Repositories.Coverage.AsOfDate}}</span></div>
+  {{if .Repositories.Items}}
+  <div class="table-scroll repository-table-scroll" tabindex="0" role="region" aria-label="{{t "repositories.metrics_region"}}">
+    <table class="data-table repository-trend-table"><thead><tr><th>{{t "repositories.repository"}}</th><th>{{t "repositories.topic_tags"}}</th><th class="numeric">{{t "metric.current_stars"}}</th><th class="numeric">{{t "ui.period_gain"}}</th><th class="numeric">{{t "repositories.growth_rate"}}</th><th class="numeric">{{t "repositories.sample_rank"}}</th><th>{{t "ui.discovered_on"}}</th></tr></thead>
+    <tbody>{{range .Repositories.Items}}<tr class="repository-record">
+      <td class="repo-cell"><div class="repository-identity-line"><a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>{{if .IsNew}}<span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}{{if .IsFocus}}<span class="new-badge">{{t "ui.my_watchlist"}}</span>{{end}}</div><p class="repository-description">{{if .Description}}{{.Description}}{{else}}{{t "ui.no_description"}}{{end}}</p></td>
+      <td><div class="tag-list">{{range .Topics}}<a class="tag" href="/repositories?topic={{.Slug}}">{{topicName .Slug .Name}}</a>{{else}}<span class="tag tag-muted">{{t "category.__unclassified"}}</span>{{end}}</div></td>
+      <td class="numeric metric-value">{{if .CurrentStars}}{{formatIntPtr .CurrentStars}}{{else}}{{formatIntPtr .LastObservedStars}}<small class="cell-secondary">{{t "ui.pending"}}</small>{{end}}</td>
+      <td class="numeric {{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}{{if eq $.Repositories.Filter.Sort "slowdown"}}<small class="cell-secondary">{{formatSigned .PreviousDelta}} → {{formatSigned .StarDelta}}</small>{{end}}</td>
+      <td class="numeric {{floatDeltaClass .GrowthRate}}">{{formatPercent .GrowthRate}}</td>
+      <td class="numeric">{{if .CurrentRank}}<span class="rank-transition">{{formatIntPtr .BaselineRank}} → <strong>{{formatIntPtr .CurrentRank}}</strong></span><small class="{{deltaClass .RankChange}}">{{tf "repositories.rank_change" (formatSigned .RankChange)}}</small>{{else}}<span class="muted">{{t "page.not_available"}}</span>{{end}}</td>
+      <td class="muted">{{formatDate .FirstSeenAt}}{{if .LastObservedAt}}{{if .IsStale}}<small class="cell-secondary">{{tf "ui.last_observed" (formatDatePtr .LastObservedAt)}}</small>{{end}}{{end}}</td>
+    </tr>{{end}}</tbody></table>
+  </div>
+  <ol class="repository-record-list" aria-label="{{t "repositories.metrics_region"}}">{{range .Repositories.Items}}<li>
+    <header class="repository-mobile-header"><div><a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>{{if .IsNew}} <span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}<p class="repository-description">{{if .Description}}{{.Description}}{{else}}{{t "ui.no_description"}}{{end}}</p></div></header>
+    <dl class="repository-mobile-metrics"><div><dt>{{t "metric.current_stars"}}</dt><dd>{{if .CurrentStars}}{{formatIntPtr .CurrentStars}}{{else}}{{formatIntPtr .LastObservedStars}} <small>{{t "ui.pending"}}</small>{{end}}</dd></div><div><dt>{{t "ui.period_gain"}}</dt><dd class="{{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}</dd></div><div><dt>{{t "repositories.growth_rate"}}</dt><dd>{{formatPercent .GrowthRate}}</dd></div><div><dt>{{t "repositories.sample_rank"}}</dt><dd>{{if .CurrentRank}}{{formatIntPtr .BaselineRank}} → {{formatIntPtr .CurrentRank}}{{else}}{{t "page.not_available"}}{{end}}</dd></div><div class="repository-mobile-wide"><dt>{{t "repositories.topic_tags"}}</dt><dd class="tag-list">{{range .Topics}}<a class="tag" href="/repositories?topic={{.Slug}}">{{topicName .Slug .Name}}</a>{{else}}<span class="tag">{{t "category.__unclassified"}}</span>{{end}}</dd></div></dl>
+  </li>{{end}}</ol>
+  {{else}}<div class="empty-state"><h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p><a class="button button-secondary" href="/repositories">{{t "repositories.clear_filters"}}</a></div>{{end}}
+</section>
+<nav class="cursor-pagination" aria-label="{{t "pagination.label"}}"><p>{{tf "repositories.page_summary" (formatInt (len .Repositories.Items)) (formatInt .Repositories.Total)}}</p><div>{{if .Repositories.Filter.AfterID}}<a class="button button-secondary" href="{{.Repositories.FirstPageURL}}">{{t "ui.first_page"}}</a>{{end}}{{if .Repositories.NextCursor}}<a class="button button-secondary" href="{{.Repositories.NextCursor}}" rel="next">{{t "pagination.next"}} {{template "icon-arrow"}}</a>{{end}}</div></nav>
+<details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}}</p></details>
 {{end}}
