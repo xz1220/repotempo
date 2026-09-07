@@ -12,6 +12,24 @@ import (
 	"github.com/xz1220/repotempo/internal/web"
 )
 
+func TestWebAdapterMapsTrendingEvidenceForDiscoveryAndDailyRuns(t *testing.T) {
+	for _, raw := range []string{
+		`{"trending":{"windows":[{"period":"daily","entries":[{"full_name":"owner/repo"}]},{"period":"weekly","error":"HTTP 403","entries":[]}]}}`,
+		`{"discovery":{"trending":{"windows":[{"period":"daily","entries":[{"full_name":"owner/repo"}]},{"period":"weekly","error":"HTTP 403","entries":[]}]}}}`,
+	} {
+		var run web.JobRun
+		applyJobDetails(&run, json.RawMessage(raw))
+		if len(run.TrendingWindows) != 2 || run.TrendingWindows[0].Count != 1 || run.TrendingWindows[1].Error != "HTTP 403" {
+			t.Fatalf("Trending evidence not mapped: %+v", run)
+		}
+	}
+	var skipped web.JobRun
+	applyJobDetails(&skipped, json.RawMessage(`{"trending":{"skipped":true,"skip_reason":"already captured and resolved today"}}`))
+	if !skipped.TrendingSkipped || skipped.TrendingSkipReason == "" {
+		t.Fatal("Trending skip status not mapped")
+	}
+}
+
 func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 8, 30, 4, 0, 0, 0, time.UTC)

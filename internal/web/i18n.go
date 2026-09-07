@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -81,6 +82,27 @@ func (l localizer) SourceLabel(value string) string {
 		return value
 	}
 	return translated
+}
+
+func (l localizer) TrendingPeriodLabel(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "daily":
+		return l.Text("runs.trending_daily")
+	case "weekly":
+		return l.Text("runs.trending_weekly")
+	case "monthly":
+		return l.Text("runs.trending_monthly")
+	default:
+		return l.Text("runs.trending_unknown_period")
+	}
+}
+
+var trendingURLPattern = regexp.MustCompile(`(?i)\b[a-z][a-z0-9+.-]*://[^\s<>"']+`)
+
+func (l localizer) TrendingMessage(value string) string {
+	// Keep upstream messages as plain text, without propagating their URLs or
+	// query strings into the page. html/template still performs HTML escaping.
+	return trendingURLPattern.ReplaceAllString(value, l.Text("runs.trending_url_omitted"))
 }
 
 func (l localizer) TopicName(slug, fallback string) string {
@@ -367,6 +389,14 @@ var messageCatalog = map[string]map[string]string{
 		"runs.search_api":                       "Search API",
 		"runs.core_api":                         "Core API",
 		"runs.search_integrity":                 "Search integrity",
+		"runs.trending_status":                  "GitHub Trending",
+		"runs.trending_daily":                   "Daily",
+		"runs.trending_weekly":                  "Weekly",
+		"runs.trending_monthly":                 "Monthly",
+		"runs.trending_unknown_period":          "Other period",
+		"runs.trending_entries":                 "%s entries",
+		"runs.trending_skipped":                 "Trending discovery skipped",
+		"runs.trending_url_omitted":             "[URL omitted]",
 		"runs.incomplete_results":               "Incomplete results recorded",
 		"runs.no_incomplete_flag":               "No incomplete result flag",
 		"runs.query_splits":                     "%s query splits",
@@ -664,6 +694,14 @@ var messageCatalog = map[string]map[string]string{
 		"runs.search_api":                       "Search API",
 		"runs.core_api":                         "Core API",
 		"runs.search_integrity":                 "搜索完整性",
+		"runs.trending_status":                  "GitHub Trending",
+		"runs.trending_daily":                   "日榜",
+		"runs.trending_weekly":                  "周榜",
+		"runs.trending_monthly":                 "月榜",
+		"runs.trending_unknown_period":          "其他周期",
+		"runs.trending_entries":                 "%s 条",
+		"runs.trending_skipped":                 "已跳过 Trending 发现",
+		"runs.trending_url_omitted":             "[链接已省略]",
 		"runs.incomplete_results":               "已记录不完整结果",
 		"runs.no_incomplete_flag":               "未记录不完整结果标记",
 		"runs.query_splits":                     "查询拆分 %s 次",

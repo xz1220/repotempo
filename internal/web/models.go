@@ -272,4 +272,13 @@ type JobRun struct {
 	CoreRateRemaining   *int
 	SearchIncomplete    bool
 	SearchSplitCount    int
+	TrendingWindows     []TrendingWindowStatus
+	TrendingSkipped     bool
+	TrendingSkipReason  string
+}
+
+type TrendingWindowStatus struct {
+	Period string
+	Count  int
+	Error  string
 }

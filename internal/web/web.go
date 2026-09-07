@@ -162,6 +162,8 @@ func (h *Handler) parseTemplates() error {
 			"deltaClass":      deltaClass,
 			"floatDeltaClass": floatDeltaClass,
 			"sourceLabel":     localized.SourceLabel,
+			"trendingPeriod":  localized.TrendingPeriodLabel,
+			"trendingMessage": localized.TrendingMessage,
 			"topicName":       localized.TopicName,
 			"t":               localized.Text,
 			"tf":              localized.Textf,

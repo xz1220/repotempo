@@ -565,6 +565,10 @@ func mapJobRuns(values []domain.JobRun) []web.JobRun {
 
 func applyJobDetails(target *web.JobRun, raw json.RawMessage) {
 	var details struct {
+		Trending  *TrendingDiscoveryReport `json:"trending"`
+		Discovery struct {
+			Trending *TrendingDiscoveryReport `json:"trending"`
+		} `json:"discovery"`
 		FailureRepositories []string `json:"failure_repositories"`
 		SearchRateRemaining *int     `json:"search_rate_remaining"`
 		CoreRateRemaining   *int     `json:"core_rate_remaining"`
@@ -582,6 +586,16 @@ func applyJobDetails(target *web.JobRun, raw json.RawMessage) {
 	}
 	if json.Unmarshal(raw, &details) != nil {
 		return
+	}
+	trending := details.Trending
+	if trending == nil {
+		trending = details.Discovery.Trending
+	}
+	if trending != nil {
+		target.TrendingSkipped, target.TrendingSkipReason = trending.Skipped, trending.SkipReason
+		for _, window := range trending.Windows {
+			target.TrendingWindows = append(target.TrendingWindows, web.TrendingWindowStatus{Period: window.Period, Count: len(window.Entries), Error: window.Error})
+		}
 	}
 	target.FailureRepositories = append([]string(nil), details.FailureRepositories...)
 	for _, failure := range details.Failures {
