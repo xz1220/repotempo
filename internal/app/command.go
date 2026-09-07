@@ -74,6 +74,7 @@ type OSSDiscoveryReport struct {
 }
 
 type DiscoverReport struct {
+	APIBlocked       bool                           `json:"api_blocked,omitempty"`
 	Source           string                         `json:"source"`
 	DryRun           bool                           `json:"dry_run"`
 	CandidateCount   int                            `json:"candidate_count"`

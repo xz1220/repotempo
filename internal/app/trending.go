@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -66,8 +65,10 @@ func (runtime *Runtime) discoverTrending(ctx context.Context, options DiscoverOp
 				}
 				part.FailureCount++
 				report.Failures = append(report.Failures, OperationFailure{Stage: "github-trending-resolve", Target: entry.FullName, Message: message})
-				var apiError *github.APIError
-				if ctx.Err() != nil || (errors.As(err, &apiError) && (apiError.StatusCode == 401 || apiError.StatusCode == 403 || apiError.StatusCode == 429)) {
+				if github.IsAccessBlocked(err) {
+					report.APIBlocked = true
+				}
+				if ctx.Err() != nil || report.APIBlocked {
 					return candidates
 				}
 				continue

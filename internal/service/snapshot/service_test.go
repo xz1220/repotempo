@@ -3,6 +3,7 @@ package snapshot
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -378,5 +379,76 @@ func TestRunContinuesAfterSnapshotLookupAndBaselineErrors(t *testing.T) {
 	}
 	if called || report.TargetCount != 2 || report.FailureCount != 2 || len(report.Failures) != 2 {
 		t.Fatalf("unexpected degraded report: %#v", report)
+	}
+}
+
+func TestRunStopsAfterGitHubAPIAccessFailureWithoutRequestingOtherRepositories(t *testing.T) {
+	for _, status := range []int{401, 403, 429} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			first := testRepository()
+			second := testRepository()
+			second.GitHubRepoID, second.FullName = 43, "owner/second"
+			store := newFakeSnapshotStore(first)
+			store.repositories = []domain.Repository{first, second}
+			calls := 0
+			upstream := &github.APIError{StatusCode: status, Code: github.CodeForbidden}
+			service := Service{Store: store, GitHub: fetcherFunc(func(_ context.Context, id int64, _ string) (github.RepositoryResult, error) {
+				calls++
+				if id != first.GitHubRepoID {
+					t.Errorf("requested another repository after access failed: %d", id)
+				}
+				return github.RepositoryResult{HTTPStatus: status}, fmt.Errorf("fetch repository: %w", upstream)
+			})}
+			report, err := service.Run(context.Background(), nil)
+			if !github.IsAccessBlocked(err) || !errors.Is(err, upstream) {
+				t.Fatalf("blocking API error was not returned: %v", err)
+			}
+			if calls != 1 || report.TargetCount != 2 || report.FailureCount != 1 || report.SuccessCount != 0 || report.SkippedCount != 0 || len(report.Failures) != 1 {
+				t.Fatalf("unexpected aborted report: calls=%d report=%#v", calls, report)
+			}
+			if len(store.writes) != 1 || store.writes[0].RepositoryID != first.GitHubRepoID || store.writes[0].FetchStatus != domain.FetchFailed || store.writes[0].StarCount != nil || store.writes[0].HTTPStatus == nil || *store.writes[0].HTTPStatus != status {
+				t.Fatalf("received failure was not preserved accurately: %#v", store.writes)
+			}
+			if _, exists := store.today[second.GitHubRepoID]; exists {
+				t.Fatal("a snapshot was fabricated for an unrequested repository")
+			}
+			if len(store.monitoring) != 0 || len(store.githubStatus) != 0 {
+				t.Fatal("global API access failure changed repository lifecycle state")
+			}
+		})
+	}
+}
+
+func TestRunContinuesAfterNotFoundAndOrdinaryRepositoryFailures(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		status int
+		err    error
+	}{
+		{"not found", 404, &github.APIError{StatusCode: 404, Code: github.CodeNotFoundOrPrivate}},
+		{"upstream", 503, &github.APIError{StatusCode: 503, Code: github.CodeUpstream}},
+		{"ordinary error", 0, errors.New("one repository failed")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			first, second := testRepository(), testRepository()
+			second.GitHubRepoID, second.FullName = 43, "owner/second"
+			store := newFakeSnapshotStore(first)
+			store.repositories = []domain.Repository{first, second}
+			calls, stars := 0, int64(100)
+			service := Service{Store: store, GitHub: fetcherFunc(func(_ context.Context, id int64, _ string) (github.RepositoryResult, error) {
+				calls++
+				if id == first.GitHubRepoID {
+					return github.RepositoryResult{HTTPStatus: test.status}, test.err
+				}
+				return github.RepositoryResult{HTTPStatus: 200, Repository: source.Repository{ID: second.GitHubRepoID, FullName: second.FullName, AbsoluteStars: &stars}}, nil
+			})}
+			report, err := service.Run(context.Background(), nil)
+			if err != nil || calls != 2 || report.FailureCount != 1 || report.SuccessCount != 1 {
+				t.Fatalf("ordinary failure aborted batch: calls=%d report=%#v error=%v", calls, report, err)
+			}
+			if store.today[first.GitHubRepoID].StarCount != nil || store.today[second.GitHubRepoID].StarCount == nil || *store.today[second.GitHubRepoID].StarCount != 100 {
+				t.Fatal("actual failure and later successful snapshot were not both preserved")
+			}
+		})
 	}
 }

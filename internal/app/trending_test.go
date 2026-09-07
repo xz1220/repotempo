@@ -230,6 +230,58 @@ func TestTrendingDiscoveryDeduplicatesWindowsAndSearchAndKeepsPageCountsAsEviden
 	}
 }
 
+func TestTrendingOnlyRepositoriesUseSemanticClassificationAndPreserveRenames(t *testing.T) {
+	fixture := newTrendingAppFixture(t, "enabled", false, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/trending":
+			writeTrendingTestPage(w, trendingTestRow("owner/old", "900", "9", r.URL.Query().Get("since")))
+		case "/repos/owner/old":
+			writeTrendingTestRepository(w, 201, "owner/renamed", 40)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	report, err := fixture.runtime.Discover(context.Background(), DiscoverOptions{Source: "github-trending"})
+	if err != nil || report.Partial() || report.CreatedCount != 1 {
+		t.Fatalf("discovery = %+v %v", report, err)
+	}
+	repository, err := fixture.runtime.store.GetRepositoryByFullName(context.Background(), "owner/renamed")
+	if err != nil || !strings.Contains(strings.Join(repository.PreviousNames, ","), "owner/old") {
+		t.Fatalf("rename history lost: %+v %v", repository, err)
+	}
+	topics, err := fixture.runtime.store.ListRepositoryTopics(context.Background(), 201)
+	if err != nil || len(topics) != 1 || topics[0].Slug != "coding-agents" {
+		t.Fatalf("Trending bypassed semantic classification: %+v %v", topics, err)
+	}
+}
+
+func TestTrendingAPIAccessBlockStopsSearchAndSnapshotWithoutFakeObservations(t *testing.T) {
+	fixture := newTrendingAppFixture(t, "enabled", true, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/trending":
+			writeTrendingTestPage(w, trendingTestRow("owner/blocked", "900", "9", r.URL.Query().Get("since")))
+		case "/repos/owner/blocked":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, `{"message":"Bad credentials"}`)
+		default:
+			t.Errorf("request continued after API rejection: %s", r.URL.Path)
+			http.NotFound(w, r)
+		}
+	})
+	fixture.seed(t, 999, "owner/tracked", domain.DiscoverySourceGitHubSearch)
+	report, err := fixture.runtime.RunDaily(context.Background(), false)
+	if err != nil || !report.Fatal || !report.Discovery.APIBlocked || report.Snapshot.TargetCount != 1 {
+		t.Fatalf("API rejection was not propagated: %+v %v", report, err)
+	}
+	if fixture.count("/repos/owner/blocked") != 1 || fixture.count("/search/repositories") != 0 || fixture.count("/repositories/999") != 0 {
+		t.Fatalf("requests continued after global rejection: %+v", fixture.calls)
+	}
+	if _, err := fixture.runtime.store.GetDailySnapshot(context.Background(), 999, domain.ShanghaiDate(fixture.now())); err != corestore.ErrNotFound {
+		t.Fatalf("unrequested snapshot was fabricated: %v", err)
+	}
+}
+
 func TestTrendingSourceFilterIncludesPreviouslySearchDiscoveredProjects(t *testing.T) {
 	fixture := newTrendingAppFixture(t, "enabled", false, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

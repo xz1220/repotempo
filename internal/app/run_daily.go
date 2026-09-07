@@ -64,7 +64,16 @@ func (runtime *Runtime) RunDaily(ctx context.Context, dryRun bool) (DailyReport,
 	}
 
 	_, githubClient, _, githubErr := runtime.dependencies()
-	if githubErr != nil {
+	if discoveryReport.APIBlocked {
+		report.Fatal = true
+		report.Failures = append(report.Failures, OperationFailure{Stage: "snapshot", Message: "GitHub API authentication or rate limit rejected requests; remaining API work deferred"})
+		report.Snapshot.Date = domain.ShanghaiDate(runtime.now())
+		var countErr error
+		report.Snapshot.TargetCount, countErr = runtime.activeRepositoryCount(ctx)
+		if countErr != nil {
+			report.Failures = append(report.Failures, OperationFailure{Stage: "snapshot-plan", Message: countErr.Error()})
+		}
+	} else if githubErr != nil {
 		report.Fatal = true
 		report.Failures = append(report.Failures, OperationFailure{Stage: "snapshot-configuration", Message: githubErr.Error()})
 	} else {

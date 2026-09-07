@@ -96,6 +96,11 @@ func (service Service) Run(ctx context.Context, evidence map[int64]OSSEvidence) 
 			service.updateFailureState(ctx, repository.GitHubRepoID, fetchErr)
 			report.FailureCount++
 			report.Failures = append(report.Failures, failure)
+			if github.IsAccessBlocked(fetchErr) {
+				// Record only the response we actually received. Repositories that
+				// have not been requested remain missing, not synthetic failures.
+				return report, fmt.Errorf("snapshot batch stopped after GitHub access failure for %s: %w", repository.FullName, fetchErr)
+			}
 			continue
 		}
 

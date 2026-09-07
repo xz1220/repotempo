@@ -121,7 +121,7 @@ func (runtime *Runtime) runDiscovery(ctx context.Context, options DiscoverOption
 		}
 	}
 
-	if options.Source == "github-search" || options.Source == "all" {
+	if !report.APIBlocked && (options.Source == "github-search" || options.Source == "all") {
 		profiles, selectErr := selectProfiles(discoveryConfig.Profiles, options.Profile)
 		if selectErr != nil {
 			return report, selectErr
@@ -155,6 +155,10 @@ func (runtime *Runtime) runDiscovery(ctx context.Context, options DiscoverOption
 			candidates = append(candidates, result.Candidates(now)...)
 			if searchErr != nil {
 				report.Failures = append(report.Failures, OperationFailure{Stage: "github-search", Target: profile.Name, Message: searchErr.Error()})
+				if github.IsAccessBlocked(searchErr) {
+					report.APIBlocked = true
+					break
+				}
 			}
 		}
 	}
@@ -179,7 +183,7 @@ func (runtime *Runtime) runDiscovery(ctx context.Context, options DiscoverOption
 		}
 	}
 
-	if options.Source == "all" && options.IncludeManual {
+	if !report.APIBlocked && options.Source == "all" && options.IncludeManual {
 		for _, path := range discoveryConfig.Manual.Files {
 			file, openErr := os.Open(path)
 			if openErr != nil {
@@ -347,7 +351,7 @@ func (runtime *Runtime) assignCandidateTopics(ctx context.Context, candidates []
 		}
 		// GitHub topic names are not our taxonomy: e.g. "skills" can mean
 		// interview assessments. Infer categories from explicit AI context.
-		if candidate.Source == "github_search" {
+		if candidate.Source == "github_search" || candidate.Source == "github_trending" {
 			changed, err := classification.Apply(ctx, runtime.store, domain.Repository{
 				GitHubRepoID: candidate.Repository.ID, FullName: candidate.Repository.FullName,
 				Description: candidate.Repository.Description,
@@ -463,6 +467,8 @@ func candidateDiscoverySource(value string) (domain.DiscoverySource, bool) {
 		return domain.DiscoverySourceOSSInsight, true
 	case "github_search", "github-search":
 		return domain.DiscoverySourceGitHubSearch, true
+	case "github_trending", "github-trending":
+		return domain.DiscoverySourceGitHubTrending, true
 	case "legacy":
 		return domain.DiscoverySourceLegacy, true
 	case "manual":
