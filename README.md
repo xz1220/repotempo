@@ -1,9 +1,9 @@
-# GitHub Radar
+# RepoTempo
 
-GitHub Radar is a self-hosted workspace for discovering interesting GitHub
+RepoTempo is an independent, self-hosted workspace for discovering trending GitHub
 projects and following what happens after discovery. It stores daily Star
 observations and makes the history readable through charts, project pages,
-categories, and a personal watchlist.
+categories, and a personal watchlist. It is not affiliated with GitHub.
 
 中文界面只有趋势看板和项目库两个主入口；项目库支持每日新入库筛选、分类、我的关注和手动添加关注。
 项目入库后持续观测，便于回看它从首次发现到后续增长的过程。
@@ -27,7 +27,12 @@ English are supported without a frontend build chain.
 
 ## Data sources
 
-GitHub Search is the default discovery source. Configurable queries cover
+GitHub Trending is the primary discovery source. Each daily run reads the
+public all-language daily, weekly, and monthly boards, then verifies repository
+identity through the GitHub API. Featured projects have no additional Star
+threshold and stay monitored after leaving the boards.
+
+GitHub Search supplements Trending. Configurable queries cover
 recently created projects with early interest, recently active projects, topic
 leaders, and mature benchmarks. The repository API supplies absolute Stars for
 every actively monitored repository.
@@ -35,6 +40,13 @@ every actively monitored repository.
 OSS Insight is disabled by default. Its adapter and historical import support
 remain available, but GitHub discovery and daily collection work independently
 of it. An omitted OSS Insight configuration is also treated as disabled.
+
+Board rank, capture time, displayed period gain, and displayed total Stars are
+kept in discovery job details, separately from API-derived daily snapshots.
+HTML parsing failures are recorded, never treated as empty successful boards;
+other sources and tracked-project snapshots continue. Trending does not provide
+a documented public API, so the adapter reads public HTML at a low frequency
+and respects access and rate-limit responses.
 
 A repository's first entry into this system is different from its GitHub
 creation time. Search ordering by Stars or recent pushes does not measure Star
@@ -68,8 +80,8 @@ See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
 - Linux for the supplied Cron and systemd deployment files.
 
 ```sh
-git clone https://github.com/xz1220/github-radar.git
-cd github-radar
+git clone https://github.com/xz1220/repotempo.git
+cd repotempo
 make ci
 make build
 ```
@@ -84,6 +96,11 @@ editing the embedded templates or styles. A local preview does not start a
 scheduled collector; use the deployment schedule for daily observations.
 
 ## Configure a local instance
+
+The former name was GitHub Radar. Existing `GITHUB_RADAR_*` environment keys,
+`github-radar` commands, and data paths remain supported; renaming the product
+does not move or replace an existing database. New builds also provide
+`bin/repotempo` and `bin/repotempo-linux-amd64`.
 
 ```sh
 cp config/discovery.example.yaml discovery.yaml
@@ -341,7 +358,7 @@ deployed or has passed a new release gate.
 
 ## Scope and license
 
-GitHub Radar stores public repository metadata and attention observations.
+RepoTempo stores public repository metadata and attention observations.
 It does not clone repositories, collect user profiles, or infer causality.
 Commit/release activity correlation remains a later research module.
 

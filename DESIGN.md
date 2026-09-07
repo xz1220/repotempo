@@ -1,4 +1,4 @@
-# GitHub Radar design system
+# RepoTempo design system
 
 The product uses a visual trend dashboard and a persistent project library.
 Daily discoveries and My watchlist are library views. Primary navigation has

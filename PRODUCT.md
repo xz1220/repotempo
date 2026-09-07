@@ -1,6 +1,6 @@
-# GitHub Radar
+# RepoTempo
 
-GitHub Radar helps a researcher discover interesting GitHub projects and keep
+RepoTempo helps a researcher discover trending GitHub projects and keep
 following them after the first report. It combines a daily project archive,
 continuous Star observations, and a visual trend dashboard.
 
@@ -57,7 +57,12 @@ the same two-item primary navigation.
 
 ## Data collection
 
-GitHub Search is the default discovery source. Queries cover recently created
+GitHub Trending is the primary discovery source. Capture the all-language daily,
+weekly and monthly boards once per daily run; preserve page evidence separately
+from API Star snapshots. Verify repository IDs through GitHub and keep following
+projects after they leave the boards. RepoTempo is independent of GitHub.
+
+GitHub Search supplies supplementary coverage. Queries cover recently created
 projects with early interest, active projects, topic leaders, and mature
 benchmarks. The GitHub repository API supplies absolute Star snapshots.
 

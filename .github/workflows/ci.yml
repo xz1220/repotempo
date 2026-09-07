@@ -30,7 +30,7 @@ jobs:
         run: go test -race ./...
       - name: Build linux amd64
         if: matrix.go == '1.27.x'
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o github-radar ./cmd/github-radar
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o repotempo ./cmd/repotempo
 
   vulnerability-scan:
     runs-on: ubuntu-latest

@@ -1,4 +1,4 @@
-# GitHub Radar information architecture
+# RepoTempo information architecture
 
 Primary navigation has two reading modes: Trends and Project library. Daily
 discoveries use the library's date, ordering, and new-only controls. My watchlist
@@ -7,7 +7,7 @@ is a library tab, and categories are contextual filters.
 ## Site map
 
 ```text
-GitHub Radar
+RepoTempo
 ├── Trends /
 ├── Project library /repositories
 │   ├── New on selected date /repositories?new=1&date=YYYY-MM-DD

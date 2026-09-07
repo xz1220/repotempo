@@ -1,8 +1,20 @@
 # GitHub 数据发现与分类
 
-默认只使用 GitHub 官方 API。OSS Insight 适配器保留用于兼容历史数据，默认关闭；省略整个 `ossinsight` 配置也不会初始化或请求该服务。
+RepoTempo 以 GitHub Trending 官网榜单作为主要发现渠道，GitHub Search API 补充覆盖。OSS Insight 适配器保留用于兼容历史数据，默认关闭；省略整个 `ossinsight` 配置也不会初始化或请求该服务。
 
-`run-daily` 先执行到期的 GitHub Search 查询，再对所有持续监测的项目采集绝对 Star 快照，并导出备份。发现阶段不完整或失败时，已有项目的快照采集仍然继续。`discover --source all` 也可以独立运行；配置关闭的数据源不会使任务失败。
+每日任务读取 Trending 的全语言日、周、月榜，并执行到期的搜索补充。所有持续监测项目都有独立的每日 Star 快照；榜单或搜索失败不阻断已有项目采集。
+
+## Trending 保留上榜证据，不代替 Star 快照
+
+榜单记录保存在发现任务的 `details_json.trending.windows`，包括采集时间、页面地址、周期、原始名次和页面显示的 Star 数。`resolved_repository_ids` 保存名字对应的 GitHub 永久 ID。
+
+榜单内同名项目只核验一次，多个渠道按永久 ID 去重。已在库项目保留首次来源，并追加后续发现渠道。网页来源筛选匹配任一历史渠道，不仅限首次来源；它不是“当前仍在榜上”的筛选。
+
+上榜项目没有额外 Star 门槛，离榜后仍持续采集。日常任务同日已成功抓取并完成身份核验时跳过重复读取；直接执行 `discover --source github-trending` 可明确触发一次新读取。
+
+官网没有找到公开的 Trending API，本模块低频读取公开 HTML，不携带账号 cookie 或 GitHub token。空页面、挑战页、解析不完整、403 和 429 都保留失败状态，不记成零个项目。认证与限流错误不会触发身份轮换。
+
+页面总 Star、榜单窗口增量与我们每天通过仓库 API 采集的绝对 Star 分别保存。页面值不能补造历史快照，也不替代我们自己计算的日、周、月净变化。
 
 ## 新项目与长期热门项目
 
