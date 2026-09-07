@@ -16,6 +16,9 @@ import (
 )
 
 type fakeQueryer struct {
+	radar               RadarOverview
+	radarErr            error
+	lastRadarQuery      RepositoryQuery
 	dashboard           DashboardSummary
 	dashboardErr        error
 	repositories        RepositoryPage
@@ -33,10 +36,16 @@ type fakeQueryer struct {
 	readyErr            error
 	lastRepositoryQuery RepositoryQuery
 	lastRepositoryID    int64
+	lastRepositoryAsOf  time.Time
 	lastTopicSlug       string
 	lastExcludeLeader   bool
 	lastRunLimit        int
 	lastRunOffset       int
+}
+
+func (f *fakeQueryer) RadarOverview(_ context.Context, query RepositoryQuery) (RadarOverview, error) {
+	f.lastRadarQuery = query
+	return f.radar, f.radarErr
 }
 
 func (f *fakeQueryer) DashboardSummary(context.Context, time.Time) (DashboardSummary, error) {
@@ -53,8 +62,9 @@ func (f *fakeQueryer) ListRepositoryTrends(_ context.Context, query RepositoryQu
 	return f.repositories, f.repositoriesErr
 }
 
-func (f *fakeQueryer) GetRepositoryDetail(_ context.Context, id int64, _ time.Time) (RepositoryDetail, error) {
+func (f *fakeQueryer) GetRepositoryDetail(_ context.Context, id int64, asOf time.Time) (RepositoryDetail, error) {
 	f.lastRepositoryID = id
+	f.lastRepositoryAsOf = asOf
 	return f.repository, f.repositoryErr
 }
 
@@ -91,14 +101,15 @@ func TestMainRoutesRender(t *testing.T) {
 		wantStatus  int
 		wantContent string
 	}{
-		{path: "/", wantStatus: http.StatusOK, wantContent: "Project monitoring"},
-		{path: "/repositories", wantStatus: http.StatusOK, wantContent: "Project monitoring"},
+		{path: "/", wantStatus: http.StatusOK, wantContent: "Follow what happens next."},
+		{path: "/repositories", wantStatus: http.StatusOK, wantContent: "Project library"},
+		{path: "/discoveries", wantStatus: http.StatusOK, wantContent: "A new day. New discoveries."},
 		{path: "/repositories/101", wantStatus: http.StatusOK, wantContent: "Valid history starts"},
-		{path: "/topics", wantStatus: http.StatusOK, wantContent: "AI Agent"},
+		{path: "/topics", wantStatus: http.StatusOK, wantContent: "General agents"},
 		{path: "/topics/ai-agent", wantStatus: http.StatusOK, wantContent: "Top repository share"},
 		{path: "/runs", wantStatus: http.StatusOK, wantContent: "Recent job runs"},
 		{path: "/static/tokens.css", wantStatus: http.StatusOK, wantContent: "--color-accent:"},
-		{path: "/static/app.css", wantStatus: http.StatusOK, wantContent: "macrostructure: Catalogue"},
+		{path: "/static/app.css", wantStatus: http.StatusOK, wantContent: ".app-sidebar"},
 		{path: "/static/app.js", wantStatus: http.StatusOK, wantContent: "document.documentElement"},
 		{path: "/healthz", wantStatus: http.StatusOK, wantContent: "ok"},
 		{path: "/readyz", wantStatus: http.StatusOK, wantContent: "ready"},
@@ -146,8 +157,9 @@ func TestChineseLocaleRendersAllProductRoutes(t *testing.T) {
 		path string
 		want string
 	}{
-		{path: "/", want: "项目监测"},
-		{path: "/repositories", want: "项目监测"},
+		{path: "/", want: "开源项目，持续关注"},
+		{path: "/repositories", want: "项目库"},
+		{path: "/discoveries", want: "每天，都有新发现"},
 		{path: "/repositories/101", want: "有效历史起始日"},
 		{path: "/topics", want: "主题指标"},
 		{path: "/topics/ai-agent", want: "头部项目占比"},
@@ -172,10 +184,14 @@ func TestChineseLocaleRendersAllProductRoutes(t *testing.T) {
 	}
 
 	home := request(t, handler, "/").Body.String()
-	for _, want := range []string{"当前快照覆盖率暂不可用。", "严格对比区间：2026-08-23 至 2026-08-30", "截至 2026-08-30"} {
+	for _, want := range []string{"涨得最快", "增长平缓", "势头回落", "数据日期 2026-08-30"} {
 		if !strings.Contains(home, want) {
 			t.Errorf("Chinese project monitor does not contain %q", want)
 		}
+	}
+	library := request(t, handler, "/repositories").Body.String()
+	if !strings.Contains(library, "当前快照覆盖率暂不可用。") {
+		t.Error("Chinese library warning is missing")
 	}
 }
 
@@ -216,40 +232,43 @@ func TestLanguageQueryPersistsCookieAndPreservesLocation(t *testing.T) {
 	}
 }
 
-func TestCatalogueShellAndDetailOrientationRender(t *testing.T) {
+func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 	handler := newTestHandler(t, populatedFake())
 	home := request(t, handler, "/").Body.String()
 	for _, want := range []string{
 		`href="/static/tokens.css"`,
-		`class="header-inner"`,
+		`class="app-sidebar"`,
 		`class="primary-nav"`,
 		`>Projects<`,
-		`>Topics<`,
-		`class="history-link `,
+		`>Trends<`,
+		`>Discover<`,
+		`>Categories<`,
 		`>History<`,
-		`class="monitor-controls"`,
-		`class="comparison-summary"`,
-		`class="data-table repository-trend-table"`,
+		`href="/watch/new"`,
+		`href="/repositories?focus=1"`,
+		`href="/runs"`,
 	} {
 		if !strings.Contains(home, want) {
 			t.Errorf("home does not contain %q: %s", want, home)
 		}
 	}
-	if count := strings.Count(home, `class="nav-link `); count != 2 {
-		t.Errorf("primary navigation link count = %d, want 2", count)
+	navParts := strings.SplitN(home, `<nav class="primary-nav"`, 2)
+	if len(navParts) != 2 {
+		t.Fatal("primary navigation is missing")
 	}
-	for _, unwanted := range []string{`href="/discoveries"`, `>New discoveries<`, `>Collection status<`} {
-		if strings.Contains(home, unwanted) {
-			t.Errorf("home still contains obsolete top-level navigation %q", unwanted)
-		}
+	navigation := strings.SplitN(navParts[1], "</nav>", 2)[0]
+	if count := strings.Count(navigation, `class="nav-link `); count != 4 {
+		t.Errorf("primary navigation link count = %d, want 4", count)
+	}
+	if strings.Contains(navigation, `href="/runs"`) {
+		t.Error("collection history should remain a utility, outside primary navigation")
 	}
 
 	projects := request(t, handler, "/repositories").Body.String()
 	for _, want := range []string{
 		`class="repository-record"`,
-		`class="table-scroll repository-table-scroll"`,
 		`class="repository-record-list"`,
-		`class="repository-mobile-metrics"`,
+		`href="/repositories/101"`,
 		`action="/repositories"`,
 	} {
 		if !strings.Contains(projects, want) {
@@ -260,7 +279,7 @@ func TestCatalogueShellAndDetailOrientationRender(t *testing.T) {
 	repository := request(t, handler, "/repositories/101").Body.String()
 	if !strings.Contains(repository, `class="breadcrumb"`) ||
 		!strings.Contains(repository, `aria-label="Breadcrumb"`) ||
-		!strings.Contains(repository, `href="/"`) ||
+		!strings.Contains(repository, `href="/repositories"`) ||
 		!strings.Contains(repository, `class="entity-title-repository" translate="no"`) {
 		t.Fatalf("repository breadcrumb is missing: %s", repository)
 	}
@@ -268,7 +287,7 @@ func TestCatalogueShellAndDetailOrientationRender(t *testing.T) {
 	topic := request(t, handler, "/topics/ai-agent").Body.String()
 	if !strings.Contains(topic, `class="breadcrumb"`) ||
 		!strings.Contains(topic, `href="/topics"`) ||
-		!strings.Contains(topic, `class="entity-title-topic" translate="no"`) {
+		!strings.Contains(topic, `translate="no">General agents</h1>`) {
 		t.Fatalf("topic breadcrumb is missing: %s", topic)
 	}
 }
@@ -276,7 +295,7 @@ func TestCatalogueShellAndDetailOrientationRender(t *testing.T) {
 func TestUnsupportedLocaleFallsBackToEnglish(t *testing.T) {
 	handler := newTestHandlerWithLocale(t, populatedFake(), "fr-FR")
 	response := request(t, handler, "/?lang=fr-FR")
-	if !strings.Contains(response.Body.String(), `<html lang="en">`) || !strings.Contains(response.Body.String(), "Project monitoring") {
+	if !strings.Contains(response.Body.String(), `<html lang="en">`) || !strings.Contains(response.Body.String(), "Follow what happens next.") {
 		t.Fatalf("unsupported locale did not fall back to English: %s", response.Body.String())
 	}
 	if values := response.Header().Values("Set-Cookie"); len(values) != 0 {
@@ -311,7 +330,8 @@ func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 		path string
 		want string
 	}{
-		{path: "/", want: "No repositories match"},
+		{path: "/", want: "Waiting for comparable history"},
+		{path: "/discoveries", want: "No discoveries on this date"},
 		{path: "/repositories", want: "No repositories match"},
 		{path: "/topics", want: "No topics configured"},
 		{path: "/runs", want: "No job runs recorded"},
@@ -336,13 +356,13 @@ func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
 	queryer.repositories.NextCursor = "2t"
 	queryer.repositories.Items[0].IsNew = true
 	handler := newTestHandler(t, queryer)
-	response := request(t, handler, "/?q=acme+radar&topic=ai-agent&date=2026-08-29&period=30d&sort=rank_change&new=1&source=manual&status=active&cursor=2s&lang=en")
+	response := request(t, handler, "/repositories?q=acme+radar&topic=ai-agent&date=2026-08-29&period=30d&sort=rank_change&new=1&focus=1&source=manual&status=active&cursor=2s&lang=en")
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", response.Code)
 	}
 	got := queryer.lastRepositoryQuery
-	if got.Search != "acme radar" || got.TopicSlug != "ai-agent" || got.Source != "manual" || got.MonitoringStatus != "active" || got.Sort != "rank_change" || !got.OnlyNew {
+	if got.Search != "acme radar" || got.TopicSlug != "ai-agent" || got.Source != "manual" || got.MonitoringStatus != "active" || got.Sort != "rank_change" || !got.OnlyNew || !got.OnlyFocus {
 		t.Fatalf("unexpected filter: %#v", got)
 	}
 	if got.WindowDays != 30 || got.AsOf.Format("2006-01-02") != "2026-08-29" {
@@ -353,19 +373,17 @@ func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
 	}
 	body := html.UnescapeString(response.Body.String())
 	for _, value := range []string{
-		`href="/?cursor=2t&date=2026-08-29&lang=en&new=1&period=30d&q=acme+radar&sort=rank_change&source=manual&status=active&topic=ai-agent"`,
-		`name="period" value="30d"`,
-		`name="sort" value="rank_change"`,
-		`name="new" type="checkbox" value="1" checked`,
-		`value="manual" selected`,
-		`value="active" selected`,
-		`Strict comparison: 2026-08-23 to 2026-08-30`,
-		`1,150</strong><span>comparable projects`,
+		`href="/repositories?cursor=2t&date=2026-08-30&focus=1&lang=en&new=1&period=30d&q=acme+radar&sort=rank_change&source=manual&status=active&topic=ai-agent"`,
+		`value="30d" selected`,
+		`value="rank_change" selected`,
+		`name="focus" value="1"`,
+		`name="new" value="1"`,
+		`120 projects · 1,150 comparable this period`,
 		`class="new-badge">New`,
 		`class="rank-transition"`,
 		`7 → 4`,
 		`+3 places`,
-		`+61.4`,
+		`+430`,
 	} {
 		if !strings.Contains(body, value) {
 			t.Errorf("body does not contain %q", value)
@@ -373,27 +391,27 @@ func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
 	}
 }
 
-func TestDiscoveriesRedirectsToNewProjectFilter(t *testing.T) {
-	response := request(t, newTestHandler(t, populatedFake()), "/discoveries?lang=zh-CN&period=30d&q=radar&cursor=abc")
-	if response.Code != http.StatusFound {
-		t.Fatalf("status = %d, want 302", response.Code)
+func TestDiscoveriesIsAnIndependentPageWithNewProjectFilter(t *testing.T) {
+	queryer := populatedFake()
+	response := request(t, newTestHandler(t, queryer), "/discoveries?lang=zh-CN&period=30d&q=radar&date=2026-08-30&cursor=abc")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", response.Code)
 	}
-	location, err := url.Parse(response.Header().Get("Location"))
-	if err != nil {
-		t.Fatalf("parse redirect location: %v", err)
+	got := queryer.lastRepositoryQuery
+	if !got.OnlyNew || got.Sort != "newest" || got.Search != "radar" || got.WindowDays != 30 || got.AfterID == nil || got.AsOf.Format("2006-01-02") != "2026-08-30" {
+		t.Fatalf("discovery query = %#v", got)
 	}
-	if location.Path != "/" || location.Query().Get("new") != "1" || location.Query().Get("period") != "30d" || location.Query().Get("q") != "radar" || location.Query().Get("lang") != localeChinese {
-		t.Fatalf("redirect location = %q", location.String())
-	}
-	if location.Query().Has("cursor") {
-		t.Fatalf("redirect retained stale cursor: %q", location.String())
+	for _, want := range []string{"每天，都有新发现", `class="discovery-grid"`, `href="/repositories/101"`, "新入库不等于刚创建"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("discovery page missing %q", want)
+		}
 	}
 }
 
 func TestStaleRepositoryCursorRedirectsToFirstPage(t *testing.T) {
 	queryer := populatedFake()
 	queryer.repositoriesErr = ErrInvalid
-	response := request(t, newTestHandler(t, queryer), "/?topic=skills&period=7d&cursor=stale&lang=zh-CN")
+	response := request(t, newTestHandler(t, queryer), "/repositories?topic=skills&period=7d&cursor=stale&lang=zh-CN")
 	if response.Code != http.StatusFound {
 		t.Fatalf("status = %d, want 302", response.Code)
 	}
@@ -480,7 +498,7 @@ func TestWarningsAndFailedObservationsStayVisible(t *testing.T) {
 	queryer.repository.FailedDates = []SnapshotPoint{queryer.repository.History[1]}
 	handler := newTestHandler(t, queryer)
 
-	response := request(t, handler, "/")
+	response := request(t, handler, "/repositories")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Search profile &lt;partial&gt; was incomplete") {
 		t.Fatalf("partial warning not rendered safely: %s", response.Body.String())
 	}
@@ -526,7 +544,7 @@ func TestRepositoryDetailRendersStoredProjectAnalysis(t *testing.T) {
 	}
 	body := request(t, newTestHandler(t, queryer), "/repositories/101").Body.String()
 	for _, want := range []string{
-		"Project interpretation",
+		"About this project",
 		"这个项目持续追踪 GitHub 项目的 Star 变化。",
 		"记录每日 Star 快照",
 		"观察开源项目的增长势头",
@@ -543,23 +561,23 @@ func TestRepositoryDetailRendersStoredProjectAnalysis(t *testing.T) {
 	}
 }
 
-func TestRepositoryDetailAnalysisFallbackPrefersManualNoteThenDescription(t *testing.T) {
+func TestRepositoryDetailFallbackExplainsProjectAndPreservesManualReason(t *testing.T) {
 	queryer := populatedFake()
 	queryer.repository.Analysis = nil
 	queryer.repository.Repository.ManualNote = "这是一条已经保存的人工项目说明。"
 	body := request(t, newTestHandler(t, queryer), "/repositories/101").Body.String()
-	for _, want := range []string{"Codex interpretation has not been generated yet", "这是一条已经保存的人工项目说明。"} {
+	for _, want := range []string{"About this project", "Repository description", "A repository trend monitor.", "Why follow: 这是一条已经保存的人工项目说明。", `href="https://github.com/acme/radar#readme"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("manual-note fallback does not contain %q: %s", want, body)
 		}
 	}
-	if strings.Contains(body, "GitHub description: A repository trend monitor.") {
-		t.Fatal("description fallback displaced a manual note")
+	if strings.Contains(body, "Codex interpretation has not been generated yet") {
+		t.Fatal("a missing optional interpretation should not obscure the project description")
 	}
 
 	queryer.repository.Repository.ManualNote = ""
 	body = request(t, newTestHandler(t, queryer), "/repositories/101").Body.String()
-	if !strings.Contains(body, "GitHub description: A repository trend monitor.") {
+	if !strings.Contains(body, "A repository trend monitor.") || strings.Contains(body, `class="watch-note"`) {
 		t.Fatalf("GitHub description fallback is missing: %s", body)
 	}
 }
@@ -651,9 +669,11 @@ func TestTopicRankingUsesLeafTopicsPeriodAndEightItemLimit(t *testing.T) {
 	queryer := populatedFake()
 	body := request(t, newTestHandler(t, queryer), "/topics?period=30d&lang=zh-CN").Body.String()
 	for _, want := range []string{
-		`href="/topics?lang=zh-CN&amp;period=1d"`,
-		`aria-current="page">近 30 天`,
-		"可比较主题增长排行",
+		`class="category-catalog"`,
+		`href="/repositories?topic=ai-agent"`,
+		"通用 Agent",
+		"查看分类的增长数据",
+		"80/120 可比",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("body does not contain %q: %s", want, body)
@@ -714,6 +734,7 @@ func TestDiscoveryMixUsesStableSourceColorsAndKeepsZeroCounts(t *testing.T) {
 func TestFatalQueryErrorIsGeneric(t *testing.T) {
 	queryer := populatedFake()
 	queryer.repositoriesErr = errors.New("database failed with secret-token-value")
+	queryer.radarErr = queryer.repositoriesErr
 	handler := newTestHandler(t, queryer)
 	response := request(t, handler, "/")
 	if response.Code != http.StatusInternalServerError {
@@ -820,6 +841,7 @@ func populatedFake() *fakeQueryer {
 	}
 	coverageData := SnapshotCoverage{Date: lastSnapshot, Target: 1_200, Successful: 1_190, Failed: 10, Percent: &coverage}
 	return &fakeQueryer{
+		radar: populatedRadar(repository),
 		dashboard: DashboardSummary{
 			RepositoryTotal:       1_250,
 			ActiveRepositoryTotal: 1_200,
