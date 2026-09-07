@@ -1,6 +1,9 @@
 package source
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Repository is the source-layer representation of a GitHub repository. Stars
 // is deliberately named AbsoluteStars so it cannot be confused with an OSS
@@ -88,6 +91,13 @@ func MergeCandidates(groups ...[]Candidate) []Candidate {
 			}
 			if candidate.Source != "" {
 				sources[id][candidate.Source] = struct{}{}
+			}
+			// Candidates may already be merged by the caller. Preserve their
+			// channel union when a registry performs an idempotent second merge.
+			for _, previous := range strings.Split(candidate.Metadata["discovery_sources"], ",") {
+				if previous = strings.TrimSpace(previous); previous != "" {
+					sources[id][previous] = struct{}{}
+				}
 			}
 			if incomingName := candidate.Repository.FullName; incomingName != "" && incomingName != current.Repository.FullName {
 				if sourcePriority(candidate.Source) >= namePriorities[id] {

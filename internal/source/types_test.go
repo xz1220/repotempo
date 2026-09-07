@@ -40,6 +40,19 @@ func TestMergeCandidatesDoesNotLetLegacyNameRegressGitHubName(t *testing.T) {
 	}
 }
 
+func TestMergeCandidatesRetainsSourcesAcrossRepeatedMerges(t *testing.T) {
+	first := MergeCandidates(
+		[]Candidate{{Repository: Repository{ID: 1, FullName: "owner/repo"}, Source: "github_trending"}},
+		[]Candidate{{Repository: Repository{ID: 1, FullName: "owner/repo"}, Source: "github_search"}},
+	)
+	for range 3 {
+		first = MergeCandidates(first)
+		if len(first) != 1 || first[0].Source != "github_trending" || first[0].Metadata["discovery_sources"] != "github_search,github_trending" {
+			t.Fatalf("repeated merge lost discovery provenance: %+v", first)
+		}
+	}
+}
+
 func TestVerifiedTrendingIdentityHasGitHubAPIPriority(t *testing.T) {
 	merged := MergeCandidates(
 		[]Candidate{{Repository: Repository{ID: 1, FullName: "github/current"}, Source: "github_trending"}},
