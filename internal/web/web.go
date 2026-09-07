@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,27 +19,36 @@ import (
 var assets embed.FS
 
 type Options struct {
-	Logger   *slog.Logger
-	Now      func() time.Time
-	Location *time.Location
-	SiteName string
-	Locale   string
+	Logger           *slog.Logger
+	Now              func() time.Time
+	Location         *time.Location
+	SiteName         string
+	Locale           string
+	Watcher          Watcher
+	AllowLocalWrites bool
+	WriteToken       string
 }
 
 type Handler struct {
-	queryer   Queryer
-	logger    *slog.Logger
-	now       func() time.Time
-	location  *time.Location
-	siteName  string
-	locale    string
-	templates map[string]map[string]*template.Template
-	mux       *http.ServeMux
-	static    fs.FS
+	queryer          Queryer
+	logger           *slog.Logger
+	now              func() time.Time
+	location         *time.Location
+	siteName         string
+	locale           string
+	templates        map[string]map[string]*template.Template
+	mux              *http.ServeMux
+	static           fs.FS
+	watcher          Watcher
+	allowLocalWrites bool
+	writeToken       string
+	watchMu          sync.Mutex
+	watchNonces      map[string]time.Time
+	watchBusy        bool
 }
 
-// New creates the complete read-only dashboard handler, including embedded
-// assets, health checks, and security headers.
+// New creates the dashboard, including embedded assets and optional protected
+// manual watch management. Reading the dashboard never requires credentials.
 func New(queryer Queryer, options Options) (*Handler, error) {
 	if queryer == nil {
 		return nil, errors.New("web: nil Queryer")
@@ -66,14 +76,18 @@ func New(queryer Queryer, options Options) (*Handler, error) {
 	}
 
 	h := &Handler{
-		queryer:  queryer,
-		logger:   options.Logger,
-		now:      options.Now,
-		location: options.Location,
-		siteName: options.SiteName,
-		locale:   normalizeLocale(options.Locale),
-		static:   staticAssets,
-		mux:      http.NewServeMux(),
+		queryer:          queryer,
+		logger:           options.Logger,
+		now:              options.Now,
+		location:         options.Location,
+		siteName:         options.SiteName,
+		locale:           normalizeLocale(options.Locale),
+		static:           staticAssets,
+		mux:              http.NewServeMux(),
+		watcher:          options.Watcher,
+		allowLocalWrites: options.AllowLocalWrites,
+		writeToken:       options.WriteToken,
+		watchNonces:      make(map[string]time.Time),
 	}
 	if err := h.parseTemplates(); err != nil {
 		return nil, err
@@ -111,6 +125,9 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /topics/{slug}", h.topic)
 	h.mux.HandleFunc("GET /discoveries", h.discoveries)
 	h.mux.HandleFunc("GET /runs", h.runs)
+	h.mux.HandleFunc("GET /watch", h.watchForm)
+	h.mux.HandleFunc("GET /watch/new", h.watchForm)
+	h.mux.HandleFunc("POST /watch", h.watchAdd)
 	h.mux.HandleFunc("GET /healthz", h.health)
 	h.mux.HandleFunc("GET /readyz", h.ready)
 	h.mux.HandleFunc("GET /static/tokens.css", h.staticAsset("tokens.css", "text/css; charset=utf-8"))
@@ -145,14 +162,16 @@ func (h *Handler) parseTemplates() error {
 			"deltaClass":      deltaClass,
 			"floatDeltaClass": floatDeltaClass,
 			"sourceLabel":     localized.SourceLabel,
+			"topicName":       localized.TopicName,
 			"t":               localized.Text,
 			"tf":              localized.Textf,
 			"githubURL":       githubURL,
 			"join":            strings.Join,
 			"lower":           strings.ToLower,
+			"watchText":       func(key string) string { return watchText(locale, key) },
 		}
 		h.templates[locale] = make(map[string]*template.Template)
-		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "discoveries", "runs", "error"} {
+		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "discoveries", "runs", "error", "watch"} {
 			tmpl, err := template.New("base.gohtml").Funcs(funcs).ParseFS(
 				assets,
 				"templates/base.gohtml",

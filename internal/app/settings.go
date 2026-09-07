@@ -33,6 +33,7 @@ type Settings struct {
 	LogFormat          string
 	LogLevel           string
 	GitHubToken        string
+	WebWriteToken      string
 	LegacyDatabasePath string
 	ExportRetention    int
 	BackupRetention    int
@@ -53,6 +54,7 @@ func LoadSettings() (Settings, error) {
 		LogFormat:          envOr("GITHUB_RADAR_LOG_FORMAT", "text"),
 		LogLevel:           envOr("GITHUB_RADAR_LOG_LEVEL", "info"),
 		GitHubToken:        strings.TrimSpace(os.Getenv("GITHUB_RADAR_GITHUB_TOKEN")),
+		WebWriteToken:      strings.TrimSpace(os.Getenv("GITHUB_RADAR_WEB_WRITE_TOKEN")),
 		LegacyDatabasePath: strings.TrimSpace(os.Getenv("GITHUB_RADAR_LEGACY_DB_PATH")),
 	}
 
@@ -74,21 +76,25 @@ func LoadSettings() (Settings, error) {
 	if settings.Locale != "en" && settings.Locale != "zh-CN" {
 		return Settings{}, fmt.Errorf("GITHUB_RADAR_LOCALE must be en or zh-CN")
 	}
+	if settings.WebWriteToken != "" && (len(settings.WebWriteToken) < 24 || len(settings.WebWriteToken) > 512) {
+		return Settings{}, fmt.Errorf("GITHUB_RADAR_WEB_WRITE_TOKEN must contain 24 to 512 characters")
+	}
 	return settings, nil
 }
 
 func (settings Settings) DiagnosticFields() map[string]any {
 	return map[string]any{
-		"database_path":           cleanPath(settings.DatabasePath),
-		"export_directory":        cleanPath(settings.ExportDirectory),
-		"backup_directory":        cleanPath(settings.BackupDirectory),
-		"discovery_config":        cleanPath(settings.DiscoveryConfig),
-		"topics_config":           cleanPath(settings.TopicsConfig),
-		"listen_address":          settings.ListenAddress,
-		"timezone":                settings.Timezone,
-		"locale":                  settings.Locale,
-		"log_format":              settings.LogFormat,
-		"github_token_configured": settings.GitHubToken != "",
+		"database_path":              cleanPath(settings.DatabasePath),
+		"export_directory":           cleanPath(settings.ExportDirectory),
+		"backup_directory":           cleanPath(settings.BackupDirectory),
+		"discovery_config":           cleanPath(settings.DiscoveryConfig),
+		"topics_config":              cleanPath(settings.TopicsConfig),
+		"listen_address":             settings.ListenAddress,
+		"timezone":                   settings.Timezone,
+		"locale":                     settings.Locale,
+		"log_format":                 settings.LogFormat,
+		"github_token_configured":    settings.GitHubToken != "",
+		"web_write_token_configured": settings.WebWriteToken != "",
 	}
 }
 

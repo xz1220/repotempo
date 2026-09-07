@@ -1,0 +1,29 @@
+{{define "content"}}
+<section class="watch-panel" aria-label="{{watchText "title"}}">
+  {{if .Watch.Error}}<div class="notice notice-warning" role="alert"><p>{{.Watch.Error}}</p></div>{{end}}
+  {{if .Watch.CanWrite}}
+  <form class="watch-form" action="/watch?lang={{.Meta.Locale}}" method="post">
+    <input type="hidden" name="csrf_token" value="{{.Watch.CSRFToken}}">
+    <div class="field"><label for="watch-repository">{{watchText "repository"}}</label>
+      <input id="watch-repository" name="repository" value="{{.Watch.Input.Repository}}" placeholder="https://github.com/owner/repository" required maxlength="300" autocapitalize="none" spellcheck="false" aria-describedby="watch-repository-hint">
+      <p id="watch-repository-hint" class="field-hint">{{watchText "repository_hint"}}</p>
+    </div>
+    <div class="field"><label for="watch-topic">{{watchText "topic"}}</label>
+      <select id="watch-topic" name="topic"><option value="">{{watchText "topic_default"}}</option>
+        {{range .Watch.Topics}}<option value="{{.Slug}}" {{if eq $.Watch.Input.TopicSlug .Slug}}selected{{end}}>{{if .ParentName}}{{topicName .ParentSlug .ParentName}} / {{end}}{{topicName .Slug .Name}}</option>{{end}}
+      </select>
+    </div>
+    <div class="field"><label for="watch-note">{{watchText "note"}}</label>
+      <textarea id="watch-note" name="note" rows="4" maxlength="2000" aria-describedby="watch-note-hint">{{.Watch.Input.Note}}</textarea>
+      <p id="watch-note-hint" class="field-hint">{{watchText "note_hint"}}</p>
+    </div>
+    {{if .Watch.RequiresToken}}<div class="field"><label for="watch-token">{{watchText "token"}}</label>
+      <input id="watch-token" name="operator_token" type="password" required autocomplete="current-password" maxlength="512" aria-describedby="watch-token-hint">
+      <p id="watch-token-hint" class="field-hint">{{watchText "token_hint"}}</p>
+    </div>{{end}}
+    <p class="watch-expectation">{{watchText "expectation"}}</p>
+    <div class="form-actions"><button class="button button-primary" type="submit">{{watchText "submit"}}</button><a class="button button-secondary" href="/repositories?lang={{.Meta.Locale}}">{{watchText "cancel"}}</a></div>
+  </form>
+  {{else}}<div class="empty-state"><p>{{watchText "read_only"}}</p><a class="button button-secondary" href="/repositories?lang={{.Meta.Locale}}">{{watchText "cancel"}}</a></div>{{end}}
+</section>
+{{end}}

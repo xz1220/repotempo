@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -13,12 +14,18 @@ import (
 
 func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 	address = firstNonEmpty(address, runtime.settings.ListenAddress)
+	if err := runtime.ensureTopics(ctx); err != nil {
+		return err
+	}
 	handler, err := web.New(WebAdapter{Store: runtime.store}, web.Options{
-		Logger:   runtime.logger,
-		Now:      runtime.now,
-		Location: domain.ShanghaiLocation(),
-		SiteName: "GitHub Radar",
-		Locale:   runtime.settings.Locale,
+		Logger:           runtime.logger,
+		Now:              runtime.now,
+		Location:         domain.ShanghaiLocation(),
+		SiteName:         "GitHub Radar",
+		Locale:           runtime.settings.Locale,
+		Watcher:          runtime,
+		AllowLocalWrites: isLoopbackListenAddress(address),
+		WriteToken:       runtime.settings.WebWriteToken,
 	})
 	if err != nil {
 		return err
@@ -53,4 +60,16 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 		}
 		return nil
 	}
+}
+
+func isLoopbackListenAddress(address string) bool {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
