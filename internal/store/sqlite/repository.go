@@ -287,7 +287,7 @@ func repositoryFromObservation(observation domain.RepositoryObservation, now tim
 		value := observation.GitHubCreatedAt.UTC()
 		repository.GitHubCreatedAt = &value
 	}
-	if observation.IsFocus != nil {
+	if observation.IsFocus != nil && observation.Source == domain.DiscoverySourceManual && observation.Profile != "config-watchlist" {
 		repository.IsFocus = *observation.IsFocus
 	}
 	if observation.ManualNote != nil {
@@ -377,10 +377,8 @@ func mergeRepositoryObservation(existing domain.Repository, observation domain.R
 	if observation.GitHubStatus != "" && isLatestObservation {
 		merged.GitHubStatus = observation.GitHubStatus
 	}
-	if observation.IsFocus != nil {
-		if !isWatchlistReplay && (observation.Source == domain.DiscoverySourceManual || *observation.IsFocus) {
-			merged.IsFocus = *observation.IsFocus
-		}
+	if observation.IsFocus != nil && !isWatchlistReplay && observation.Source == domain.DiscoverySourceManual {
+		merged.IsFocus = *observation.IsFocus
 	}
 	if observation.ManualNote != nil {
 		if !isWatchlistReplay && (observation.Source == domain.DiscoverySourceManual || *observation.ManualNote != "") {
@@ -623,6 +621,15 @@ func (store *Store) SetRepositoryMonitoringStatus(ctx context.Context, repositor
 		return fmt.Errorf("%w: invalid monitoring status %q", corestore.ErrInvalid, status)
 	}
 	return store.updateRepositoryStatus(ctx, repositoryID, "monitoring_status", status)
+}
+
+// SetRepositoryFocus is an explicit personal choice, independent of whether a
+// repository is imported, discovered, monitored, read, or assigned to a topic.
+func (store *Store) SetRepositoryFocus(ctx context.Context, repositoryID int64, focus bool) error {
+	if repositoryID <= 0 {
+		return fmt.Errorf("%w: focus repository ID must be positive", corestore.ErrInvalid)
+	}
+	return store.updateRepositoryStatus(ctx, repositoryID, "is_focus", boolInteger(focus))
 }
 
 func (store *Store) SetRepositoryGitHubStatus(ctx context.Context, repositoryID int64, status domain.GitHubStatus) error {

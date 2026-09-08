@@ -75,7 +75,6 @@ func (registry Registry) Merge(ctx context.Context, candidates []source.Candidat
 		}
 		description := candidate.Repository.Description
 		language := candidate.Repository.Language
-		focus := candidate.IsFocus
 		note := candidate.ManualNote
 		monitoring := mapMonitoring(candidate.MonitorStatus)
 		githubStatus := mapGitHubStatus(candidate.Repository.GitHubStatus)
@@ -112,8 +111,9 @@ func (registry Registry) Merge(ctx context.Context, candidates []source.Candidat
 			DiscoveredAt:     observedAt,
 			MonitoringStatus: monitoring,
 			GitHubStatus:     githubStatus,
-			IsFocus:          &focus,
-			ManualNote:       &note,
+			// Discovery/import candidates can carry historical or merged flags.
+			// Only the explicit watch/focus workflow owns personal focus state.
+			ManualNote: &note,
 		}
 		if etag := candidate.Metadata["etag"]; etag != "" {
 			observation.GitHubETag = &etag

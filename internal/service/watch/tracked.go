@@ -56,6 +56,16 @@ type TrackedResult struct {
 // optional manual category in one transaction. Repeated adds preserve prior
 // notes, categories, and successful observations.
 func (service Service) AddTracked(ctx context.Context, input, note, topicSlug string) (TrackedResult, error) {
+	return service.importTracked(ctx, input, note, topicSlug, true, "manual-watchlist")
+}
+
+// ImportTracked registers a project and a real snapshot. Focus is opt-in;
+// leaving it unchecked never cancels a prior personal focus choice.
+func (service Service) ImportTracked(ctx context.Context, input, note, topicSlug string, focus bool) (TrackedResult, error) {
+	return service.importTracked(ctx, input, note, topicSlug, focus, "manual-import")
+}
+
+func (service Service) importTracked(ctx context.Context, input, note, topicSlug string, focus bool, profile string) (TrackedResult, error) {
 	fullName, err := NormalizeRepository(input)
 	if err != nil || utf8.RuneCountInString(note) > 2000 || len(topicSlug) > 100 {
 		return TrackedResult{}, ErrInvalidRepository
@@ -72,7 +82,6 @@ func (service Service) AddTracked(ctx context.Context, input, note, topicSlug st
 		return TrackedResult{}, err
 	}
 	now := service.now().UTC()
-	focus := true
 	status := domain.GitHubActive
 	if repository.Archived {
 		status = domain.GitHubArchived
@@ -83,9 +92,12 @@ func (service Service) AddTracked(ctx context.Context, input, note, topicSlug st
 		FullName: repository.FullName, HTMLURL: "https://github.com/" + repository.FullName,
 		Description: &repository.Description, PrimaryLanguage: &repository.Language,
 		GitHubCreatedAt: repository.CreatedAt, Source: domain.DiscoverySourceManual,
-		Profile: "manual-watchlist", DiscoveredAt: now,
+		Profile: profile, DiscoveredAt: now,
 		MonitoringStatus: domain.MonitoringActive, GitHubStatus: status,
-		IsFocus: &focus, LastCheckedAt: &now,
+		LastCheckedAt: &now,
+	}
+	if focus {
+		observation.IsFocus = &focus
 	}
 	if note != "" {
 		observation.ManualNote = &note

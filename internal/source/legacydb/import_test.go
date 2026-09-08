@@ -56,8 +56,11 @@ func TestImportRealLegacySchema(t *testing.T) {
 	if len(result.Candidates) != 2 {
 		t.Fatalf("candidates = %+v", result.Candidates)
 	}
-	if !result.Candidates[0].IsFocus || !result.Candidates[1].IsFocus {
-		t.Fatalf("catalog/manual focus markers not retained: %+v", result.Candidates)
+	if result.Candidates[0].IsFocus || result.Candidates[1].IsFocus {
+		t.Fatalf("legacy catalog/favorite membership became personal focus: %+v", result.Candidates)
+	}
+	if result.Candidates[0].Metadata["legacy_catalog_source"] != "ossinsight" || result.Candidates[1].Metadata["legacy_manual_favorite"] != "true" {
+		t.Fatal("legacy catalog/favorite provenance was discarded")
 	}
 	if result.Candidates[0].Metadata["etag"] != "etag-1" || result.Candidates[1].Repository.GitHubStatus != "archived" {
 		t.Fatalf("legacy GitHub state not retained: %+v", result.Candidates)

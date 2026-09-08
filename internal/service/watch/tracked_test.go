@@ -104,3 +104,65 @@ func TestTrackedAddIsAtomicAndPreservesExistingEvidence(t *testing.T) {
 		t.Fatal("missing stars accepted")
 	}
 }
+
+func TestImportTrackedFocusIsOptInAndNeverImplicitlyUnfollows(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 9, 8, 10, 0, 0, 0, time.UTC)
+	db, err := sqlite.OpenWithConfig(ctx, sqlite.Config{Path: t.TempDir() + "/import.db", Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	stars := int64(123)
+	resolver := &trackedResolver{repository: source.Repository{ID: 99, FullName: "owner/imported", AbsoluteStars: &stars}}
+	service := Service{Store: db, Resolver: resolver, Now: func() time.Time { return now }}
+	result, err := service.ImportTracked(ctx, "owner/imported", "original note", "", false)
+	if err != nil || !result.Created || result.Repository.IsFocus || result.Repository.FirstSeenProfile != "manual-import" {
+		t.Fatalf("default import unexpectedly focused: %+v %v", result, err)
+	}
+	snapshot, err := db.GetDailySnapshot(ctx, 99, domain.ShanghaiDate(now))
+	if err != nil || snapshot.StarCount == nil || *snapshot.StarCount != 123 {
+		t.Fatal("default import did not save a true Star snapshot")
+	}
+	result, err = service.ImportTracked(ctx, "owner/imported", "replacement note", "", true)
+	if err != nil || result.Created || !result.Repository.IsFocus || result.Repository.ManualNote != "original note" {
+		t.Fatal("explicit focus or evidence preservation failed")
+	}
+	result, err = service.ImportTracked(ctx, "owner/imported", "", "", false)
+	if err != nil || !result.Repository.IsFocus {
+		t.Fatal("unchecked import cancelled an existing focus")
+	}
+	if err := db.SetRepositoryFocus(ctx, 99, false); err != nil {
+		t.Fatal(err)
+	}
+	result, err = service.ImportTracked(ctx, "owner/imported", "", "", false)
+	if err != nil || result.Repository.IsFocus {
+		t.Fatal("default reimport resurrected cancelled focus")
+	}
+	result, err = service.AddTracked(ctx, "owner/imported", "", "")
+	if err != nil || !result.Repository.IsFocus {
+		t.Fatal("legacy explicit AddTracked no longer focuses")
+	}
+}
+
+func TestCLIWatchAddWithoutFocusDoesNotCancelExistingFocus(t *testing.T) {
+	ctx := context.Background()
+	db, err := sqlite.Open(ctx, t.TempDir()+"/cli.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	service := Service{Store: db, Resolver: fakeResolver{}}
+	result, err := service.Add(ctx, "owner/repo", "", false, false)
+	if err != nil || result.Repository.IsFocus {
+		t.Fatal("watch add defaults to personal focus")
+	}
+	result, err = service.Add(ctx, "owner/repo", "", true, false)
+	if err != nil || !result.Repository.IsFocus {
+		t.Fatal("explicit CLI focus missing")
+	}
+	result, err = service.Add(ctx, "owner/repo", "", false, false)
+	if err != nil || !result.Repository.IsFocus {
+		t.Fatal("omitting --focus cancelled prior focus")
+	}
+}

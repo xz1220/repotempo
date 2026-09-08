@@ -64,9 +64,12 @@ func (service Service) Add(ctx context.Context, fullName, note string, focus, dr
 		DiscoveredAt:     now,
 		MonitoringStatus: domain.MonitoringActive,
 		GitHubStatus:     status,
-		IsFocus:          &focus,
 		ManualNote:       &note,
 		LastCheckedAt:    &now,
+	}
+	// --focus is an optional add action, not an implicit unfollow operation.
+	if focus {
+		observation.IsFocus = &focus
 	}
 	if repository.Topics != nil {
 		observation.GitHubTopics = &repository.Topics

@@ -40,7 +40,8 @@ type catalogEntry struct {
 }
 
 // Import reads the known ossinsight-feishu-digest SQLite schema. All rows in
-// repos are candidates; catalog_projects only adds focus/provenance metadata.
+// repos are candidates; catalog_projects only adds provenance metadata.
+// Historical catalog/favorite flags are not this user's personal focus choices.
 // Only non-NULL daily_observations.github_stars values become observations.
 // Rolling trend snapshots and undated repository totals are intentionally not
 // converted into absolute-star history.
@@ -84,7 +85,7 @@ func Import(ctx context.Context, database *sql.DB, options Options) (Result, err
 func readCatalog(ctx context.Context, database *sql.DB) (map[int64]catalogEntry, []source.Warning, error) {
 	result := make(map[int64]catalogEntry)
 	if !tableExists(ctx, database, "catalog_projects") {
-		return result, []source.Warning{{Code: "missing_catalog_projects", Message: "catalog_projects table is absent; no focus markers imported"}}, nil
+		return result, []source.Warning{{Code: "missing_catalog_projects", Message: "catalog_projects table is absent; no catalog provenance imported"}}, nil
 	}
 	rows, err := database.QueryContext(ctx, `SELECT repo_id, COALESCE(added_on, ''), COALESCE(added_at, ''), COALESCE(source, '') FROM catalog_projects`)
 	if err != nil {
@@ -186,10 +187,11 @@ func readRepositories(ctx context.Context, database *sql.DB, catalog map[int64]c
 			warnings = append(warnings, source.Warning{Row: rowNumber, Code: "invalid_research_tags", Message: researchErr.Error()})
 		}
 		metadata := map[string]string{
-			"legacy_github_status": githubStatus,
-			"legacy_etag":          etag,
-			"etag":                 etag,
-			"legacy_is_active":     strconv.FormatBool(active != 0),
+			"legacy_github_status":   githubStatus,
+			"legacy_etag":            etag,
+			"etag":                   etag,
+			"legacy_is_active":       strconv.FormatBool(active != 0),
+			"legacy_manual_favorite": strconv.FormatBool(favorite != 0),
 		}
 		if lastSeen != nil {
 			metadata["legacy_last_seen_at"] = lastSeen.UTC().Format(time.RFC3339)
@@ -221,7 +223,8 @@ func readRepositories(ctx context.Context, database *sql.DB, catalog map[int64]c
 			},
 			Source:       "legacy",
 			DiscoveredAt: discoveredAt,
-			IsFocus:      isCatalog || favorite != 0,
+			// Importing repository membership is not an explicit focus action.
+			IsFocus: false,
 			// The legacy is_active flag meant "currently present in a trend
 			// window or manually favored", not "pause future monitoring".
 			// Import every reachable repository into the fixed panel.

@@ -82,3 +82,25 @@ func TestRegistryAllowsManualForkAndPausesArchivedDiscovery(t *testing.T) {
 		t.Fatalf("archived status = %s", got)
 	}
 }
+
+func TestRegistryNeverTreatsMergedImportFlagsAsPersonalFocus(t *testing.T) {
+	store := &fakeRepositoryStore{}
+	registry := Registry{Store: store}
+	_, err := registry.Merge(context.Background(), []source.Candidate{
+		{Repository: source.Repository{ID: 1, FullName: "owner/imported"}, Source: "legacy", IsFocus: true},
+		{Repository: source.Repository{ID: 1, FullName: "owner/imported"}, Source: "manual", Profile: "config-watchlist", IsFocus: true},
+		{Repository: source.Repository{ID: 2, FullName: "owner/searched"}, Source: "github_search", IsFocus: true},
+		{Repository: source.Repository{ID: 3, FullName: "owner/trending"}, Source: "github_trending", IsFocus: false},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(store.observations) != 4 {
+		t.Fatalf("source provenance lost: %+v", store.observations)
+	}
+	for _, observation := range store.observations {
+		if observation.IsFocus != nil {
+			t.Fatalf("automated/import observation supplied a personal choice: %+v", observation)
+		}
+	}
+}
