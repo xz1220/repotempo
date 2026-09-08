@@ -121,7 +121,7 @@ func migrationEvidence(t *testing.T, db *sql.DB) map[string][][]any {
 		columns := "*"
 		if table == "repositories" {
 			var names []string
-			for _, row := range migrationRows(t, db, "SELECT name FROM pragma_table_xinfo('repositories') WHERE name NOT IN ('github_topics_json','research_tags_json') ORDER BY cid") {
+			for _, row := range migrationRows(t, db, "SELECT name FROM pragma_table_xinfo('repositories') WHERE name NOT IN ('github_topics_json','research_tags_json','activity_json') ORDER BY cid") {
 				names = append(names, `"`+strings.ReplaceAll(row[0].(string), `"`, `""`)+`"`)
 			}
 			columns = strings.Join(names, ",")
@@ -163,7 +163,7 @@ func TestRepositorySourceMigrationPreservesAllV3EvidenceAndLegacyOrphans(t *test
 		t.Fatal(err)
 	}
 	defer store.Close()
-	assertMigrationSettings(t, store.db, 5, 0)
+	assertMigrationSettings(t, store.db, 6, 0)
 	after := migrationEvidence(t, store.db)
 	if !reflect.DeepEqual(before, after) {
 		for name, original := range before {
@@ -227,7 +227,7 @@ func TestRepositorySourceMigrationRollsBackAndRestoresConnectionSettings(t *test
 			if err := applyMigrations(context.Background(), db); err != nil {
 				t.Fatalf("retry after rollback failed: %v", err)
 			}
-			assertMigrationSettings(t, db, 5, 0)
+			assertMigrationSettings(t, db, 6, 0)
 		})
 	}
 }
@@ -240,7 +240,7 @@ func TestRepositorySourceMigrationPreservesExistingLegacyAlterSetting(t *testing
 	if err := applyMigrations(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationSettings(t, db, 5, 1)
+	assertMigrationSettings(t, db, 6, 1)
 }
 
 func TestRepositorySourceMigrationIndexRestorationFailureRollsBack(t *testing.T) {

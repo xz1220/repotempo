@@ -21,7 +21,8 @@ first_seen_profile, discovery_sources_json, last_discovered_at,
 monitoring_status, github_status, is_focus, manual_note, github_etag,
 last_checked_at, previous_names_json, created_at, updated_at`
 
-const repositoryColumns = repositoryColumnsV4 + ", github_topics_json, research_tags_json"
+const repositoryColumnsV5 = repositoryColumnsV4 + ", github_topics_json, research_tags_json"
+const repositoryColumns = repositoryColumnsV5 + ", activity_json"
 
 type scanner interface {
 	Scan(...any) error
@@ -40,6 +41,7 @@ func scanRepository(row scanner) (domain.Repository, error) {
 	var updatedAt string
 	var githubTopicsJSON sql.NullString
 	var researchTagsJSON string
+	var activityJSON sql.NullString
 	if err := row.Scan(
 		&repository.GitHubRepoID,
 		&repository.GitHubNodeID,
@@ -64,6 +66,7 @@ func scanRepository(row scanner) (domain.Repository, error) {
 		&updatedAt,
 		&githubTopicsJSON,
 		&researchTagsJSON,
+		&activityJSON,
 	); err != nil {
 		return domain.Repository{}, err
 	}
@@ -107,6 +110,13 @@ func scanRepository(row scanner) (domain.Repository, error) {
 	}
 	if err := json.Unmarshal([]byte(researchTagsJSON), &repository.ResearchTags); err != nil {
 		return domain.Repository{}, fmt.Errorf("decode research tags: %w", err)
+	}
+	if activityJSON.Valid {
+		activity, err := decodeRepositoryActivity(repository.GitHubRepoID, activityJSON.String)
+		if err != nil {
+			return domain.Repository{}, err
+		}
+		repository.Activity = &activity
 	}
 	return repository, nil
 }
@@ -415,7 +425,7 @@ func insertRepository(ctx context.Context, transaction *sql.Tx, repository domai
 		return fmt.Errorf("encode repository previous names: %w", err)
 	}
 	_, err = transaction.ExecContext(ctx, `
-INSERT INTO repositories (`+repositoryColumns+`)
+INSERT INTO repositories (`+repositoryColumnsV5+`)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		repository.GitHubRepoID,
 		repository.GitHubNodeID,
