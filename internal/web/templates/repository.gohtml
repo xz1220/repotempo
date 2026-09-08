@@ -57,8 +57,8 @@
         <div><dt>{{t "repository.valid_history"}}</dt><dd>{{formatDatePtr .Repository.ValidFrom}}</dd></div>
         <div><dt>{{t "repository.primary_language"}}</dt><dd>{{if .Repository.Repository.PrimaryLanguage}}{{.Repository.Repository.PrimaryLanguage}}{{else}}{{t "page.not_available"}}{{end}}</dd></div>
         <div>
-          <dt>{{t "repository.topics"}}</dt>
-          <dd><div class="tag-list">{{range .Repository.Repository.Topics}}<a class="tag" href="/topics/{{.Slug}}">{{topicName .Slug .Name}}</a>{{else}}<span class="muted">{{t "category.__unclassified"}}</span>{{end}}</div></dd>
+          <dt>{{t "tags.filter"}}</dt>
+          <dd><div class="tag-list">{{range .DetailTags.Visible}}<a class="tag" href="{{.URL}}">{{.Label}}</a>{{else}}<span class="muted">{{t "tags.none"}}</span>{{end}}{{range .DetailTags.More}}<a class="tag" href="{{.URL}}">{{.Label}}</a>{{end}}</div></dd>
         </div>
       </dl>
     </div>

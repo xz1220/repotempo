@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -64,6 +65,10 @@ type pageView struct {
 	ChartCohort       int
 	DirectionSegments []directionSegment
 	CategoryCards     []categoryCard
+	RepositoryTags    map[int64]cardTagLinks
+	DetailTags        cardTagLinks
+	ActiveFilters     []viewOption
+	SuggestedTags     []viewOption
 }
 
 type viewOption struct {
@@ -90,6 +95,11 @@ func (h *Handler) repositories(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path string) {
 	localized := h.localizerFor(r)
+	tag := strings.TrimSpace(r.URL.Query().Get("tag"))
+	if !utf8.ValidString(tag) || utf8.RuneCountInString(tag) > 80 || strings.ContainsFunc(tag, unicode.IsControl) {
+		h.badRequest(w, r, localized.Text("tags.invalid"), localized.Text("tags.invalid_help"))
+		return
+	}
 	rawDate := strings.TrimSpace(r.URL.Query().Get("date"))
 	asOf := parseDateParameter(rawDate, h.location)
 	if rawDate != "" && asOf.IsZero() {
@@ -101,6 +111,7 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		WindowDays:       normalizeRepositoryPeriod(r.URL.Query().Get("period")),
 		Search:           cleanSearch(r.URL.Query().Get("q")),
 		TopicSlug:        strings.TrimSpace(r.URL.Query().Get("topic")),
+		Tag:              tag,
 		Source:           strings.TrimSpace(r.URL.Query().Get("source")),
 		MonitoringStatus: strings.TrimSpace(r.URL.Query().Get("status")),
 		Sort:             normalizeRepositorySort(r.URL.Query().Get("sort")),
@@ -156,6 +167,25 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	view.Meta.Stale = rawDate == "" && h.isStale(data.Coverage.AsOfDate)
 	view.CurrentPath = path
 	view.Categories = categoryLinks(path, firstPageValues)
+	view.RepositoryTags = make(map[int64]cardTagLinks, len(data.Items))
+	view.SuggestedTags = suggestedTagLinks(data.Tags, firstPageValues, localized)
+	if filter.OnlyNew && filter.Tag != "" {
+		view.AllProjectsURL = view.LibraryViews[1].URL
+	}
+	for _, item := range data.Items {
+		view.RepositoryTags[item.ID] = makeCardTagLinks(item.Tags, item.Topics, firstPageValues, localized)
+	}
+	for _, active := range []struct{ key, value, label string }{
+		{"tag", filter.Tag, localized.Textf("tags.active", filter.Tag)},
+		{"topic", filter.TopicSlug, localized.Textf("tags.legacy_topic", localized.TopicName(filter.TopicSlug, filter.TopicSlug))},
+		{"source", filter.Source, localized.Textf("tags.legacy_source", localized.SourceLabel(filter.Source))},
+	} {
+		if active.value != "" {
+			values := cloneValues(firstPageValues)
+			values.Del(active.key)
+			view.ActiveFilters = append(view.ActiveFilters, viewOption{Label: active.label, URL: queryPath(path, values)})
+		}
+	}
 	h.render(w, r, http.StatusOK, "repositories", view)
 }
 
@@ -180,7 +210,7 @@ func (h *Handler) applyLibraryDefaults(values url.Values, filter *RepositoryQuer
 			// Old shared URLs already express a scope. Preserve their full-library
 			// meaning instead of narrowing searches or dashboard leaderboard links.
 			explicit := false
-			for _, key := range []string{"view", "sort", "period", "date", "topic", "q", "source", "status", "focus", "cursor"} {
+			for _, key := range []string{"view", "sort", "period", "date", "topic", "tag", "q", "source", "status", "focus", "cursor"} {
 				explicit = explicit || values.Has(key)
 			}
 			filter.OnlyNew = !explicit
@@ -264,6 +294,7 @@ func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
 		Repository: data,
 		StarChart:  snapshotStarChart(data.History, localized),
 		RankChart:  snapshotRankChart(data.History, localized),
+		DetailTags: makeCardTagLinks(data.Repository.Tags, data.Repository.Topics, url.Values{"view": {"all"}, "date": {data.AsOf.Format("2006-01-02")}, "lang": {h.localeFor(r)}}, localized),
 	}
 	h.render(w, r, http.StatusOK, "repository", view)
 }

@@ -87,7 +87,7 @@ func (h *Handler) isStale(date time.Time) bool {
 
 func (h *Handler) radarHome(w http.ResponseWriter, r *http.Request) {
 	l := h.localizerFor(r)
-	if r.URL.Query().Get("new") == "1" || r.URL.Query().Get("q") != "" || r.URL.Query().Get("cursor") != "" {
+	if r.URL.Query().Get("new") == "1" || r.URL.Query().Get("q") != "" || r.URL.Query().Get("cursor") != "" || r.URL.Query().Get("tag") != "" {
 		http.Redirect(w, r, queryPath("/repositories", r.URL.Query()), http.StatusFound)
 		return
 	}

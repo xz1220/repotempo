@@ -174,6 +174,7 @@ func (h *Handler) parseTemplates() error {
 			"projectGitHubURL": projectGitHubURL,
 			"aiAnalysis":       aiAnalysis,
 			"analysisSource":   analysisSource,
+			"tagOptionLabel":   func(tag string) string { return tagOptionLabel(tag, locale) },
 			"join":             strings.Join,
 			"lower":            strings.ToLower,
 			"watchText":        func(key string) string { return watchText(locale, key) },

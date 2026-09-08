@@ -1,5 +1,15 @@
 /* A single reading feed for desktop and mobile. */
 .library-surface { margin-bottom: 20px; }
+.library-filters .field-tags { flex: 2 1 230px; }
+.library-filter-help { padding: 12px 20px 0; display: flex; flex-wrap: wrap; gap: 6px 24px; font-size: 11px; line-height: 1.65; color: var(--muted); }
+.library-active-filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 0; }
+.library-quick-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 20px 0; font-size: 11px; }
+.library-quick-tags > span { color: var(--muted); margin-right: 4px; }
+.project-more-tags { font-size: 11px; color: var(--muted); }
+.project-more-tags summary { cursor: pointer; min-height: 28px; display: list-item; padding: 5px 0; }
+.project-more-tags[open] { flex-basis: 100%; }
+.project-more-tags > div { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
+.tag-selected { background: var(--accent-soft); color: var(--accent-ink); }
 .repository-feed {
   display: flex;
   flex-direction: column;
@@ -80,6 +90,8 @@
   .project-card-metrics .project-card-rank { font-size: 14px; }
 }
 @media (max-width: 600px) {
+  .library-filters .field-tags { flex-basis: 100%; }
+  .library-filter-help, .library-active-filters, .library-quick-tags { padding-left: 16px; padding-right: 16px; }
   .repository-feed { gap: 14px; }
   .project-card { padding: 18px; }
   .project-card-heading { gap: 12px; }
