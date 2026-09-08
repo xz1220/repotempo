@@ -222,19 +222,12 @@ func TestLibraryDiscoverySourceFilterAndCountStayScoped(t *testing.T) {
 			}
 			body := html.UnescapeString(response.Body.String())
 			selects := regexp.MustCompile(`<select\b[^>]*name="source"[^>]*>(.*?)</select>`).FindAllString(body, -1)
-			if len(selects) != 1 {
-				t.Fatalf("expected one discovery-source selector, got %d", len(selects))
-			}
-			for _, source := range []string{"", "github_trending", "github_search", "ossinsight", "legacy", "manual"} {
-				if !strings.Contains(selects[0], `value="`+source+`"`) {
-					t.Errorf("source selector missing %q", source)
-				}
+			if len(selects) != 0 {
+				t.Fatalf("legacy URL compatibility reintroduced %d source selectors", len(selects))
 			}
 			l := newLocalizer(locale)
-			for _, want := range []string{`value="github_trending" selected>GitHub Trending</option>`, l.Text("repositories.all_sources")} {
-				if !strings.Contains(selects[0], want) {
-					t.Errorf("source selector missing %q", want)
-				}
+			if !strings.Contains(body, l.Textf("tags.legacy_source", "GitHub Trending")) || !strings.Contains(body, `type="hidden" name="source" value="github_trending"`) {
+				t.Fatal("legacy source filter must remain visible and preserved until explicitly cleared")
 			}
 			count := l.Textf("repositories.count", "1")
 			mixedCount := l.Textf("ui.library_note", "1", formatInt(queryer.repositories.Coverage.ComparableCount))
