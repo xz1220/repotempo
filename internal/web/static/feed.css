@@ -10,6 +10,7 @@
 .project-more-tags[open] { flex-basis: 100%; }
 .project-more-tags > div { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
 .tag-selected { background: var(--accent-soft); color: var(--accent-ink); }
+.project-card-topics .tag, .tag-list .tag, .library-active-filters .tag { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .repository-feed {
   display: flex;
   flex-direction: column;
