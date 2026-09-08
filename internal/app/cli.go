@@ -104,6 +104,8 @@ func (cli *CLI) Run(ctx context.Context, arguments []string) int {
 		return cli.runImport(ctx, settings, globals.JSON, args)
 	case "analysis":
 		return cli.runAnalysis(ctx, settings, globals.JSON, args)
+	case "activity":
+		return cli.runActivity(ctx, settings, globals.JSON, args)
 	case "tags":
 		return cli.runTagsImport(ctx, settings, globals.JSON, args)
 	case "topic":
@@ -565,6 +567,7 @@ Commands:
   snapshot       Capture today's absolute GitHub stars for every active repository
   import-legacy  Import legacy SQLite and verified CSV history
   analysis       Import one interpretation or import-batch to fill empty summaries
+  activity       Refresh bounded GitHub commit activity independently of AI readings
   tags           Import GitHub topics and research tags without changing classifications
   topic          List, assign, remove, or reclassify topics
   watch          Add, pause, or resume a repository

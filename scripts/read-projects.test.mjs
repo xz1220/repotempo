@@ -69,7 +69,7 @@ test('workflow attaches each project to its own evidence and authoritative sourc
     assert.equal(calls[0].options.adapter, 'codex');
     assert.equal(calls[0].options.schema.additionalProperties, false);
     assert.equal(calls[0].options.schema.properties.projects.items.additionalProperties, false);
-    for (const text of ['不可信', '不要调用任何工具', '不能把项目合并', '仅依据GitHub简介']) assert.ok(calls[0].prompt.includes(text));
+    for (const text of ['不可信', '不要调用任何工具', '不能把项目合并', '仅依据GitHub简介', '项目用途', '核心能力', '适用场景', '不属于AI生成字段', '不得把建仓时长说成持续开发投入']) assert.ok(calls[0].prompt.includes(text));
     assert.ok(calls[0].prompt.includes(JSON.stringify([input, second])));
   }
 });

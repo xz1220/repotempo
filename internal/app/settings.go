@@ -37,6 +37,7 @@ type Settings struct {
 	LegacyDatabasePath string
 	ExportRetention    int
 	BackupRetention    int
+	ActivityLimit      int
 }
 
 // LoadSettings reads environment variables without loading dotenv files or
@@ -59,6 +60,10 @@ func LoadSettings() (Settings, error) {
 	}
 
 	var err error
+	settings.ActivityLimit, err = strconv.Atoi(envOr("GITHUB_RADAR_ACTIVITY_DAILY_LIMIT", "0"))
+	if err != nil || settings.ActivityLimit < 0 || settings.ActivityLimit > 500 {
+		return Settings{}, fmt.Errorf("GITHUB_RADAR_ACTIVITY_DAILY_LIMIT must be between 0 and 500 (0 disables supplementary activity collection)")
+	}
 	settings.ExportRetention, err = positiveEnvInt("GITHUB_RADAR_EXPORT_RETENTION_DAYS", 30)
 	if err != nil {
 		return Settings{}, err
@@ -93,6 +98,7 @@ func (settings Settings) DiagnosticFields() map[string]any {
 		"timezone":                   settings.Timezone,
 		"locale":                     settings.Locale,
 		"log_format":                 settings.LogFormat,
+		"activity_daily_limit":       settings.ActivityLimit,
 		"github_token_configured":    settings.GitHubToken != "",
 		"web_write_token_configured": settings.WebWriteToken != "",
 	}

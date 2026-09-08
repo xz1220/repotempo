@@ -20,6 +20,7 @@ type DailyJobDetails struct {
 	Runtime             DoctorReport       `json:"runtime"`
 	Discovery           DiscoverReport     `json:"discovery"`
 	Snapshot            snapshot.Report    `json:"snapshot"`
+	Activity            *ActivityReport    `json:"activity,omitempty"`
 	Exports             []string           `json:"exports"`
 	FailureRepositories []string           `json:"failure_repositories"`
 	Failures            []OperationFailure `json:"failures"`
@@ -82,6 +83,16 @@ func (runtime *Runtime) RunDaily(ctx context.Context, dryRun bool) (DailyReport,
 		if snapshotErr != nil {
 			report.Fatal = true
 			report.Failures = append(report.Failures, OperationFailure{Stage: "snapshot", Message: snapshotErr.Error()})
+		}
+	}
+
+	if !report.Fatal && runtime.settings.ActivityLimit > 0 {
+		activityContext, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		activity, activityErr := runtime.RefreshActivity(activityContext, ActivityOptions{Limit: runtime.settings.ActivityLimit, MaxPages: 3})
+		cancel()
+		report.Activity = &activity
+		if activityErr != nil {
+			report.Failures = append(report.Failures, OperationFailure{Stage: "activity", Message: activityErr.Error()})
 		}
 	}
 
@@ -214,6 +225,7 @@ func dailyDetails(report DailyReport, client *github.Client) DailyJobDetails {
 		Runtime:   report.Runtime,
 		Discovery: report.Discovery,
 		Snapshot:  report.Snapshot.Report,
+		Activity:  report.Activity,
 		Exports:   make([]string, 0, len(report.Exports)),
 		Failures:  report.Failures,
 		Cleaned:   report.Cleaned,
@@ -244,6 +256,9 @@ func dailyDetails(report DailyReport, client *github.Client) DailyJobDetails {
 
 func summarizeDailyErrors(report DailyReport) string {
 	count := len(report.Failures) + report.Discovery.FailureCount + report.Snapshot.FailureCount + report.Snapshot.MetadataFailureCount
+	if report.Activity != nil {
+		count += len(report.Activity.Failures)
+	}
 	if count == 0 {
 		return ""
 	}

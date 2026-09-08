@@ -159,6 +159,7 @@ type DailyReport struct {
 	Runtime   DoctorReport          `json:"runtime"`
 	Discovery DiscoverReport        `json:"discovery"`
 	Snapshot  SnapshotCommandReport `json:"snapshot"`
+	Activity  *ActivityReport       `json:"activity,omitempty"`
 	Exports   []exporter.Result     `json:"exports"`
 	Cleaned   []string              `json:"cleaned"`
 	Failures  []OperationFailure    `json:"failures"`
@@ -166,6 +167,9 @@ type DailyReport struct {
 }
 
 func (report DailyReport) Partial() bool {
+	if report.Activity != nil && len(report.Activity.Failures) > 0 {
+		return true
+	}
 	if report.Discovery.Partial() || report.Snapshot.Partial() || len(report.Failures) > 0 {
 		return true
 	}

@@ -341,6 +341,7 @@ func mapRepositoryMetric(value domain.RepositoryMetric) web.RepositoryMetric {
 		ManualNote:       repository.ManualNote,
 		IsFocus:          repository.IsFocus,
 		GitHubCreatedAt:  repository.GitHubCreatedAt,
+		Activity:         mapRepositoryActivity(repository.Activity),
 	}
 }
 
@@ -383,6 +384,7 @@ func mapRepositoryTrends(values []domain.RepositoryTrendMetric) []web.Repository
 			LastObservedAt:    datePointer(value.LastObservedDate),
 			LastObservedStars: value.LastObservedStars,
 			GitHubCreatedAt:   repository.GitHubCreatedAt,
+			Activity:          mapRepositoryActivity(repository.Activity),
 			PreviousDelta:     value.PreviousDelta,
 			MomentumChange:    value.MomentumChange,
 		})

@@ -93,3 +93,22 @@ func TestDefaultSettingsNeverSelectExampleFiles(t *testing.T) {
 		t.Fatalf("unsafe defaults: %#v", settings.DiagnosticFields())
 	}
 }
+
+func TestActivityDailyLimitIsExplicitAndBounded(t *testing.T) {
+	for _, value := range []string{"", "0", "100", "500"} {
+		t.Setenv("GITHUB_RADAR_ACTIVITY_DAILY_LIMIT", value)
+		settings, err := LoadSettings()
+		if err != nil || settings.ActivityLimit < 0 || settings.ActivityLimit > 500 {
+			t.Fatalf("valid limit %q: %+v, %v", value, settings.ActivityLimit, err)
+		}
+		if value == "" && settings.ActivityLimit != 0 {
+			t.Fatal("activity collection must be opt-in for existing deployments")
+		}
+	}
+	for _, value := range []string{"-1", "501", "many", "1.5"} {
+		t.Setenv("GITHUB_RADAR_ACTIVITY_DAILY_LIMIT", value)
+		if _, err := LoadSettings(); err == nil {
+			t.Fatalf("invalid limit accepted: %s", value)
+		}
+	}
+}
