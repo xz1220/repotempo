@@ -122,8 +122,11 @@ func (cli *CLI) Run(ctx context.Context, arguments []string) int {
 }
 
 func (cli *CLI) runAnalysis(ctx context.Context, settings Settings, jsonOutput bool, args []string) int {
+	if len(args) > 0 && args[0] == "import-batch" {
+		return cli.runAnalysisBatch(ctx, settings, jsonOutput, args[1:])
+	}
 	if len(args) == 0 || args[0] != "import" {
-		return cli.writeError("analysis", jsonOutput, settings, ExitUsage, errors.New("analysis requires import"))
+		return cli.writeError("analysis", jsonOutput, settings, ExitUsage, errors.New("analysis requires import or import-batch"))
 	}
 	flags := cli.flagSet("analysis import")
 	repository := flags.String("repo", "", "repository owner/name")
@@ -559,7 +562,7 @@ Commands:
   discover       Discover from GitHub Trending first, with Search and manual supplements
   snapshot       Capture today's absolute GitHub stars for every active repository
   import-legacy  Import legacy SQLite and verified CSV history
-  analysis       Import a stored Codex/manual project interpretation from JSON
+  analysis       Import one interpretation or import-batch to fill empty summaries
   topic          List, assign, remove, or reclassify topics
   watch          Add, pause, or resume a repository
   export         Export csv, json, or sqlite

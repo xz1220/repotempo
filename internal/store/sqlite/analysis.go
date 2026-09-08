@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/xz1220/repotempo/internal/domain"
 )
@@ -103,19 +104,19 @@ func (store *Store) loadRepositoryAnalysesByIDs(ctx context.Context, repositoryI
 	return result, nil
 }
 
-func (store *Store) PutRepositoryAnalysis(ctx context.Context, analysis domain.RepositoryAnalysis) (domain.RepositoryAnalysis, error) {
+func prepareRepositoryAnalysis(analysis domain.RepositoryAnalysis, now time.Time) (domain.RepositoryAnalysis, []any, error) {
 	analysis.SummaryZH = strings.TrimSpace(analysis.SummaryZH)
 	analysis.Source = strings.TrimSpace(analysis.Source)
 	analysis.Model = strings.TrimSpace(analysis.Model)
 	analysis.TechnicalNotes = strings.TrimSpace(analysis.TechnicalNotes)
 	if analysis.RepositoryID <= 0 {
-		return domain.RepositoryAnalysis{}, fmt.Errorf("repository analysis: repository ID must be positive")
+		return domain.RepositoryAnalysis{}, nil, fmt.Errorf("repository analysis: repository ID must be positive")
 	}
 	if analysis.SummaryZH == "" {
-		return domain.RepositoryAnalysis{}, fmt.Errorf("repository analysis: Chinese summary is required")
+		return domain.RepositoryAnalysis{}, nil, fmt.Errorf("repository analysis: Chinese summary is required")
 	}
 	if analysis.Source == "" {
-		return domain.RepositoryAnalysis{}, fmt.Errorf("repository analysis: source is required")
+		return domain.RepositoryAnalysis{}, nil, fmt.Errorf("repository analysis: source is required")
 	}
 	if analysis.KeyPoints == nil {
 		analysis.KeyPoints = []string{}
@@ -125,19 +126,26 @@ func (store *Store) PutRepositoryAnalysis(ctx context.Context, analysis domain.R
 	}
 	keyPoints, err := json.Marshal(analysis.KeyPoints)
 	if err != nil {
-		return domain.RepositoryAnalysis{}, fmt.Errorf("encode repository analysis key points: %w", err)
+		return domain.RepositoryAnalysis{}, nil, fmt.Errorf("encode repository analysis key points: %w", err)
 	}
 	useCases, err := json.Marshal(analysis.UseCases)
 	if err != nil {
-		return domain.RepositoryAnalysis{}, fmt.Errorf("encode repository analysis use cases: %w", err)
+		return domain.RepositoryAnalysis{}, nil, fmt.Errorf("encode repository analysis use cases: %w", err)
 	}
-	now := store.now().UTC()
+	now = now.UTC()
 	if analysis.AnalyzedAt.IsZero() {
 		analysis.AnalyzedAt = now
 	} else {
 		analysis.AnalyzedAt = analysis.AnalyzedAt.UTC()
 	}
-	_, err = store.db.ExecContext(ctx, `
+	return analysis, []any{
+		analysis.RepositoryID, analysis.SummaryZH, string(keyPoints), string(useCases),
+		analysis.TechnicalNotes, analysis.Source, analysis.Model,
+		storedTime(analysis.AnalyzedAt), storedTime(now), storedTime(now),
+	}, nil
+}
+
+const repositoryAnalysisUpsertSQL = `
 INSERT INTO repository_analyses (
     repository_id, summary_zh, key_points_json, use_cases_json,
     technical_notes, source, model, revision, analyzed_at, created_at, updated_at
@@ -152,18 +160,14 @@ ON CONFLICT(repository_id) DO UPDATE SET
     model = excluded.model,
     revision = repository_analyses.revision + 1,
     analyzed_at = excluded.analyzed_at,
-    updated_at = excluded.updated_at`,
-		analysis.RepositoryID,
-		analysis.SummaryZH,
-		string(keyPoints),
-		string(useCases),
-		analysis.TechnicalNotes,
-		analysis.Source,
-		analysis.Model,
-		storedTime(analysis.AnalyzedAt),
-		storedTime(now),
-		storedTime(now),
-	)
+    updated_at = excluded.updated_at`
+
+func (store *Store) PutRepositoryAnalysis(ctx context.Context, analysis domain.RepositoryAnalysis) (domain.RepositoryAnalysis, error) {
+	analysis, arguments, err := prepareRepositoryAnalysis(analysis, store.nowUTC())
+	if err != nil {
+		return domain.RepositoryAnalysis{}, err
+	}
+	_, err = store.db.ExecContext(ctx, repositoryAnalysisUpsertSQL, arguments...)
 	if err != nil {
 		return domain.RepositoryAnalysis{}, fmt.Errorf("write repository analysis: %w", err)
 	}
