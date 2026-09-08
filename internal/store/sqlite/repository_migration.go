@@ -134,7 +134,7 @@ func validateRepositoryRebuildColumns(ctx context.Context, transaction *sql.Tx) 
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	expected := strings.Split(repositoryColumns, ",")
+	expected := strings.Split(repositoryColumnsV4, ",")
 	for index := range expected {
 		expected[index] = strings.TrimSpace(expected[index])
 	}

@@ -14,6 +14,10 @@ import (
 // assignments are retained; an empty note can be filled and a selected topic
 // is added without replacing any prior classification.
 func (store *Store) PutWatchedRepository(ctx context.Context, observation domain.RepositoryObservation, snapshot domain.DailySnapshot, topicSlug string) (domain.Repository, bool, error) {
+	observation, err := normalizeObservationTags(observation)
+	if err != nil {
+		return domain.Repository{}, false, err
+	}
 	if err := validateObservation(observation); err != nil {
 		return domain.Repository{}, false, err
 	}
@@ -54,8 +58,10 @@ func (store *Store) PutWatchedRepository(ctx context.Context, observation domain
 		if existing.ManualNote != "" {
 			observation.ManualNote = nil
 		}
-		repository = mergeRepositoryObservation(existing, observation, now)
-		err = updateRepository(ctx, tx, repository)
+		repository, err = mergeRepositoryObservation(existing, observation, now)
+		if err == nil {
+			err = updateRepository(ctx, tx, repository)
+		}
 	}
 	if err != nil {
 		return domain.Repository{}, false, err

@@ -14,12 +14,14 @@ import (
 	corestore "github.com/xz1220/repotempo/internal/store"
 )
 
-const repositoryColumns = `
+const repositoryColumnsV4 = `
 github_repo_id, github_node_id, full_name, html_url, description,
 primary_language, github_created_at, first_seen_at, first_seen_source,
 first_seen_profile, discovery_sources_json, last_discovered_at,
 monitoring_status, github_status, is_focus, manual_note, github_etag,
 last_checked_at, previous_names_json, created_at, updated_at`
+
+const repositoryColumns = repositoryColumnsV4 + ", github_topics_json, research_tags_json"
 
 type scanner interface {
 	Scan(...any) error
@@ -36,6 +38,8 @@ func scanRepository(row scanner) (domain.Repository, error) {
 	var previousNamesJSON string
 	var createdAt string
 	var updatedAt string
+	var githubTopicsJSON sql.NullString
+	var researchTagsJSON string
 	if err := row.Scan(
 		&repository.GitHubRepoID,
 		&repository.GitHubNodeID,
@@ -58,6 +62,8 @@ func scanRepository(row scanner) (domain.Repository, error) {
 		&previousNamesJSON,
 		&createdAt,
 		&updatedAt,
+		&githubTopicsJSON,
+		&researchTagsJSON,
 	); err != nil {
 		return domain.Repository{}, err
 	}
@@ -94,7 +100,38 @@ func scanRepository(row scanner) (domain.Repository, error) {
 		return domain.Repository{}, fmt.Errorf("decode repository previous names: %w", err)
 	}
 	repository.IsFocus = isFocus != 0
+	if githubTopicsJSON.Valid {
+		if err := json.Unmarshal([]byte(githubTopicsJSON.String), &repository.GitHubTopics); err != nil {
+			return domain.Repository{}, fmt.Errorf("decode GitHub topics: %w", err)
+		}
+	}
+	if err := json.Unmarshal([]byte(researchTagsJSON), &repository.ResearchTags); err != nil {
+		return domain.Repository{}, fmt.Errorf("decode research tags: %w", err)
+	}
 	return repository, nil
+}
+
+func normalizeObservationTags(observation domain.RepositoryObservation) (domain.RepositoryObservation, error) {
+	if observation.GitHubTopics != nil && *observation.GitHubTopics != nil {
+		tags, err := domain.NormalizeRepositoryTags(*observation.GitHubTopics)
+		if err != nil {
+			return observation, fmt.Errorf("%w: GitHub topics: %v", corestore.ErrInvalid, err)
+		}
+		observation.GitHubTopics = &tags
+	} else {
+		observation.GitHubTopics = nil
+	}
+	if observation.ResearchTags != nil {
+		tags, err := domain.NormalizeRepositoryTags(*observation.ResearchTags)
+		if err != nil {
+			return observation, fmt.Errorf("%w: research tags: %v", corestore.ErrInvalid, err)
+		}
+		if tags == nil {
+			tags = []string{}
+		}
+		observation.ResearchTags = &tags
+	}
+	return observation, nil
 }
 
 func validateObservation(observation domain.RepositoryObservation) error {
@@ -118,6 +155,10 @@ func validateObservation(observation domain.RepositoryObservation) error {
 }
 
 func (store *Store) UpsertRepository(ctx context.Context, observation domain.RepositoryObservation) (domain.Repository, bool, error) {
+	observation, err := normalizeObservationTags(observation)
+	if err != nil {
+		return domain.Repository{}, false, err
+	}
 	if err := validateObservation(observation); err != nil {
 		return domain.Repository{}, false, err
 	}
@@ -160,7 +201,10 @@ func (store *Store) UpsertRepository(ctx context.Context, observation domain.Rep
 		}
 	}
 
-	merged := mergeRepositoryObservation(existing, observation, now)
+	merged, err := mergeRepositoryObservation(existing, observation, now)
+	if err != nil {
+		return domain.Repository{}, false, err
+	}
 	if err := updateRepository(ctx, transaction, merged); err != nil {
 		return domain.Repository{}, false, err
 	}
@@ -213,6 +257,7 @@ func repositoryFromObservation(observation domain.RepositoryObservation, now tim
 		MonitoringStatus: monitoringStatus,
 		GitHubStatus:     githubStatus,
 		PreviousNames:    []string{},
+		ResearchTags:     []string{},
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
@@ -221,6 +266,12 @@ func repositoryFromObservation(observation domain.RepositoryObservation, now tim
 	}
 	if observation.PrimaryLanguage != nil {
 		repository.PrimaryLanguage = *observation.PrimaryLanguage
+	}
+	if observation.GitHubTopics != nil {
+		repository.GitHubTopics = slices.Clone(*observation.GitHubTopics)
+	}
+	if observation.ResearchTags != nil {
+		repository.ResearchTags = slices.Clone(*observation.ResearchTags)
 	}
 	if observation.GitHubCreatedAt != nil {
 		value := observation.GitHubCreatedAt.UTC()
@@ -242,7 +293,7 @@ func repositoryFromObservation(observation domain.RepositoryObservation, now tim
 	return repository
 }
 
-func mergeRepositoryObservation(existing domain.Repository, observation domain.RepositoryObservation, now time.Time) domain.Repository {
+func mergeRepositoryObservation(existing domain.Repository, observation domain.RepositoryObservation, now time.Time) (domain.Repository, error) {
 	merged := existing
 	isWatchlistReplay := observation.Source == domain.DiscoverySourceManual &&
 		observation.Profile == "config-watchlist"
@@ -278,6 +329,23 @@ func mergeRepositoryObservation(existing domain.Repository, observation domain.R
 	if observation.GitHubCreatedAt != nil && (isLatestObservation || merged.GitHubCreatedAt == nil) {
 		value := observation.GitHubCreatedAt.UTC()
 		merged.GitHubCreatedAt = &value
+	}
+	if observation.GitHubTopics != nil && (isLatestObservation || merged.GitHubTopics == nil) {
+		merged.GitHubTopics = slices.Clone(*observation.GitHubTopics)
+		// Independently backfilled topics may not belong to the cached ETag.
+		if observation.GitHubETag == nil || !isLatestObservation {
+			merged.GitHubETag = ""
+		}
+	}
+	if observation.ResearchTags != nil {
+		tags, err := domain.NormalizeRepositoryTags(append(slices.Clone(merged.ResearchTags), (*observation.ResearchTags)...))
+		if err != nil {
+			return domain.Repository{}, fmt.Errorf("%w: merged research tags: %v", corestore.ErrInvalid, err)
+		}
+		if tags == nil {
+			tags = []string{}
+		}
+		merged.ResearchTags = tags
 	}
 	if observation.DiscoveredAt.Before(merged.FirstSeenAt) {
 		merged.FirstSeenAt = observation.DiscoveredAt
@@ -319,7 +387,7 @@ func mergeRepositoryObservation(existing domain.Repository, observation domain.R
 		}
 	}
 	merged.UpdatedAt = now
-	return merged
+	return merged, nil
 }
 
 func monitoringSeverity(status domain.MonitoringStatus) int {
@@ -334,6 +402,10 @@ func monitoringSeverity(status domain.MonitoringStatus) int {
 }
 
 func insertRepository(ctx context.Context, transaction *sql.Tx, repository domain.Repository) error {
+	githubTopics, researchTags, err := encodeRepositoryTags(repository)
+	if err != nil {
+		return err
+	}
 	sourcesJSON, err := json.Marshal(repository.DiscoverySources)
 	if err != nil {
 		return fmt.Errorf("encode repository discovery sources: %w", err)
@@ -344,7 +416,7 @@ func insertRepository(ctx context.Context, transaction *sql.Tx, repository domai
 	}
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO repositories (`+repositoryColumns+`)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		repository.GitHubRepoID,
 		repository.GitHubNodeID,
 		repository.FullName,
@@ -366,6 +438,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		string(previousNamesJSON),
 		storedTime(repository.CreatedAt),
 		storedTime(repository.UpdatedAt),
+		githubTopics,
+		researchTags,
 	)
 	if err != nil {
 		return fmt.Errorf("insert repository: %w", err)
@@ -374,6 +448,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 }
 
 func updateRepository(ctx context.Context, transaction *sql.Tx, repository domain.Repository) error {
+	githubTopics, researchTags, err := encodeRepositoryTags(repository)
+	if err != nil {
+		return err
+	}
 	sourcesJSON, err := json.Marshal(repository.DiscoverySources)
 	if err != nil {
 		return fmt.Errorf("encode repository discovery sources: %w", err)
@@ -389,7 +467,7 @@ UPDATE repositories SET
     first_seen_source = ?, first_seen_profile = ?, discovery_sources_json = ?,
     last_discovered_at = ?, monitoring_status = ?, github_status = ?,
     is_focus = ?, manual_note = ?, github_etag = ?, last_checked_at = ?,
-    previous_names_json = ?, updated_at = ?
+    previous_names_json = ?, updated_at = ?, github_topics_json = ?, research_tags_json = ?
 WHERE github_repo_id = ?`,
 		repository.GitHubNodeID,
 		repository.FullName,
@@ -410,12 +488,31 @@ WHERE github_repo_id = ?`,
 		nullableTime(repository.LastCheckedAt),
 		string(previousNamesJSON),
 		storedTime(repository.UpdatedAt),
+		githubTopics,
+		researchTags,
 		repository.GitHubRepoID,
 	)
 	if err != nil {
 		return fmt.Errorf("update repository: %w", err)
 	}
 	return nil
+}
+
+func encodeRepositoryTags(repository domain.Repository) (any, string, error) {
+	var githubTopics any
+	if repository.GitHubTopics != nil {
+		encoded, err := json.Marshal(repository.GitHubTopics)
+		if err != nil {
+			return nil, "", err
+		}
+		githubTopics = string(encoded)
+	}
+	researchTags := repository.ResearchTags
+	if researchTags == nil {
+		researchTags = []string{}
+	}
+	encoded, err := json.Marshal(researchTags)
+	return githubTopics, string(encoded), err
 }
 
 func nullableTime(value *time.Time) any {

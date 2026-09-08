@@ -66,6 +66,8 @@ type Repository struct {
 	HTMLURL          string            `json:"html_url,omitempty"`
 	Description      string            `json:"description,omitempty"`
 	PrimaryLanguage  string            `json:"primary_language,omitempty"`
+	GitHubTopics     []string          `json:"github_topics"`
+	ResearchTags     []string          `json:"research_tags"`
 	GitHubCreatedAt  *time.Time        `json:"github_created_at,omitempty"`
 	FirstSeenAt      time.Time         `json:"first_seen_at"`
 	FirstSeenSource  DiscoverySource   `json:"first_seen_source"`
@@ -92,6 +94,8 @@ type RepositoryObservation struct {
 	HTMLURL          string
 	Description      *string
 	PrimaryLanguage  *string
+	GitHubTopics     *[]string
+	ResearchTags     *[]string
 	GitHubCreatedAt  *time.Time
 	Source           DiscoverySource
 	Profile          string
