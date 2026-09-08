@@ -14,6 +14,22 @@
   border-radius: 12px;
   background: var(--surface);
 }
+.project-card.is-read {
+  background: var(--color-paper);
+}
+.project-read-toggle[hidden], .project-reading-note[hidden], .reading-local-note[hidden] { display: none; }
+.project-read-toggle[aria-pressed="true"] {
+  background: var(--surface-strong);
+  color: var(--ink);
+}
+.project-reading-note {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.project-reading-note[data-reading-error="true"] { color: var(--danger); }
+.reading-local-note { margin: 0 0 12px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .project-card-heading, .project-card-identity, .project-card-badges {
   display: flex;
   align-items: center;
@@ -50,7 +66,7 @@
 .project-card-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: var(--rule); padding-top: 16px; margin-top: 20px; }
 .project-card-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .project-card-meta > span { white-space: nowrap; }
-.project-card-actions { display: flex; flex-shrink: 0; gap: 8px; }
+.project-card-actions { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; }
 .project-card-actions .button { min-height: 36px; padding: 7px 10px; font-size: 11px; }
 .project-github-link { color: var(--accent-ink); }
 @media (max-width: 1200px) {
@@ -79,4 +95,5 @@
 @media print {
   .project-card { break-inside: avoid; }
   .project-card-actions { display: none; }
+  .project-reading-note, .reading-local-note { display: none; }
 }

@@ -28,7 +28,7 @@
           {{if .UseCases}}<div><h3>{{t "repository.analysis_use_cases"}}</h3><ul>{{range .UseCases}}<li lang="zh-CN">{{.}}</li>{{end}}</ul></div>{{end}}
         </div>
         {{if .TechnicalNotes}}<details class="analysis-notes"><summary>{{t "repository.analysis_technical_notes"}}</summary><p lang="zh-CN">{{.TechnicalNotes}}</p></details>{{end}}
-        <p class="analysis-provenance">{{tf "repository.analysis_provenance" .Source .Revision (formatDate .AnalyzedAt)}}{{if .Model}} · <span translate="no">{{.Model}}</span>{{end}}</p>
+        <p class="analysis-provenance">{{if eq .Source "legacy_research"}}{{t "feed.legacy_source"}} · {{t "feed.legacy_date"}}{{else}}{{tf "repository.analysis_provenance" .Source .Revision (formatDate .AnalyzedAt)}}{{end}}{{if .Model}} · <span translate="no">{{.Model}}</span>{{end}}</p>
       {{else}}
         <div class="analysis-pending">
           {{if .Repository.Repository.Description}}<p>{{.Repository.Repository.Description}}</p>{{else}}<p>{{t "repository.analysis_no_description"}}</p>{{end}}

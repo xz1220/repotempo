@@ -49,6 +49,7 @@ type pageView struct {
 	TrendPeriods      []viewOption
 	TrendSorts        []viewOption
 	LibraryViews      []viewOption
+	AllProjectsURL    string
 	NewProjectsURL    string
 	Pagination        pagination
 	ErrorStatus       int
@@ -108,6 +109,7 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		Limit:            repositoryPageSize,
 		AfterID:          parseTrendCursor(r.URL.Query().Get("cursor")),
 	}
+	h.applyLibraryDefaults(r.URL.Query(), &filter)
 	data, err := h.queryer.ListRepositoryTrends(r.Context(), filter)
 	if err != nil {
 		if errors.Is(err, ErrInvalid) && r.URL.Query().Get("cursor") != "" {
@@ -119,6 +121,10 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		h.serverError(w, r, err)
 		return
 	}
+	if data.Coverage.AsOfDate.IsZero() && !filter.AsOf.IsZero() {
+		data.Coverage.AsOfDate = filter.AsOf
+		data.Coverage.BaselineDate = filter.AsOf.AddDate(0, 0, -filter.WindowDays)
+	}
 	data.Filter = filter
 	data.Filter.AsOf = data.Coverage.AsOfDate
 	data.Path = path
@@ -126,28 +132,104 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	firstPageValues := cloneValues(r.URL.Query())
 	firstPageValues.Del("cursor")
 	firstPageValues.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
+	if filter.OnlyNew {
+		// Bare project-library URLs default to daily additions. Preserve that
+		// choice when links gain explicit date/category/pagination parameters.
+		firstPageValues.Set("new", "1")
+	}
 	data.FirstPageURL = queryPath(path, firstPageValues)
 	if data.HasMore && data.NextCursor != "" {
-		values := cloneValues(r.URL.Query())
+		values := cloneValues(firstPageValues)
 		values.Set("cursor", data.NextCursor)
 		values.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
 		data.NextCursor = queryPath(path, values)
 	}
 	view := pageView{
-		Meta:         h.meta(localized, "meta.repositories.title", "meta.repositories.description", "repositories", data.Warnings),
-		Repositories: data,
-		TrendPeriods: repositoryPeriodOptions(path, r.URL.Query(), filter.WindowDays, localized),
-		TrendSorts:   repositorySortOptions(path, r.URL.Query(), filter.Sort, localized),
-		LibraryViews: []viewOption{
-			{Label: localized.Text("ui.all_library"), URL: repositoryOptionURL(path, firstPageValues, "focus", ""), Active: !filter.OnlyFocus},
-			{Label: localized.Text("ui.my_watchlist"), URL: repositoryOptionURL(path, firstPageValues, "focus", "1"), Active: filter.OnlyFocus},
-		},
+		Meta:           h.meta(localized, "meta.repositories.title", "meta.repositories.description", "repositories", data.Warnings),
+		Repositories:   data,
+		TrendPeriods:   repositoryPeriodOptions(path, firstPageValues, filter.WindowDays, localized),
+		TrendSorts:     repositorySortOptions(path, firstPageValues, filter.Sort, localized),
+		LibraryViews:   h.libraryViewOptions(path, r.URL.Query(), data.Filter, localized),
+		AllProjectsURL: queryPath(path, url.Values{"view": {"all"}, "new": {"0"}, "lang": {h.localeFor(r)}}),
 	}
 	view.Meta.AsOfLabel = formatDateLocalized(data.Coverage.AsOfDate, h.location, localized.Text("page.not_available"))
 	view.Meta.Stale = rawDate == "" && h.isStale(data.Coverage.AsOfDate)
 	view.CurrentPath = path
 	view.Categories = categoryLinks(path, firstPageValues)
 	h.render(w, r, http.StatusOK, "repositories", view)
+}
+
+func (h *Handler) libraryToday() time.Time {
+	// Derive the calendar date in Shanghai even when a test or embedding host
+	// uses a different display timezone. Never substitute the last populated day.
+	shanghai := time.FixedZone("Asia/Shanghai", 8*60*60)
+	return parseDateParameter(h.now().In(shanghai).Format("2006-01-02"), h.location)
+}
+
+func (h *Handler) applyLibraryDefaults(values url.Values, filter *RepositoryQuery) {
+	if !values.Has("focus") && values.Get("view") == "focus" {
+		filter.OnlyFocus = true
+	}
+	if !values.Has("new") {
+		switch values.Get("view") {
+		case "daily":
+			filter.OnlyNew = true
+		case "all", "focus":
+			filter.OnlyNew = false
+		default:
+			// Old shared URLs already express a scope. Preserve their full-library
+			// meaning instead of narrowing searches or dashboard leaderboard links.
+			explicit := false
+			for _, key := range []string{"view", "sort", "period", "date", "topic", "q", "source", "status", "focus", "cursor"} {
+				explicit = explicit || values.Has(key)
+			}
+			filter.OnlyNew = !explicit
+		}
+	}
+	if filter.OnlyNew {
+		if filter.AsOf.IsZero() {
+			filter.AsOf = h.libraryToday()
+		}
+		if !values.Has("period") || strings.TrimSpace(values.Get("period")) == "" {
+			filter.WindowDays = 1
+		}
+		if !values.Has("sort") || strings.TrimSpace(values.Get("sort")) == "" {
+			filter.Sort = "stars"
+		}
+	}
+}
+
+func (h *Handler) libraryViewOptions(path string, original url.Values, filter RepositoryQuery, localized localizer) []viewOption {
+	dailyDate := h.libraryToday()
+	if strings.TrimSpace(original.Get("date")) != "" {
+		dailyDate = filter.AsOf
+	}
+	label := localized.Text("daily.today")
+	if dailyDate.Format("2006-01-02") != h.libraryToday().Format("2006-01-02") {
+		label = localized.Textf("daily.on_date", dailyDate.Format("2006-01-02"))
+	}
+	link := func(view string) string {
+		values := cloneValues(original)
+		values.Del("cursor")
+		values.Set("view", view)
+		values.Del("focus")
+		values.Set("new", "0")
+		if !filter.AsOf.IsZero() {
+			values.Set("date", filter.AsOf.Format("2006-01-02"))
+		}
+		if view == "daily" {
+			values.Set("new", "1")
+			values.Set("date", dailyDate.Format("2006-01-02"))
+		} else if view == "focus" {
+			values.Set("focus", "1")
+		}
+		return queryPath(path, values)
+	}
+	return []viewOption{
+		{Label: label, URL: link("daily"), Active: filter.OnlyNew && !filter.OnlyFocus},
+		{Label: localized.Text("ui.all_library"), URL: link("all"), Active: !filter.OnlyNew && !filter.OnlyFocus},
+		{Label: localized.Text("ui.my_watchlist"), URL: link("focus"), Active: filter.OnlyFocus},
+	}
 }
 
 func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {

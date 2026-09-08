@@ -134,6 +134,7 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /static/app.css", h.staticAsset("app.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/feed.css", h.staticAsset("feed.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/app.js", h.staticAsset("app.js", "text/javascript; charset=utf-8"))
+	h.mux.HandleFunc("GET /static/reading-state.js", h.staticAsset("reading-state.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /", h.notFound)
 }
 
