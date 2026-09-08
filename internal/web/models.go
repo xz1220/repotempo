@@ -117,6 +117,7 @@ type RepositoryMetric struct {
 	Topics            []TopicRef
 	Tags              []string
 	Analysis          *RepositoryAnalysis
+	Activity          *RepositoryActivity
 	FirstSeenSource   string
 	DiscoverySources  []string
 	FirstSeenProfile  string
@@ -174,6 +175,28 @@ type RepositoryAnalysis struct {
 	Model          string
 	Revision       int
 	AnalyzedAt     time.Time
+}
+
+// RepositoryActivity is a cached GitHub default-branch sample, not AI analysis
+// or historical activity as of the currently selected Star observation date.
+type RepositoryActivity struct {
+	RepositoryID   int64
+	DefaultBranch  string
+	HeadSHA        string
+	IsFork         bool
+	WindowStart    time.Time
+	WindowEnd      time.Time
+	FetchedAt      time.Time
+	LatestCommitAt *time.Time
+	Commits        int
+	ActiveDays     int
+	Complete       bool
+	Daily          []ActivityDay
+}
+
+type ActivityDay struct {
+	Date  string
+	Count int
 }
 
 type SnapshotPoint struct {

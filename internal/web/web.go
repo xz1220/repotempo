@@ -179,6 +179,14 @@ func (h *Handler) parseTemplates() error {
 			"join":             strings.Join,
 			"lower":            strings.ToLower,
 			"watchText":        func(key string) string { return watchText(locale, key) },
+
+			"briefItems": briefItems,
+			"repositoryAge": func(created *time.Time, asOf time.Time) repositoryAgeView {
+				return repositoryAge(created, asOf, h.location, localized)
+			},
+			"activityView": func(repository RepositoryMetric, asOf time.Time) activityPresentation {
+				return activityView(repository, asOf, h.now(), localized)
+			},
 		}
 		h.templates[locale] = make(map[string]*template.Template)
 		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch"} {

@@ -54,13 +54,26 @@
           <section class="project-brief" aria-label="{{t "feed.brief"}}">
             {{if and .Analysis (briefText .Analysis.SummaryZH)}}
               <div class="project-brief-heading"><h3>{{if aiAnalysis .Analysis.Source}}{{t "feed.ai_brief"}}{{else}}{{t "feed.saved_brief"}}{{end}}</h3><span>{{if eq .Analysis.Source "legacy_research"}}{{t "feed.legacy_date"}}{{else}}{{formatDate .Analysis.AnalyzedAt}}{{end}}</span></div>
-              <p class="project-brief-text" lang="zh-CN">{{briefText .Analysis.SummaryZH}}</p>
+              <dl class="project-brief-outline">
+                <div><dt>{{t "activity.purpose"}}</dt><dd><p class="project-brief-text" lang="zh-CN">{{briefText .Analysis.SummaryZH}}</p></dd></div>
+                {{with briefItems .Analysis.KeyPoints}}<div class="brief-secondary"><dt>{{t "activity.capabilities"}}</dt><dd lang="zh-CN">{{join . " · "}}</dd></div>{{end}}
+                {{with briefItems .Analysis.UseCases}}<div class="brief-secondary"><dt>{{t "activity.use_cases"}}</dt><dd lang="zh-CN">{{join . " · "}}</dd></div>{{end}}
+              </dl>
               <p class="project-brief-source">{{if eq .Analysis.Source "legacy_research"}}{{tf "feed.reading_source" (t "feed.legacy_source")}}{{else}}{{tf "feed.reading_source" (analysisSource .Analysis.Source)}}{{end}}{{if .Analysis.Model}} · <span translate="no">{{.Analysis.Model}}</span>{{end}}</p>
             {{else}}
               <div class="project-brief-heading"><h3>{{t "feed.ai_brief"}}</h3><span>{{t "feed.not_read"}}</span></div>
               <p class="project-brief-pending">{{t "feed.pending_help"}}</p>
             {{end}}
           </section>
+          {{with activityView . $.Repositories.Filter.AsOf}}
+          <div class="project-development">
+            {{if .HasCache}}
+            <p class="activity-heading" title="{{.PeriodLabel}}">{{.Heading}} · {{t "activity.card_window"}}</p>
+            <p class="activity-summary"><strong>{{.Summary}}</strong>{{if .Incomplete}} <span class="activity-partial" title="{{t "activity.incomplete"}}">{{t "activity.partial"}}</span>{{end}} <span class="activity-source">{{t "activity.source"}}{{if .Branch}} · <span translate="no">{{.Branch}}</span>{{end}}</span></p>
+            {{if .IsFork}}<p class="activity-note">{{t "activity.fork"}}</p>{{end}}
+            {{else}}{{if .CommitsURL}}<a class="text-link activity-source" href="{{.CommitsURL}}" target="_blank" rel="noopener noreferrer">{{t "activity.view_commits"}} ↗</a>{{end}}{{end}}
+          </div>
+          {{end}}
         </div>
 
         <dl class="project-card-metrics" aria-label="{{t "repositories.metrics_region"}}">
@@ -77,6 +90,7 @@
         <div class="project-card-meta">
           <span>{{t "feed.added"}} <time datetime="{{formatDate .FirstSeenAt}}">{{formatDate .FirstSeenAt}}</time></span>
           {{if .GitHubCreatedAt}}<span>{{t "feed.created"}} {{formatDatePtr .GitHubCreatedAt}}</span>{{end}}
+          {{with repositoryAge .GitHubCreatedAt $.Repositories.Filter.AsOf}}<span class="repository-age" title="{{.Help}}">{{t "activity.age"}} {{.Label}}</span>{{end}}
           <span>{{t "feed.origin"}} {{sourceLabel .FirstSeenSource}}</span>
           {{if .IsStale}}{{if .LastObservedAt}}<span class="metric-pending">{{tf "ui.last_observed" (formatDatePtr .LastObservedAt)}}</span>{{end}}{{end}}
         </div>
@@ -93,5 +107,5 @@
 </ol>
 {{else}}<div class="empty-state">{{if .Repositories.Filter.OnlyNew}}<h3>{{tf "daily.empty_title" (formatDate .Repositories.Filter.AsOf)}}</h3><p>{{t "daily.empty_help"}}</p><a class="button button-secondary" href="{{.AllProjectsURL}}">{{if .Repositories.Filter.Tag}}{{t "tags.browse_all_matching"}}{{else}}{{t "daily.browse_all"}}{{end}}</a>{{else}}<h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p><a class="button button-secondary" href="{{.AllProjectsURL}}">{{t "repositories.clear_filters"}}</a>{{end}}</div>{{end}}
 <nav class="cursor-pagination" aria-label="{{t "pagination.label"}}"><p>{{tf "repositories.page_summary" (formatInt (len .Repositories.Items)) (formatInt .Repositories.Total)}}</p><div>{{if .Repositories.Filter.AfterID}}<a class="button button-secondary" href="{{.Repositories.FirstPageURL}}">{{t "ui.first_page"}}</a>{{end}}{{if .Repositories.NextCursor}}<a class="button button-secondary" href="{{.Repositories.NextCursor}}" rel="next">{{t "pagination.next"}} {{template "icon-arrow"}}</a>{{end}}</div></nav>
-<details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}} <a class="text-link" href="/topics">{{t "ui.category_rules"}}</a></p><p>{{t "tags.method_note"}}</p></details>
+<details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}} <a class="text-link" href="/topics">{{t "ui.category_rules"}}</a></p><p>{{t "tags.method_note"}}</p><p>{{t "activity.age_help"}}</p><p>{{t "activity.incomplete"}}</p></details>
 {{end}}

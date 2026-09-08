@@ -63,6 +63,33 @@
 .project-brief-text { max-width: 75ch; font-size: 14px; line-height: 1.85; white-space: normal; }
 .project-brief-source { margin-top: 8px; }
 .project-brief-pending { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.project-brief-outline { margin: 0; }
+.project-brief-outline > div { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 12px; }
+.project-brief-outline dt { color: var(--muted); font-size: 11px; line-height: 1.85; padding-top: 2px; }
+.project-brief-outline dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.project-brief-outline .brief-secondary { margin-top: 7px; font-size: 12px; line-height: 1.65; }
+.project-development { margin-top: 15px; }
+.activity-heading, .activity-source, .activity-note { font-size: 11px; line-height: 1.65; color: var(--muted); overflow-wrap: anywhere; }
+.activity-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 3px; font-size: 12px; line-height: 1.7; }
+.activity-summary strong { font-weight: 600; }
+.activity-partial { font-size: 11px; color: var(--warning); }
+.activity-note { margin-top: 5px; }
+.analysis-purpose-label { font-size: 12px; margin-bottom: 7px; }
+.repository-development { padding: 22px 0; border-top: var(--rule); border-bottom: var(--rule); margin-bottom: 24px; }
+.repository-development .section-heading { gap: 12px; }
+.repository-development .activity-summary { font-size: 14px; gap: 6px 24px; }
+.repository-development .activity-source { margin-top: 7px; }
+.commit-chart { margin-top: 18px; max-width: 900px; }
+.commit-bars { display: block; width: 100%; height: 100px; overflow: visible; }
+.commit-bar { fill: var(--accent); }
+.commit-bar.commit-zero { fill: var(--color-rule-strong); }
+.commit-bar.commit-unknown { fill: none; stroke: var(--color-rule-strong); stroke-width: 0.8; stroke-dasharray: 1.5 1; }
+.commit-chart-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 6px; }
+.activity-daily { margin-top: 12px; font-size: 12px; }
+.activity-daily summary { cursor: pointer; width: fit-content; padding: 7px 0; color: var(--accent-ink); }
+.activity-daily ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px 24px; list-style: none; padding: 12px 0; margin: 0; }
+.activity-daily li { display: flex; gap: 15px; justify-content: space-between; color: var(--ink); font-variant-numeric: tabular-nums; }
+.age-explanation { display: block; margin-top: 5px; font-size: 11px; line-height: 1.65; color: var(--muted); max-width: 65ch; }
 .project-card-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 20px; align-content: start; margin: 0; padding: 0; }
 .project-card-metrics > div { min-width: 0; }
 .project-card-metrics dt { font-size: 11px; line-height: 1.5; color: var(--muted); margin-bottom: 5px; }
@@ -77,6 +104,7 @@
 .project-card-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: var(--rule); padding-top: 16px; margin-top: 20px; }
 .project-card-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .project-card-meta > span { white-space: nowrap; }
+.project-card-meta .repository-age { white-space: normal; }
 .project-card-actions { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; }
 .project-card-actions .button { min-height: 36px; padding: 7px 10px; font-size: 11px; }
 .project-github-link { color: var(--accent-ink); }
@@ -104,6 +132,10 @@
   .project-card-actions { width: 100%; }
   .project-card-actions .button { flex: 1; min-height: 42px; }
   .project-brief { margin-top: 16px; }
+  .project-brief-outline > div { grid-template-columns: 1fr; gap: 2px; }
+  .project-brief-outline .brief-secondary { margin-top: 10px; }
+  .repository-development .section-heading { flex-direction: column; align-items: flex-start; }
+  .commit-bars { height: 76px; }
 }
 @media print {
   .project-card { break-inside: avoid; }

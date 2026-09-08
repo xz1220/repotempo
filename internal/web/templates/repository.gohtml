@@ -22,10 +22,10 @@
         <div><h2 id="repository-analysis-title">{{t "ui.about_project"}}</h2><p>{{if .Repository.Analysis}}{{t "ui.analysis_available"}}{{else}}{{t "ui.github_description"}}{{end}}</p></div>
       </div>
       {{with .Repository.Analysis}}
-        {{if .SummaryZH}}<p class="analysis-summary" lang="zh-CN">{{.SummaryZH}}</p>{{end}}
+        {{if .SummaryZH}}<h3 class="analysis-purpose-label">{{t "activity.purpose"}}</h3><p class="analysis-summary" lang="zh-CN">{{.SummaryZH}}</p>{{end}}
         <div class="analysis-columns">
-          {{if .KeyPoints}}<div><h3>{{t "repository.analysis_key_points"}}</h3><ul>{{range .KeyPoints}}<li lang="zh-CN">{{.}}</li>{{end}}</ul></div>{{end}}
-          {{if .UseCases}}<div><h3>{{t "repository.analysis_use_cases"}}</h3><ul>{{range .UseCases}}<li lang="zh-CN">{{.}}</li>{{end}}</ul></div>{{end}}
+          {{if .KeyPoints}}<div><h3>{{t "activity.capabilities"}}</h3><ul>{{range .KeyPoints}}<li lang="zh-CN">{{.}}</li>{{end}}</ul></div>{{end}}
+          {{if .UseCases}}<div><h3>{{t "activity.use_cases"}}</h3><ul>{{range .UseCases}}<li lang="zh-CN">{{.}}</li>{{end}}</ul></div>{{end}}
         </div>
         {{if .TechnicalNotes}}<details class="analysis-notes"><summary>{{t "repository.analysis_technical_notes"}}</summary><p lang="zh-CN">{{.TechnicalNotes}}</p></details>{{end}}
         <p class="analysis-provenance">{{if eq .Source "legacy_research"}}{{t "feed.legacy_source"}} · {{t "feed.legacy_date"}}{{else}}{{tf "repository.analysis_provenance" .Source .Revision (formatDate .AnalyzedAt)}}{{end}}{{if .Model}} · <span translate="no">{{.Model}}</span>{{end}}</p>
@@ -46,10 +46,33 @@
     </dl>
   </section>
 
+  {{with activityView .Repository.Repository .Repository.AsOf}}
+  <section class="repository-development" aria-labelledby="development-heading">
+    <div class="section-heading compact"><div><h2 id="development-heading">{{.Heading}}</h2>{{if .HasCache}}<p>{{.PeriodLabel}}</p>{{end}}</div>{{if .CommitsURL}}<a class="text-link" href="{{.CommitsURL}}" target="_blank" rel="noopener noreferrer">{{t "activity.view_commits"}} ↗</a>{{end}}</div>
+    {{if .HasCache}}
+    <p class="activity-summary"><strong>{{.Summary}}</strong> <span>{{.LatestLabel}}</span></p>
+    <p class="activity-source">{{t "activity.source"}}{{if .Branch}} · <span translate="no">{{.Branch}}</span>{{end}} · {{.FetchLabel}}</p>
+    {{if .Incomplete}}<p class="activity-note">{{t "activity.incomplete"}}</p>{{end}}
+    {{if .IsFork}}<p class="activity-note">{{t "activity.fork"}}</p>{{end}}
+    {{if .Bars}}
+    <div class="commit-chart">
+      <svg viewBox="0 0 300 50" class="commit-bars" role="img" aria-label="{{.ChartLabel}}" preserveAspectRatio="none">
+        {{range .Bars}}<rect class="commit-bar {{if .Unknown}}commit-unknown{{else if .Zero}}commit-zero{{end}}" x="{{.X}}" y="{{.Y}}" width="8" height="{{.Height}}"><title>{{.Date}}: {{.Label}}</title></rect>{{end}}
+      </svg>
+      <div class="commit-chart-axis"><span>{{.StartLabel}}</span><span>UTC</span><span>{{.EndLabel}}</span></div>
+    </div>
+    <details class="activity-daily"><summary>{{t "activity.daily_details"}}</summary><ol>{{range .Bars}}<li><time datetime="{{.Date}}">{{.Date}}</time><span>{{.Label}}</span></li>{{end}}</ol></details>
+    {{end}}
+    {{end}}
+  </section>
+  {{end}}
+
   <section class="evidence-grid" aria-labelledby="collection-evidence">
     <div>
       <div class="section-heading compact"><div><h2 id="collection-evidence">{{t "repository.collection_evidence"}}</h2><p>{{t "repository.collection_evidence_help"}}</p></div></div>
       <dl class="definition-list">
+        <div><dt>{{t "feed.created"}}</dt><dd>{{formatDatePtr .Repository.Repository.GitHubCreatedAt}}</dd></div>
+        {{with repositoryAge .Repository.Repository.GitHubCreatedAt .Repository.AsOf}}<div><dt>{{t "activity.age"}}</dt><dd>{{.Label}}<small class="age-explanation">{{.Help}}</small></dd></div>{{end}}
         <div><dt>{{t "repository.first_seen"}}</dt><dd>{{formatDateTime .Repository.Repository.FirstSeenAt}}</dd></div>
         <div><dt>{{t "repository.first_source"}}</dt><dd>{{sourceLabel .Repository.Repository.FirstSeenSource}}</dd></div>
         {{if .Repository.Repository.DiscoverySources}}<div><dt>{{t "repository.discovery_sources"}}</dt><dd>{{range $index, $source := .Repository.Repository.DiscoverySources}}{{if $index}} · {{end}}{{sourceLabel $source}}{{end}}</dd></div>{{end}}
