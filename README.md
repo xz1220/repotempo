@@ -10,14 +10,16 @@ categories, and a personal watchlist. It is not affiliated with GitHub.
 
 ## What you can do
 
-- Scan a dashboard for fastest growth, slow or zero growth, and projects losing
-  momentum compared with the preceding period.
+- Scan a fastest-growth Top 10 and up to six projects with the largest momentum
+  declines compared with the preceding period.
 - Read projects newly added on a selected date; they automatically enter the
   library for continued observation.
 - Paste a public GitHub URL or owner/name to follow it, with an optional category
   and note. The Web form saves its first real Star snapshot immediately.
-- Open any project to read what it does, inspect Star history, and view saved
-  research interpretations when available.
+- Read a single-column project feed, 20 cards per page, with original
+  descriptions and saved AI or human briefs showing their source and date.
+- Open a detail for the full saved analysis and individual Star-history chart,
+  or follow the card's separate GitHub link.
 - Browse by coding agents, research agents, browser/computer agents, workflow
   agents, agent platforms, general agents, or AI infrastructure.
 - Export monitoring data as CSV, JSON, or a consistent SQLite backup.
@@ -147,8 +149,8 @@ repair failed ones.
 
 | Page | What it contains |
 | --- | --- |
-| Trends, `/` | Fixed-cohort charts and fastest, slowest, and slowing growth groups. |
-| Project library, `/repositories` | Search, category filters, date/period controls, new-entry filtering, My watchlist, and cursor pagination. |
+| Trends, `/` | Fastest growth Top 10 and up to six largest momentum declines. |
+| Project library, `/repositories` | A single-column, 20-card reading feed with search, category/date controls, new-entry filtering, and My watchlist. |
 | Agent categories, `/topics` | Purpose-based categories, supporting tags, and classification coverage. |
 | Add project, `/watch/new` | A form for a public repository URL, optional category, and note. |
 | Collection history, `/runs` | Run outcomes, source warnings, failures, and completeness. |
@@ -160,6 +162,12 @@ controls, with `new=1` to show only projects first added on the selected date.
 Old `/discoveries` links redirect to this filtered library view. Project details use
 `/repositories/{github_repository_id}`. Health endpoints are `/healthz` and
 `/readyz`.
+
+Each library card includes the original description, any saved AI or human
+brief with source and date, Stars, period gain, growth rate, comparable-sample
+ranks, entry date, and detail/GitHub actions. Missing explanations are marked
+as not reviewed. Existing briefs are loaded in one database batch per page;
+browsing does not request a new model-generated summary.
 
 The default direct loopback server supports the Add project form locally.
 For public writes, configure `GITHUB_RADAR_WEB_WRITE_TOKEN` with a separate
@@ -193,7 +201,6 @@ Choose an endpoint date and a 1, 7, or 30-day period. A project is comparable
 only when both exact endpoints have successful observations.
 
 - Fastest growth means the largest positive Star gain.
-- Slow growth includes zero and the smallest positive gains.
 - Losing momentum means a smaller Star gain than the previous equal-length
   period. It requires three successful observations, including the earlier
   period's starting date.
@@ -201,9 +208,8 @@ only when both exact endpoints have successful observations.
   slower positive gain.
 - Missing or failed observations do not become zero growth.
 
-The dashboard attention curve uses the same endpoint-comparable repositories,
-normalized to 100 at the start. Missing intermediate observations create gaps.
-New library entries do not directly increase this fixed-cohort curve.
+The dashboard presents only the two project rankings. Individual Star-history
+charts remain on project details, where missing dates stay visible as gaps.
 
 Rank changes refer to the monitored sample and selected scope, not all of
 GitHub. Last-known Stars show their actual observation date and are not used
@@ -287,12 +293,13 @@ An external Codex or human research workflow can prepare this JSON shape:
 ```
 
 Import replaces the current interpretation and increments its revision
-counter. Source, model, and analysis time remain visible in the detail page.
-Prior interpretation bodies are not retained in this iteration.
+counter. A card shows its saved brief, source, and date; the detail shows the
+complete saved analysis and revision metadata. Prior bodies are not retained.
 
 SQLite backups include interpretations. Regular monitoring CSV/JSON exports
-do not yet include them. The Web application displays analyses but does not
-invoke models or generate research.
+do not yet include them. The Web application batch-loads existing card briefs
+and displays complete analyses; it does not invoke external models or add an
+on-demand LLM pipeline.
 
 ## Export and deploy
 
@@ -344,9 +351,10 @@ make build-linux
 make security
 ```
 
-Current acceptance should cover fixed-cohort chart values, slowdown across
-three exact dates, missing/stale states, pagination, manual addition, and
-Chinese/English desktop and mobile layouts. Mock-API tests and live collection
+Current acceptance should cover the Top 10/six-row dashboard, slowdown across
+three exact dates, 20-card pagination, saved-brief source/date and missing
+states, individual history charts, manual addition, and Chinese/English
+desktop and mobile layouts. Mock-API tests and live collection
 results should be reported separately. OSS Insight availability is not a
 requirement for GitHub-only operation.
 

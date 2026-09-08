@@ -25,8 +25,9 @@ records.
 - Preserve the Go templates, semantic HTML, local CSS, native JavaScript, and
   server-rendered SVG stack.
 
-The design is a working research application. It needs useful charts and
-comfortable reading space as well as exact tables.
+The design is a working research application. The homepage supports a quick
+scan of two ranked lists; the library provides comfortable project reading,
+and individual history charts remain on detail pages.
 
 ## App shell
 
@@ -50,8 +51,8 @@ for routes, labels, and content order.
 
 | Route | What the page helps the user understand |
 | --- | --- |
-| `/` | The user sees overall movement, fastest growth, slow growth, and slowing momentum. |
-| `/repositories` | The user searches and compares projects, filters new entries by date, or opens My watchlist. |
+| `/` | The user sees fastest growth Top 10 and up to six largest momentum declines. |
+| `/repositories` | The user reads a 20-card single-column feed, filters new entries, or opens My watchlist. |
 | `/discoveries` | Old discovery links lead into the project library's new-entry view. |
 | `/repositories/{id}` | The user learns what a project does and reviews its observed history. |
 | `/topics` | The user explores product categories and classification coverage. |
@@ -61,21 +62,17 @@ for routes, labels, and content order.
 
 ## Trend dashboard
 
-The first screen combines date/period/category controls, a small number of
-meaningful counts, and a large attention-history chart. It should be possible
-to scan the result without starting with a dense data table.
+The homepage contains date/period/category controls and two lists: fastest
+growth Top 10 as the main section, and up to six largest momentum declines as
+the secondary section. Short bars may support the fastest-growth values.
 
-The chart compares the same group of repositories across the chosen interval,
-with the first observation normalized to 100. A companion distribution shows
-positive, zero, and negative Star changes among comparable projects.
+Project identity, description, Stars, and real period change support scanning.
+The smaller slowdown list compares current and preceding gains. Available
+evidence determines row counts; empty groups explain missing comparisons.
 
-Below the charts, three distinct groups show fastest growth, slow or zero
-growth, and slowing momentum. Each row includes project identity and a real
-number. Short bars help compare magnitude; clicking a project opens its detail.
-
-Counts and chart labels identify the date range and comparable sample.
-Operational details belong in an expandable explanation or collection history,
-not in the primary reading path.
+Keep the selected scope, comparable sample, date range, and new-entry link as
+compact context. Do not add a slow-growth group, performance distribution, or
+aggregate attention-history curve. Method details stay expandable.
 
 ## New discoveries in the library
 
@@ -97,11 +94,19 @@ All projects and My watchlist are tabs inside the library. Search, category,
 period, date, ordering, and the new-only filter describe the current slice.
 Keep advanced source and monitoring-state controls secondary.
 
-Desktop rows align numbers and leave enough room for descriptions. Mobile uses
-readable records rather than compressing a wide table. New, unclassified,
-awaiting-observation, and stale states remain visible.
+Use a single column of project cards on desktop and mobile, with 20 projects
+per page. Within each card, the reading area leads and the metrics remain easy
+to compare. New, unclassified, awaiting-observation, and stale states stay visible.
 
-Cursor pagination supports a growing library. Sort and filter changes reset
+Each card includes the original description and a separate saved brief with
+its source and date. Label AI-generated and human/imported notes appropriately;
+show an explicit not-reviewed state when no saved explanation exists.
+
+Show Stars, period gain, growth rate, comparable-sample rank movement, entry
+date, and separate detail/GitHub buttons. Load existing explanations for all
+cards on a page in one database batch, without calling an external model.
+
+Cursor pagination keeps the feed bounded. Sort and filter changes reset
 continuation; browser Back and shared URLs preserve the selected context.
 
 ## Add project
@@ -138,15 +143,16 @@ remain protected.
 ## Project detail
 
 Lead with identity, the original project description, and a clear GitHub link.
-When a saved research interpretation exists, give its summary, capabilities,
-use cases, and provenance useful reading space.
+When a saved research interpretation exists, show its full summary,
+capabilities, use cases, technical notes, and provenance beyond the card excerpt.
 
 Show Star history, effective history start, category, and collection evidence
 after the explanation. A missing analysis is a normal state, not a broken
 page. The original GitHub description must never be labeled as AI research.
 
 Interpretations are imported outside the Web interface. Show the source,
-model, analysis time, and revision counter of the current body.
+model, analysis time, and revision counter of the current body. Reading details
+does not trigger model generation or a new on-demand LLM workflow.
 
 ## Data semantics
 
@@ -154,12 +160,10 @@ model, analysis time, and revision counter of the current body.
   1, 7, or 30 days. Missing endpoints produce no growth value.
 - Slowing momentum compares gains in two adjacent equal windows. It requires
   successful observations at `D - 2W`, `D - W`, and `D`.
-- Slow growth includes zero and the smallest nonnegative gains. A decline in
-  cumulative Stars is a separate state.
 - Sample ranks are calculated within one scoped common cohort. They never
   imply a global GitHub rank.
-- Attention history fixes the endpoint-comparable group. If a member lacks an
-  intermediate observation, preserve a chart gap.
+- Individual project history uses its real observations and preserves missing
+  intermediate dates as gaps.
 - Show the date beside a last-known Star value. Never use it as an exact
   endpoint or as evidence of zero growth.
 - Distinguish first discovery, GitHub creation time, and observation time.
@@ -180,8 +184,8 @@ containers or shadows.
 
 ## Charts and interaction
 
-- Use a line for history, horizontal bars for ranked magnitudes, and a compact
-  distribution chart for positive/zero/negative groups.
+- Use a line for individual history on detail pages and short horizontal bars
+  for fastest-growth magnitudes. The dashboard is limited to its two lists.
 - Identify the unit and period. Do not mix absolute Stars and growth on a dual
   axis or present whole-registry accumulation as community growth.
 - Provide exact values through an adjacent or expandable table.
@@ -197,9 +201,10 @@ containers or shadows.
 Keep business logic outside templates. GET forms and anchors express browsing
 state; the protected Add project form is the scoped Web write path.
 
-Verify charts against repository observations, check manual-add success and
-failure paths, and inspect Chinese/English layouts at 320, 375, 414, 768, and
-1440px. Check long project names, sparse history, stale data, and browser Back.
+Verify the Top 10/six-row limits, 20-card pagination, saved-brief source/date,
+single-project chart values, and manual-add paths. Inspect Chinese/English
+layouts at 320, 375, 414, 768, and 1440px, including long names, sparse history,
+stale data, absent explanations, and browser Back.
 
 This document defines the intended design and acceptance criteria. It does not
 assert that screenshots, a fixed audit score, or a release have passed.
@@ -209,7 +214,7 @@ assert that screenshots, a fixed audit score, or a release have passed.
 - Decorative marketing sections, invented growth numbers, and empty charts
   drawn from fabricated data.
 - Treating a slowdown as a Star-count decline or missing data as zero growth.
-- Treating newly added projects as a rise in the fixed-cohort trend.
+- Adding aggregate attention charts or extra leaderboard groups to the homepage.
 - Gradient text, neon glow, glass panels, or a rounded box around every label.
 - Technical implementation details inside the normal reading flow.
 - External fonts, imagery, or chart runtimes that are unnecessary for the task.

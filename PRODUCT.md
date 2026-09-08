@@ -10,25 +10,26 @@ The first user is a technical researcher and investor who follows open-source
 projects on desktop, checks selected projects on mobile, and exports data for
 deeper research and personal open-source project selection.
 
-The daily session starts with three questions: which projects are growing
-fastest, which are growing slowly, and which have lost momentum compared with
-the previous period? From there, the user opens a project to understand what
-it does or adds an interesting repository for continued observation.
+The daily session starts with the fastest-growing projects and those losing
+the most momentum compared with the previous period. The user then reads the
+project library for context, opens a detail, or adds a repository to follow.
 
 ## Core capabilities
 
-1. Show a trend dashboard with fastest growth, slow or zero growth, and slowing
-   momentum. Charts compare a stable group of repositories and expose the
-   coverage behind the comparison.
+1. Show two dashboard lists: the fastest-growth Top 10 and up to six projects
+   with the largest momentum declines. Keep the selected scope and comparable
+   sample count visible.
 2. Archive newly discovered projects by their first entry into the radar.
    Discovery automatically registers projects for continued collection.
 3. Let an operator add a public GitHub URL or owner/name from the Web interface,
    save an optional note and category, and see the project with its first real
    Star snapshot immediately.
-4. Keep all tracked projects searchable in a separate project library, including
-   newly added projects and those awaiting a valid observation.
-5. Explain what each project does through its original description and any
-   stored research interpretation, with Star history and source information.
+4. Present the project library as a single-column reading feed, paginated at
+   20 projects per page, including new and awaiting-observation projects.
+5. Each card combines the original description, any saved AI or human brief
+   with source and date, Stars, gain, growth rate, comparable-sample ranks,
+   entry date, and detail/GitHub links. Details retain the full saved analysis
+   and an individual project's Star-history chart.
 6. Organize projects by a clear product category: coding, research, browser and
    computer use, workflow automation, agent platforms, general agents, or AI
    infrastructure. Unclassified projects remain visible.
@@ -44,8 +45,8 @@ and ordering, including Stars or growth.
 
 | Destination | What the user does |
 | --- | --- |
-| Trends, `/` | The user scans charts and growth groups for a chosen date and period. |
-| Project library, `/repositories` | The user searches all projects, reviews new entries, or switches to My watchlist. |
+| Trends, `/` | The user scans fastest growth and largest momentum declines for a chosen date and period. |
+| Project library, `/repositories` | The user reads 20 project cards per page, filters new entries, or switches to My watchlist. |
 
 My watchlist is a tab within the project library. Add project appears once as
 a compact library-toolbar action opening `/watch/new`; neither is repeated in
@@ -80,14 +81,13 @@ A selected period is 1, 7, or 30 calendar days ending on a chosen date. Growth
 uses successful observations at both exact endpoints. Slowing momentum needs
 three successful observations spanning two adjacent periods of equal length.
 
-Fastest growth is the largest positive Star gain. Slow growth includes zero
-and the smallest positive gains. Slowing momentum means the current period
-gained fewer Stars than the preceding period; it does not necessarily mean
-the total Star count fell.
+Fastest growth is the largest positive Star gain. Slowing momentum means the
+current period gained fewer Stars than the preceding period; it does not
+necessarily mean the total Star count fell.
 
-The dashboard trend uses a fixed endpoint-comparable group, normalized to 100
-at the starting date. Missing observations produce gaps. Sample rankings never
-claim to be rankings across all of GitHub.
+Sample rankings compare the same endpoint-comparable repositories and never
+claim to cover all of GitHub. Individual history charts preserve missing days
+as gaps; the homepage does not aggregate them into an attention curve.
 
 New discovery means new to this system. Repository creation time is a different
 field. Stale observations show their actual date, and failed requests do not
@@ -99,8 +99,10 @@ appear as zero growth.
   provenance, and collection evidence. Commit, release, and code-activity
   analysis remain outside this iteration.
 - Stored project interpretations are prepared outside the Web application and
-  imported with source, model, time, and revision metadata. The Web application
-  does not invoke an AI model or generate analyses.
+  imported with source, model, time, and revision metadata. Cards load the
+  existing interpretations for the current page in one database batch. Reading
+  a card or detail does not invoke an external model; there is no new on-demand
+  LLM generation pipeline.
 - The current interpretation body is retained; prior bodies and interpretation
   CSV/JSON exports are not included in this iteration.
 - Browsing is public. Adding projects is an operator capability: direct local

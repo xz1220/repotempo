@@ -46,18 +46,15 @@ The homepage answers which observed projects are moving now and where to look
 next. It presents information in this order:
 
 1. The selected data date, period, and category.
-2. Counts for gaining Stars, unchanged Stars, slowing momentum, and new entries.
-3. A fixed-cohort attention chart and positive/zero/negative distribution.
-4. Fastest-growth, slow-growth, and slowing-momentum project groups.
-5. A short explanation of the comparison and links to the relevant projects.
+2. Compact scope/comparable-sample context and the selected date's new-entry link.
+3. The fastest-growth Top 10 as the main list.
+4. Up to six projects with the largest momentum declines as the secondary list.
+5. An expandable comparison explanation and links to project details.
 
-The fixed cohort contains repositories observed successfully at both exact
-endpoints. Its attention index starts at 100. Adding another project to the
-library cannot directly raise the curve.
-
-Missing intermediate observations remain gaps. The chart's companion table
-contains exact values and coverage. A period without enough history offers a
-shorter window or another date.
+The homepage has no slow-growth group, performance distribution, or aggregate
+attention-history chart. Both lists use real comparable observations; a group
+without enough evidence explains its empty state. Individual history charts
+remain on project details.
 
 ## New discoveries in the library
 
@@ -65,9 +62,9 @@ The library archives projects by their first entry into the radar. Its date
 selector and “仅看当天新入库” filter provide the daily-discovery view within the
 same records and pagination, combined with any comparison period and ordering.
 
-Each record leads with what the project does. It includes the name, category,
-observed Stars, and detail link. GitHub creation time is shown separately in
-project details when known; entering the radar is not the same as being newly created.
+Each card leads with what the project does and uses the same saved-brief and
+metric layout as the rest of the library. Entry date and GitHub creation time
+remain distinct; a newly discovered project is not necessarily newly created.
 
 Discovered projects are already registered for continued monitoring. An empty
 date offers another date or clearing the new-only filter. The library toolbar
@@ -79,13 +76,18 @@ The library is the durable home for every tracked project. All projects and
 My watchlist are in-page tabs. Search, category, date, period, ordering, and the
 new-only filter narrow the selected collection.
 
-Rows or mobile records show the project explanation, relevant Star values,
-changes, and category. They preserve new, awaiting-observation, stale, and
-unclassified states instead of hiding incomplete projects.
+Desktop and mobile use one column of cards, with 20 projects per page. Each
+card contains the original description, an existing AI or human brief with
+source and date, Stars, gain, growth rate, comparable-sample ranks, entry date,
+categories, and distinct detail/GitHub buttons.
 
-Cursor continuation supports a large collection. Changing the sort or a filter
-starts a new traversal. A fixed selected date keeps pagination meaningful while
-the registry grows.
+The current page's saved explanations are read together in one database batch.
+Browsing never calls an external model. Missing explanations have an explicit
+not-reviewed state; new, pending, stale, and unclassified projects stay visible.
+
+Cursor continuation supports a large collection without loading an unbounded
+feed. Changing sort or filters starts a new traversal. The selected date and
+view state survive refresh and browser Back.
 
 ## Add project
 
@@ -109,9 +111,9 @@ access and recoverable GitHub errors have explicit form states.
 Content order:
 
 1. Repository identity, GitHub link, original description, and state.
-2. Stored research interpretation, when available, with its provenance.
+2. The complete saved research interpretation, when available, with its provenance.
 3. Current observed scale and comparable period changes.
-4. Star history, category, discovery date, and effective history start.
+4. The individual project's Star-history chart, category, entry date, and history start.
 5. Exact observations and collection evidence.
 
 A saved interpretation explains capabilities and use cases. Without one, the
@@ -120,7 +122,8 @@ marks further research as unavailable.
 
 Codex or a researcher prepares interpretations outside the Web interface. The
 current body retains source, model, time, and revision; the revision counter
-does not imply that earlier bodies remain available.
+does not imply that earlier bodies remain available. Card excerpts and detail
+pages use the same saved analysis, with no new on-demand LLM pipeline.
 
 ## Agent categories
 
@@ -160,9 +163,8 @@ Let `D` be the selected endpoint and `W` the number of days in the period.
 | Sample rank change | Baseline rank minus endpoint rank within the same scoped cohort. |
 | New on date | The repository first entered this system on the selected date. |
 
-Fastest growth uses the largest positive gain. Slow growth uses zero and the
-smallest positive gains. Slowing momentum requires negative momentum change;
-the project may still have gained Stars.
+Fastest growth uses the largest positive gain. Slowing momentum requires
+negative momentum change; the project may still have gained Stars.
 
 A failed or missing observation is never zero. Last-known values show their
 actual date and do not replace exact comparison endpoints.
@@ -173,8 +175,8 @@ into rank one. Ranks always refer to the monitored sample.
 
 ## Common reading sessions
 
-A daily review begins on Trends. The user chooses a window, scans the chart and
-three growth groups, then opens a project or the corresponding library view.
+A daily review begins on Trends. The user chooses a window, scans the Top 10
+and up to six momentum declines, then opens a detail or the library's card feed.
 
 Reading new projects begins in the project library. The user chooses a date,
 enables the new-on-selected-date filter, and chooses an ordering such as Stars
@@ -202,22 +204,23 @@ classification or observation coverage.
 | First local registration | 首次发现 / 入库日期 | First discovery |
 | Actual GitHub creation | 创建于 | Created |
 | Largest positive period gains | 涨得最快 | Fastest growth |
-| Zero or small positive gains | 增长平缓 | Slowest growth |
 | Lower gains than the previous window | 势头回落 | Losing momentum |
 | Collector evidence | 采集历史 | Collection history |
-| Stored research reading | 项目解读 | Project interpretation |
+| Saved card reading | AI 简读 / 已保存的项目说明 | AI reading brief / Saved project note |
+| Full detail reading | 项目解读 | Project interpretation |
 
 ## Components and growth
 
 The sidebar, page header, period controls, category controls, project identity,
 state labels, chart frames, and empty-state patterns are shared.
 
-Project reading cards and numerical comparison rows use different density for
-their different tasks. Forms remain short. Exact-value evidence can be expanded
-without filling the first screen.
+The library uses a single-column card feed, while the dashboard uses compact
+ranked rows. Saved briefs keep source and date visible. Forms remain short;
+the full explanation and individual history belong on details.
 
-The project library, including its new-entry view, uses capped cursor pages.
-Collection history may retain its smaller offset-paginated log. Charts reduce tick density
+The project library, including its new-entry view, uses 20-project cursor pages.
+Existing analyses are fetched once for the current page. Collection history
+may retain its smaller offset-paginated log. Detail charts reduce tick density
 before compromising date labels or exact-value access.
 
 ## URLs and compatibility
