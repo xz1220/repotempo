@@ -124,9 +124,11 @@ func (h *Handler) radarHome(w http.ResponseWriter, r *http.Request) {
 	newProjectValues.Set("sort", "stars")
 	view.NewProjectsURL = queryPath("/repositories", newProjectValues)
 	view.Meta.Stale = rawDate == "" && h.isStale(data.AsOf)
-	view.RadarChart, view.ChartChange, view.ChartCohort = radarHistoryChart(data.History, l)
-	makeBoard := func(title, description, tone, sort string, items []RadarRepository, slowdown bool) leaderboard {
+	makeBoard := func(title, description, tone, sort string, items []RadarRepository, slowdown bool, limit int) leaderboard {
 		board := leaderboard{Title: l.Text(title), Description: l.Text(description), Tone: tone, URL: repositoryOptionURL("/repositories", values, "sort", sort), IsSlowdown: slowdown}
+		if len(items) > limit {
+			items = items[:limit]
+		}
 		maxValue := 0.0
 		for _, item := range items {
 			value := item.StarDelta
@@ -151,22 +153,8 @@ func (h *Handler) radarHome(w http.ResponseWriter, r *http.Request) {
 		return board
 	}
 	view.Boards = []leaderboard{
-		makeBoard("ui.fastest", "ui.fastest_help", "positive", "delta", data.Fastest, false),
-		makeBoard("ui.slowest", "ui.slowest_help", "neutral", "low_growth", data.Slowest, false),
-		makeBoard("ui.slowdown", "ui.slowdown_help", "negative", "slowdown", data.FallingBehind, true),
-	}
-	counts := []int{data.Coverage.UpCount, data.Coverage.FlatCount, data.Coverage.DownCount}
-	offset := 0.0
-	for i, count := range counts {
-		share := 0.0
-		if data.Coverage.ComparableCount > 0 {
-			share = float64(count) / float64(data.Coverage.ComparableCount) * 100
-		}
-		view.DirectionSegments = append(view.DirectionSegments, directionSegment{
-			Class: []string{"direction-positive", "direction-neutral", "direction-negative"}[i],
-			Dash:  fmt.Sprintf("%.4f %.4f", share, 100-share), Offset: fmt.Sprintf("%.4f", -offset),
-		})
-		offset += share
+		makeBoard("dashboard.top_growth", "dashboard.top_growth_help", "positive", "delta", data.Fastest, false, 10),
+		makeBoard("ui.slowdown", "dashboard.slowdown_help", "negative", "slowdown", data.FallingBehind, true, 6),
 	}
 	h.render(w, r, http.StatusOK, "home", view)
 }
