@@ -326,11 +326,13 @@ func TestFetchActivityCrossOriginPaginationAndRedirectNeverSendCredentials(t *te
 
 func TestActivityPaginationValidatesPinnedScope(t *testing.T) {
 	current, _ := url.Parse("https://api.github.com/repos/owner/repo/commits?sha=abc&since=2026-08-10T00%3A00%3A00Z&until=2026-09-08T12%3A00%3A00Z&per_page=100&page=1")
+	canonical, _ := url.Parse("https://api.github.com/repositories/42/commits")
 	for _, mutation := range []func(*url.URL){
 		func(u *url.URL) { u.Host = "evil.invalid" },
 		func(u *url.URL) { u.User = url.User("unexpected") },
 		func(u *url.URL) { u.Fragment = "fragment" },
 		func(u *url.URL) { u.Path = "/repos/other/repo/commits" },
+		func(u *url.URL) { u.Path = "/repositories/43/commits" },
 		func(u *url.URL) { u.RawQuery += "&sha=changed" },
 		func(u *url.URL) { q := u.Query(); q.Set("sha", "changed"); u.RawQuery = q.Encode() },
 		func(u *url.URL) { q := u.Query(); q.Del("since"); u.RawQuery = q.Encode() },
@@ -341,15 +343,86 @@ func TestActivityPaginationValidatesPinnedScope(t *testing.T) {
 		q.Set("page", "2")
 		target.RawQuery = q.Encode()
 		mutation(&target)
-		if _, err := activityHasNext([]string{"<" + target.String() + ">; rel=\"next\""}, current, 1); err == nil {
+		if _, err := activityHasNext([]string{"<" + target.String() + ">; rel=\"next\""}, current, canonical, 1); err == nil {
 			t.Errorf("accepted changed pagination: %s", target.String())
 		}
 	}
-	if _, err := activityHasNext([]string{"not a Link"}, current, 1); err == nil {
+	if _, err := activityHasNext([]string{"not a Link"}, current, canonical, 1); err == nil {
 		t.Fatal("accepted malformed Link")
 	}
-	if next, err := activityHasNext(nil, current, 1); err != nil || next {
+	if next, err := activityHasNext(nil, current, canonical, 1); err != nil || next {
 		t.Fatal("missing next should be complete")
+	}
+}
+
+func TestActivityPaginationAcceptsObservedGitHubCanonicalLink(t *testing.T) {
+	// Actual Link header returned by the official GitHub API on 2026-09-08
+	// for this owner/name request. Both next and last use the permanent ID.
+	current, _ := url.Parse("https://api.github.com/repos/openai/codex/commits?sha=main&since=2026-08-10T00%3A00%3A00Z&until=2026-09-08T12%3A00%3A00Z&per_page=1&page=1")
+	canonical, _ := url.Parse("https://api.github.com/repositories/965415649/commits")
+	link := `<https://api.github.com/repositories/965415649/commits?sha=main&since=2026-08-10T00%3A00%3A00Z&until=2026-09-08T12%3A00%3A00Z&per_page=1&page=2>; rel="next", <https://api.github.com/repositories/965415649/commits?sha=main&since=2026-08-10T00%3A00%3A00Z&until=2026-09-08T12%3A00%3A00Z&per_page=1&page=1364>; rel="last"`
+	if next, err := activityHasNext([]string{link}, current, canonical, 1); err != nil || !next {
+		t.Fatalf("rejected GitHub's canonical pagination: next=%v error=%v", next, err)
+	}
+	for _, invalid := range []string{
+		strings.ReplaceAll(link, "/965415649/", "/965415650/"),
+		strings.ReplaceAll(link, "sha=main", "sha=other"),
+		strings.ReplaceAll(link, "api.github.com", "evil.invalid"),
+		strings.ReplaceAll(link, "/965415649/", "/%39%36%35%34%31%35%36%34%39/"),
+	} {
+		if _, err := activityHasNext([]string{invalid}, current, canonical, 1); err == nil {
+			t.Error("canonical pagination bypassed identity, origin or query checks")
+		}
+	}
+}
+
+func TestFetchActivityCanonicalPaginationRemainsBoundedAndSelfConstructed(t *testing.T) {
+	for _, maxPages := range []int{1, 2} {
+		t.Run(strconv.Itoa(maxPages), func(t *testing.T) {
+			requests := 0
+			client := activityTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				if r.URL.Path == "/repositories/42" {
+					activityMetadata(w)
+					return
+				}
+				if r.URL.Path != "/repos/new-owner/renamed-repo/commits" {
+					t.Error("client followed Link instead of constructing its own request")
+				}
+				if r.URL.Query().Get("per_page") == "1" {
+					activityHead(w)
+					return
+				}
+				if r.URL.Query().Get("page") == "1" {
+					canonical := *r.URL
+					canonical.Scheme, canonical.Host = "http", r.Host
+					canonical.Path = "/repositories/42/commits"
+					q := canonical.Query()
+					q.Set("page", "2")
+					canonical.RawQuery = q.Encode()
+					w.Header().Set("Link", "<"+canonical.String()+">; rel=\"next\", <"+canonical.String()+">; rel=\"last\"")
+					activityHead(w)
+				} else {
+					_, _ = fmt.Fprintf(w, "[%s]", activityCommitJSON(2, "2026-09-07T11:00:00Z"))
+				}
+			}, nil)
+			got, err := client.FetchActivity(context.Background(), 42, activityNow, maxPages)
+			if err != nil || got.Commits != maxPages || got.Complete != (maxPages == 2) || requests != 2+maxPages {
+				t.Fatalf("canonical pagination result=%+v requests=%d error=%v", got, requests, err)
+			}
+		})
+	}
+}
+
+func TestActivityCanonicalPaginationKeepsConfiguredAPIPrefix(t *testing.T) {
+	current, _ := url.Parse("https://github.example/api/v3/repos/owner/repo/commits?sha=abc&per_page=100&page=1")
+	canonical, _ := url.Parse("https://github.example/api/v3/repositories/42/commits")
+	link := `<https://github.example/api/v3/repositories/42/commits?sha=abc&per_page=100&page=2>; rel="next"`
+	if next, err := activityHasNext([]string{link}, current, canonical, 1); err != nil || !next {
+		t.Fatalf("configured API prefix rejected: %v", err)
+	}
+	if _, err := activityHasNext([]string{strings.ReplaceAll(link, "/api/v3/", "/")}, current, canonical, 1); err == nil {
+		t.Fatal("canonical route escaped the configured API prefix")
 	}
 }
 

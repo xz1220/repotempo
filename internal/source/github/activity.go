@@ -83,6 +83,10 @@ func (c *Client) FetchActivity(ctx context.Context, repositoryID int64, now time
 	if err != nil {
 		return domain.RepositoryActivity{}, err
 	}
+	// GitHub canonicalizes pagination links to the permanent-ID route even
+	// when the request uses the verified current owner/name route.
+	canonicalCommitsURL := *metaURL
+	canonicalCommitsURL.Path += "/commits"
 	query := url.Values{"sha": {repository.DefaultBranch}, "per_page": {"1"}, "until": {end.Format(time.RFC3339Nano)}}
 	commitsURL.RawQuery = query.Encode()
 	response, err = c.activityRequest(ctx, commitsURL)
@@ -142,7 +146,7 @@ func (c *Client) FetchActivity(ctx context.Context, repositoryID int64, now time
 			result.Daily[day].Count++
 			result.Commits++
 		}
-		next, err := activityHasNext(response.Header.Values("Link"), commitsURL, page)
+		next, err := activityHasNext(response.Header.Values("Link"), commitsURL, &canonicalCommitsURL, page)
 		if err != nil {
 			return domain.RepositoryActivity{}, err
 		}
@@ -239,7 +243,7 @@ func activityBranchValid(branch string) bool {
 
 // Inspect pagination metadata but always construct our own next request. Even
 // a compromised Link header cannot change the origin, repository or pinned SHA.
-func activityHasNext(headers []string, current *url.URL, page int) (bool, error) {
+func activityHasNext(headers []string, current, canonical *url.URL, page int) (bool, error) {
 	next := false
 	for _, header := range headers {
 		for _, link := range strings.Split(header, ",") {
@@ -252,7 +256,8 @@ func activityHasNext(headers []string, current *url.URL, page int) (bool, error)
 				return false, errors.New("activity pagination has an invalid URL")
 			}
 			target := current.ResolveReference(ref)
-			if target.Scheme != current.Scheme || !strings.EqualFold(target.Host, current.Host) || target.User != nil || target.Fragment != "" || target.EscapedPath() != current.EscapedPath() {
+			canonicalPath := canonical != nil && canonical.Scheme == current.Scheme && strings.EqualFold(canonical.Host, current.Host) && target.EscapedPath() == canonical.EscapedPath()
+			if target.Scheme != current.Scheme || !strings.EqualFold(target.Host, current.Host) || target.User != nil || target.Fragment != "" || target.EscapedPath() != current.EscapedPath() && !canonicalPath {
 				return false, errors.New("activity pagination changed origin or repository path")
 			}
 			values, err := url.ParseQuery(target.RawQuery)
