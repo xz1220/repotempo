@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"html"
 	"net/http"
 	"net/url"
@@ -33,7 +34,7 @@ func populatedRadar(fast RepositoryMetric) RadarOverview {
 	}
 }
 
-func TestRadarHomeShowsThreeEvidenceBoardsAndAccessibleCharts(t *testing.T) {
+func TestRadarHomePrioritizesGrowthProjectsWithoutSummaryCharts(t *testing.T) {
 	for _, locale := range []string{localeEnglish, localeChinese} {
 		t.Run(locale, func(t *testing.T) {
 			queryer := populatedFake()
@@ -48,27 +49,23 @@ func TestRadarHomeShowsThreeEvidenceBoardsAndAccessibleCharts(t *testing.T) {
 			}
 			body := html.UnescapeString(response.Body.String())
 			localizer := newLocalizer(locale)
-			for _, key := range []string{"ui.fastest", "ui.slowest", "ui.slowdown", "ui.chart_help", "ui.direction_title", "ui.methodology_help"} {
+			for _, key := range []string{"dashboard.top_growth", "ui.slowdown", "dashboard.methodology"} {
 				if !strings.Contains(body, localizer.Text(key)) {
 					t.Errorf("home missing %s", key)
 				}
 			}
-			for _, expected := range []string{`href="/repositories/101"`, `href="/repositories/102"`, `href="/repositories/103"`, `aria-label="2 growing, 1 steady, 1 declining"`} {
-				if locale == localeChinese && strings.Contains(expected, "growing") {
-					expected = `aria-label="增长 2 个、持平 1 个、减少 1 个"`
-				}
+			for _, expected := range []string{`href="/repositories/101?date=2026-08-30&lang=` + locale + `"`, `href="/repositories/103?date=2026-08-30&lang=` + locale + `"`, "A repository trend monitor.", localizer.Textf("dashboard.scope", "6", "4")} {
 				if !strings.Contains(body, expected) {
 					t.Errorf("home missing %s", expected)
 				}
 			}
-			if strings.Count(body, `class="surface leaderboard"`) != 3 {
-				t.Fatal("expected exactly three leaderboards")
+			if strings.Count(body, `class="surface leaderboard `) != 2 {
+				t.Fatal("expected a primary growth list and a secondary slowdown list")
 			}
-			if strings.Count(body, `class="chart-line"`) != 2 {
-				t.Fatal("incomplete history day should split the line")
-			}
-			if !strings.Contains(body, `class="line-chart"`) || !strings.Contains(body, `class="direction-donut"`) || !strings.Contains(body, `role="img"`) {
-				t.Fatal("trend and distribution SVG charts missing")
+			for _, removed := range []string{`href="/repositories/102?`, `class="radar-stat-row"`, `class="line-chart"`, `class="direction-donut"`, localizer.Text("ui.slowest"), localizer.Text("ui.chart_title"), localizer.Text("ui.direction_title")} {
+				if strings.Contains(body, removed) {
+					t.Errorf("simplified dashboard still contains %q", removed)
+				}
 			}
 			if !strings.Contains(body, "+200 → +50") {
 				t.Fatal("slowing project must show both positive period gains")
@@ -77,8 +74,8 @@ func TestRadarHomeShowsThreeEvidenceBoardsAndAccessibleCharts(t *testing.T) {
 			if !strings.Contains(body, `href="`+newProjects+`"`) || strings.Contains(body, `href="/discoveries`) {
 				t.Fatal("dashboard new-project link should reach the filtered library with its date and scope")
 			}
-			if !strings.Contains(body, `class="metric-neutral">0</strong>`) {
-				t.Fatal("observed zero growth was not shown as zero")
+			if strings.Count(body, `class="leader-rank"`) != 2 {
+				t.Fatal("sparse data should not be padded to ten rows")
 			}
 			if strings.Contains(body, "NaN") || strings.Contains(body, "+Inf") || strings.Contains(body, "#ZgotmplZ") {
 				t.Fatal("invalid chart value was rendered")
@@ -110,11 +107,39 @@ func TestRadarNewUserStatesKeepAddingInTheProjectLibrary(t *testing.T) {
 		}
 	}
 	body := request(t, handler, "/").Body.String()
-	if strings.Count(body, "No comparable projects in this group") != 3 {
-		t.Fatal("empty boards must explain the lack of comparisons")
+	for _, key := range []string{"dashboard.no_growth", "dashboard.no_slowdown"} {
+		if !strings.Contains(body, newLocalizer(localeEnglish).Text(key)) {
+			t.Fatalf("empty dashboard is missing %s", key)
+		}
 	}
-	if !strings.Contains(body, "Waiting for comparable history") {
-		t.Fatal("new user chart state is missing")
+}
+
+func TestRadarGrowthListShowsTenRealProjectsAndCapsTheSecondaryList(t *testing.T) {
+	queryer := populatedFake()
+	fast := queryer.radar.Fastest[0]
+	slowing := queryer.radar.FallingBehind[0]
+	queryer.radar.Fastest = nil
+	queryer.radar.FallingBehind = nil
+	for i := 1; i <= 12; i++ {
+		item := fast
+		item.ID = int64(1000 + i)
+		item.FullName = fmt.Sprintf("team/growth-%02d", i)
+		item.StarDelta = int64Pointer(int64(1000 - i))
+		queryer.radar.Fastest = append(queryer.radar.Fastest, item)
+	}
+	for i := 1; i <= 8; i++ {
+		item := slowing
+		item.ID = int64(2000 + i)
+		item.FullName = fmt.Sprintf("team/slowdown-%02d", i)
+		queryer.radar.FallingBehind = append(queryer.radar.FallingBehind, item)
+	}
+	body := request(t, newTestHandler(t, queryer), "/").Body.String()
+	if !strings.Contains(body, "team/growth-10") || strings.Contains(body, "team/growth-11") ||
+		!strings.Contains(body, "team/slowdown-06") || strings.Contains(body, "team/slowdown-07") {
+		t.Fatal("dashboard did not keep the primary/secondary list sizes at 10 and 6")
+	}
+	if strings.Count(body, `class="leader-rank"`) != 16 {
+		t.Fatal("dashboard row count differs from the real selected entries")
 	}
 }
 
@@ -126,7 +151,7 @@ func TestLibraryKeepsMissingEvidenceSeparateFromObservedZero(t *testing.T) {
 	queryer.repositories.Items = []RepositoryMetric{zero, missing}
 	queryer.repositories.Total = 2
 	body := html.UnescapeString(request(t, newTestHandler(t, queryer), "/repositories").Body.String())
-	for _, want := range []string{"acme/steady", "acme/missing", "999", "Awaiting observation", "Last observed 2026-08-29", `class="numeric metric-neutral">0`, `class="numeric metric-neutral">N/A`} {
+	for _, want := range []string{"acme/steady", "acme/missing", "999", "Awaiting observation", "Last observed 2026-08-29", `<dd class="metric-neutral">0`, `<dd class="metric-neutral">N/A`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("library missing evidence state %q", want)
 		}
@@ -256,7 +281,7 @@ func TestLibraryNewFilterIsVisibleReversibleAndExplainsFirstSeenDate(t *testing.
 					t.Fatal("new-project count must not mix its total with the entire library's comparable population")
 				}
 			}
-			for _, want := range []string{"acme/new-agent", "A newly discovered AI research agent.", `href="/repositories/104"`} {
+			for _, want := range []string{"acme/new-agent", "A newly discovered AI research agent.", `href="/repositories/104?date=2026-08-30&lang=` + locale + `"`} {
 				if !strings.Contains(body, want) {
 					t.Errorf("filtered library missing %q", want)
 				}

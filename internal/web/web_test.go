@@ -184,7 +184,7 @@ func TestChineseLocaleRendersAllProductRoutes(t *testing.T) {
 	}
 
 	home := request(t, handler, "/").Body.String()
-	for _, want := range []string{"涨得最快", "增长平缓", "势头回落", "数据日期 2026-08-30"} {
+	for _, want := range []string{"涨势最快 Top 10", "势头回落", "数据日期 2026-08-30"} {
 		if !strings.Contains(home, want) {
 			t.Errorf("Chinese project monitor does not contain %q", want)
 		}
@@ -267,9 +267,9 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 
 	projects := request(t, handler, "/repositories").Body.String()
 	for _, want := range []string{
-		`class="repository-record"`,
-		`class="repository-record-list"`,
-		`href="/repositories/101"`,
+		`class="project-card"`,
+		`class="repository-feed"`,
+		`href="/repositories/101?date=2026-08-30&amp;lang=en"`,
 		`action="/repositories"`,
 	} {
 		if !strings.Contains(projects, want) {
@@ -361,7 +361,7 @@ func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 		path string
 		want string
 	}{
-		{path: "/", want: "Waiting for comparable history"},
+		{path: "/", want: "No comparable positive growth in this period"},
 		{path: "/repositories?new=1", want: "No repositories match"},
 		{path: "/repositories", want: "No repositories match"},
 		{path: "/topics", want: "No topics configured"},
@@ -411,8 +411,8 @@ func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
 		`name="new" value="1"`,
 		`120 repositories`,
 		`class="new-badge">New`,
-		`class="rank-transition"`,
-		`7 → 4`,
+		`class="project-card-rank"`,
+		`<span>7</span><span aria-hidden="true">→</span><strong>4</strong>`,
 		`+3 places`,
 		`+430`,
 	} {
