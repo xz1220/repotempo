@@ -362,8 +362,9 @@ func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 		want string
 	}{
 		{path: "/", want: "No comparable positive growth in this period"},
-		{path: "/repositories?new=1", want: "No repositories match"},
-		{path: "/repositories", want: "No repositories match"},
+		{path: "/repositories?new=1", want: "No matching additions on 2026-08-30"},
+		{path: "/repositories", want: "No matching additions on 2026-08-30"},
+		{path: "/repositories?view=all", want: "No repositories match"},
 		{path: "/topics", want: "No topics configured"},
 		{path: "/runs", want: "No job runs recorded"},
 	}

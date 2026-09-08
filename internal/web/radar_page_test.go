@@ -180,21 +180,28 @@ func TestLibraryPaginationPreservesFocusAndFreezesObservationDate(t *testing.T) 
 	}
 	navigation := strings.SplitN(parts[1], "</nav>", 2)[0]
 	links := regexp.MustCompile(`href="([^"]+)"`).FindAllStringSubmatch(navigation, -1)
-	if len(links) != 2 {
-		t.Fatalf("library view links = %d, want All and My watchlist", len(links))
+	if len(links) != 3 {
+		t.Fatalf("library view links = %d, want Daily, All and My watchlist", len(links))
 	}
 	for index, link := range links {
 		location, err := url.Parse(link[1])
 		if err != nil || location.Path != "/repositories" || location.Query().Has("cursor") {
 			t.Fatalf("invalid library view URL %q", link[1])
 		}
-		for key, want := range map[string]string{"date": "2026-08-30", "topic": "research-agents", "source": "github_trending", "new": "1", "sort": "stars", "q": "agent", "lang": "zh-CN", "period": "30d"} {
+		for key, want := range map[string]string{"date": "2026-08-30", "topic": "research-agents", "source": "github_trending", "sort": "stars", "q": "agent", "lang": "zh-CN", "period": "30d"} {
 			if got := location.Query().Get(key); got != want {
 				t.Errorf("view %d lost %s: got %q, want %q", index, key, got, want)
 			}
 		}
+		wantNew := "0"
+		if index == 0 {
+			wantNew = "1"
+		}
+		if location.Query().Get("new") != wantNew {
+			t.Errorf("view %d new = %q, want %q", index, location.Query().Get("new"), wantNew)
+		}
 		wantFocus := ""
-		if index == 1 {
+		if index == 2 {
 			wantFocus = "1"
 		}
 		if location.Query().Get("focus") != wantFocus {
