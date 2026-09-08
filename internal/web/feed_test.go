@@ -166,7 +166,7 @@ func TestFeedRequestsTwentyEntriesAndPreservesDetailDateAndLanguage(t *testing.T
 			t.Fatalf("detail URL lost observation context: %q", match[1])
 		}
 	}
-	if !strings.Contains(html.UnescapeString(body), `/repositories?cursor=ef&date=2026-08-30&focus=1&lang=zh-CN&period=7d`) {
+	if !strings.Contains(html.UnescapeString(body), `/repositories?cursor=ef&date=2026-08-30&focus=1&lang=zh-CN&new=0&period=7d`) {
 		t.Fatal("next page did not preserve the selected date and filters")
 	}
 	response := request(t, handler, html.UnescapeString(links[0][1]))

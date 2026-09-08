@@ -52,8 +52,8 @@ func libraryViewURLs(t *testing.T, body string) []*url.URL {
 	}
 	nav := strings.SplitN(parts[1], "</nav>", 2)[0]
 	matches := regexp.MustCompile(`href="([^"]+)"`).FindAllStringSubmatch(nav, -1)
-	if len(matches) != 3 {
-		t.Fatalf("view count %d, want three", len(matches))
+	if len(matches) != 2 {
+		t.Fatalf("view count %d, want All projects and My watchlist", len(matches))
 	}
 	result := make([]*url.URL, 0, len(matches))
 	for _, match := range matches {
@@ -109,7 +109,8 @@ func TestLibraryExplicitLegacyFiltersRetainTheirScopeAndOrdering(t *testing.T) {
 		{"", true, false, 1, "stars", "2026-09-08"},
 		{"lang=en", true, false, 1, "stars", "2026-09-08"},
 		{"view=daily", true, false, 1, "stars", "2026-09-08"},
-		{"view=all", false, false, 7, "velocity", ""},
+		{"view=all", true, false, 1, "stars", "2026-09-08"},
+		{"view=all&new=0", false, false, 7, "velocity", ""},
 		{"new=0", false, false, 7, "velocity", ""},
 		{"focus=1", false, true, 7, "velocity", ""},
 		{"view=focus", false, true, 7, "velocity", ""},
@@ -148,29 +149,32 @@ func TestLibraryTabsChangeScopeWithoutCarryingTheNewFilterIntoWatchlist(t *testi
 	handler := dailyViewHandler(t, queryer, mustTime("2026-09-08T01:00:00Z"))
 	response := request(t, handler, "/repositories?lang=zh-CN")
 	links := libraryViewURLs(t, response.Body.String())
-	for index, mode := range []string{"daily", "all", "focus"} {
+	for index, mode := range []string{"all", "focus"} {
 		values := links[index].Query()
 		if values.Get("view") != mode || values.Has("cursor") || values.Get("lang") != localeChinese {
 			t.Fatalf("invalid %s tab URL: %s", mode, links[index])
 		}
 		if index == 0 && values.Get("new") != "1" {
-			t.Fatal("daily tab did not select additions")
+			t.Fatal("All projects tab did not default to additions")
 		}
 		if index > 0 && values.Get("new") != "0" {
 			t.Fatal("all/watchlist tab retained additions filter")
 		}
 		request(t, handler, links[index].String())
 		got := queryer.lastRepositoryQuery
-		if index > 0 && (got.OnlyNew || got.WindowDays != 7 || got.Sort != "velocity") {
+		if index > 0 && got.OnlyNew {
 			t.Fatalf("%s tab has wrong defaults: %+v", mode, got)
 		}
-		if got.OnlyFocus != (index == 2) {
+		if got.WindowDays != 1 || got.Sort != "stars" {
+			t.Fatal("changing tabs lost the current comparison period or order")
+		}
+		if got.OnlyFocus != (index == 1) {
 			t.Fatalf("%s tab focus=%v", mode, got.OnlyFocus)
 		}
 	}
 	response = request(t, handler, "/repositories?view=daily&date=2026-08-30&topic=coding-agents&q=agent&period=30d&sort=growth_rate&source=github_trending&cursor=2s&lang=en")
-	if !strings.Contains(response.Body.String(), "New on 2026-08-30") {
-		t.Fatal("historical additions tab still claims today")
+	if strings.Contains(response.Body.String(), "New on 2026-08-30") || strings.Contains(response.Body.String(), "Today's additions</a>") {
+		t.Fatal("legacy daily URL reintroduced a third tab")
 	}
 	links = libraryViewURLs(t, response.Body.String())
 	for _, link := range links {
@@ -199,11 +203,11 @@ func TestDailyLibraryPaginationAndFilterSubmissionPreserveIntent(t *testing.T) {
 	if !queryer.lastRepositoryQuery.OnlyNew || queryer.lastRepositoryQuery.TopicSlug != "coding-agents" {
 		t.Fatal("checked new filter lost intent")
 	}
-	request(t, handler, "/repositories?view=all&date=2026-08-30&period=1d&sort=stars&topic=coding-agents")
+	request(t, handler, "/repositories?view=all&date=2026-08-30&period=1d&sort=stars&topic=coding-agents&new=0")
 	if queryer.lastRepositoryQuery.OnlyNew {
 		t.Fatal("unchecking new filter reapplied the daily default")
 	}
-	request(t, handler, "/repositories?view=all")
+	request(t, handler, "/repositories?view=all&new=0")
 	if queryer.lastRepositoryQuery.OnlyNew {
 		t.Fatal("a blank full-library form reapplied the daily default")
 	}

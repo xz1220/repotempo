@@ -180,8 +180,8 @@ func TestLibraryPaginationPreservesFocusAndFreezesObservationDate(t *testing.T) 
 	}
 	navigation := strings.SplitN(parts[1], "</nav>", 2)[0]
 	links := regexp.MustCompile(`href="([^"]+)"`).FindAllStringSubmatch(navigation, -1)
-	if len(links) != 3 {
-		t.Fatalf("library view links = %d, want Daily, All and My watchlist", len(links))
+	if len(links) != 2 {
+		t.Fatalf("library view links = %d, want All and My watchlist", len(links))
 	}
 	for index, link := range links {
 		location, err := url.Parse(link[1])
@@ -200,8 +200,8 @@ func TestLibraryPaginationPreservesFocusAndFreezesObservationDate(t *testing.T) 
 		if location.Query().Get("new") != wantNew {
 			t.Errorf("view %d new = %q, want %q", index, location.Query().Get("new"), wantNew)
 		}
-		wantFocus := ""
-		if index == 2 {
+		wantFocus := "0"
+		if index == 1 {
 			wantFocus = "1"
 		}
 		if location.Query().Get("focus") != wantFocus {
@@ -263,7 +263,7 @@ func TestLibraryNewFilterIsVisibleReversibleAndExplainsFirstSeenDate(t *testing.
 				t.Fatalf("new filter did not reach storage: status=%d query=%+v", response.Code, queryer.lastRepositoryQuery)
 			}
 			body := html.UnescapeString(response.Body.String())
-			inputs := regexp.MustCompile(`<input\b[^>]*\bname="new"[^>]*>`).FindAllString(body, -1)
+			inputs := regexp.MustCompile(`<input\b[^>]*type="checkbox"[^>]*\bname="new"[^>]*>`).FindAllString(body, -1)
 			if len(inputs) != 1 || !strings.Contains(inputs[0], `type="checkbox"`) || !strings.Contains(inputs[0], `value="1"`) || strings.Contains(inputs[0], "checked") != selected {
 				t.Fatalf("new filter should be one reversible checkbox: %v", inputs)
 			}

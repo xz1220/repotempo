@@ -364,7 +364,7 @@ func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 		{path: "/", want: "No comparable positive growth in this period"},
 		{path: "/repositories?new=1", want: "No matching additions on 2026-08-30"},
 		{path: "/repositories", want: "No matching additions on 2026-08-30"},
-		{path: "/repositories?view=all", want: "No repositories match"},
+		{path: "/repositories?view=all&new=0", want: "No repositories match"},
 		{path: "/topics", want: "No topics configured"},
 		{path: "/runs", want: "No job runs recorded"},
 	}
@@ -605,7 +605,7 @@ func TestRepositoryDetailFallbackExplainsProjectAndPreservesManualReason(t *test
 	queryer.repository.Analysis = nil
 	queryer.repository.Repository.ManualNote = "这是一条已经保存的人工项目说明。"
 	body := request(t, newTestHandler(t, queryer), "/repositories/101").Body.String()
-	for _, want := range []string{"About this project", "Repository description", "A repository trend monitor.", "Why follow: 这是一条已经保存的人工项目说明。", `href="https://github.com/acme/radar#readme"`} {
+	for _, want := range []string{"About this project", "Repository description", "A repository trend monitor.", "Project note: 这是一条已经保存的人工项目说明。", `href="https://github.com/acme/radar#readme"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("manual-note fallback does not contain %q: %s", want, body)
 		}

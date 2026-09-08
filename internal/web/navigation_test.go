@@ -69,7 +69,7 @@ func TestLibraryReturnFreezesImplicitDefaultsAndDoesNotCopyUnknownQuery(t *testi
 	h.applyLibraryDefaults(values, &filter)
 	canonical := h.canonicalLibraryURL(values, filter, localeChinese)
 	parsed, _ := url.Parse(canonical)
-	want := url.Values{"date": {"2026-09-08"}, "period": {"1d"}, "sort": {"stars"}, "new": {"1"}, "focus": {"0"}, "view": {"daily"}, "lang": {localeChinese}}
+	want := url.Values{"date": {"2026-09-08"}, "period": {"1d"}, "sort": {"stars"}, "new": {"1"}, "focus": {"0"}, "view": {"all"}, "lang": {localeChinese}}
 	if !reflect.DeepEqual(parsed.Query(), want) {
 		t.Fatalf("defaults not recorded: %s", canonical)
 	}
@@ -110,8 +110,8 @@ func TestLibraryReturnLegacyReferrerAndExplicitInvalid(t *testing.T) {
 	h := &Handler{}
 	for _, test := range []struct{ name, target, referrer, want string }{
 		{"same origin legacy", "/repositories/101", "http://example.com/repositories?cursor=az&date=2026-08-30&lang=en", "/repositories?cursor=az&date=2026-08-30&lang=en#project-101"},
-		{"old daily freezes detail date", "/repositories/101?date=2026-08-30", "http://example.com/repositories?lang=zh-CN", "/repositories?date=2026-08-30&lang=zh-CN&new=1&period=1d&sort=stars&view=daily#project-101"},
-		{"old bare daily freezes detail date", "/repositories/101?date=2026-08-30", "http://example.com/repositories", "/repositories?date=2026-08-30&new=1&period=1d&sort=stars&view=daily#project-101"},
+		{"old daily freezes detail date", "/repositories/101?date=2026-08-30", "http://example.com/repositories?lang=zh-CN", "/repositories?date=2026-08-30&lang=zh-CN&new=1&period=1d&sort=stars&view=all#project-101"},
+		{"old bare daily freezes detail date", "/repositories/101?date=2026-08-30", "http://example.com/repositories", "/repositories?date=2026-08-30&new=1&period=1d&sort=stars&view=all#project-101"},
 		{"old explicit scope not narrowed", "/repositories/101?date=2026-08-30", "http://example.com/repositories?cursor=az", "/repositories?cursor=az#project-101"},
 		{"external", "/repositories/101", "http://evil.test/repositories?cursor=az", "/repositories"},
 		{"different port", "/repositories/101", "http://example.com:8080/repositories?cursor=az", "/repositories"},

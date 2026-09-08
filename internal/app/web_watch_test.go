@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,13 +21,13 @@ import (
 	"github.com/xz1220/repotempo/internal/web"
 )
 
-func TestWebWatchEndToEndAddsPublicRepositoryAndImmediateSnapshot(t *testing.T) {
+func TestWebImportEndToEndQueuesThenReadsWithoutImplicitFocus(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 9, 7, 8, 0, 0, 0, time.UTC)
 	var apiCalls int
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiCalls++
-		if r.Method != http.MethodGet || r.URL.Path != "/repos/owner/interesting-agent" {
+		if r.Method != http.MethodGet || (r.URL.Path != "/repos/owner/interesting-agent" && r.URL.Path != "/repositories/99" && r.URL.Path != "/repos/owner/interesting-agent/readme") {
 			t.Errorf("unexpected GitHub operation: %s %s", r.Method, r.URL.Path)
 			http.NotFound(w, r)
 			return
@@ -34,6 +36,12 @@ func TestWebWatchEndToEndAddsPublicRepositoryAndImmediateSnapshot(t *testing.T) 
 			t.Error("public metadata request unexpectedly required a token")
 		}
 		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/readme") {
+			text := "# Interesting Agent\n\n帮助小团队检查代码并记录项目进展。\n\n## Usage\n\n使用说明。"
+			digest := sha1.Sum([]byte(fmt.Sprintf("blob %d\x00%s", len(text), text)))
+			_ = json.NewEncoder(w).Encode(map[string]any{"type": "file", "encoding": "base64", "content": base64.StdEncoding.EncodeToString([]byte(text)), "size": len(text), "sha": fmt.Sprintf("%x", digest), "path": "README.md", "html_url": "https://github.com/owner/interesting-agent/blob/main/README.md"})
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"id": 99, "full_name": "owner/interesting-agent", "html_url": "https://github.com/owner/interesting-agent", "description": "An AI coding assistant for small teams", "stargazers_count": 456, "private": false, "topics": []string{"coding-agent"}})
 	}))
 	defer upstream.Close()
@@ -98,14 +106,18 @@ func TestWebWatchEndToEndAddsPublicRepositoryAndImmediateSnapshot(t *testing.T) 
 	request.AddCookie(cookie)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/repositories/99?lang=zh-CN" {
-		t.Fatalf("add did not redirect to detail: %d %s", response.Code, response.Body.String())
+	if response.Code != http.StatusSeeOther || !strings.HasPrefix(response.Header().Get("Location"), "/watch/imports/") {
+		t.Fatalf("import did not redirect to its task: %d %s", response.Code, response.Body.String())
 	}
-	if apiCalls != 1 {
-		t.Fatalf("GitHub requests = %d, want one metadata fetch", apiCalls)
+	if apiCalls != 0 {
+		t.Fatal("HTTP submission waited on GitHub instead of persisting a task")
+	}
+	job := processNextImport(t, runtime)
+	if job.Stage != "done" || job.Readme == nil || job.RepositoryID != 99 || apiCalls != 3 {
+		t.Fatalf("background processing did not finish: %+v, API calls %d", job, apiCalls)
 	}
 	repository, err := runtime.store.GetRepository(ctx, 99)
-	if err != nil || !repository.IsFocus || repository.ManualNote != "值得长期研究" {
+	if err != nil || repository.IsFocus || repository.ManualNote != "值得长期研究" {
 		t.Fatalf("stored repository: %#v, %v", repository, err)
 	}
 	snapshot, err := runtime.store.GetDailySnapshot(ctx, 99, domain.ShanghaiDate(now))
@@ -128,12 +140,17 @@ func TestWebWatchEndToEndAddsPublicRepositoryAndImmediateSnapshot(t *testing.T) 
 	if _, err := adapter.GetRepositoryDetail(ctx, 99, yesterday); !errors.Is(err, web.ErrNotFound) {
 		t.Fatalf("explicit date before first discovery must remain absent: %v", err)
 	}
-	for _, path := range []string{"/repositories/99?lang=zh-CN", "/repositories?q=interesting-agent&lang=zh-CN", "/repositories?focus=1&lang=zh-CN", "/repositories?q=interesting-agent&date=2026-09-07&lang=zh-CN"} {
+	for _, path := range []string{"/repositories/99?lang=zh-CN", "/repositories?q=interesting-agent&lang=zh-CN", "/repositories?q=interesting-agent&date=2026-09-07&lang=zh-CN"} {
 		response = httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, base+path, nil))
 		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "owner/interesting-agent") || !strings.Contains(response.Body.String(), "456") {
 			t.Fatalf("added project not immediately visible on %s: status %d", path, response.Code)
 		}
+	}
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, base+"/repositories?view=focus&lang=zh-CN", nil))
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "owner/interesting-agent") {
+		t.Fatal("import without an explicit focus choice appeared in My watchlist")
 	}
 	for _, test := range []struct {
 		path   string
