@@ -38,9 +38,18 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return fmt.Errorf("listen for Web server: %w", err)
+	}
+	if err := runtime.startImportWorker(ctx); err != nil {
+		_ = listener.Close()
+		return err
+	}
+	defer runtime.stopImportWorker()
 	result := make(chan error, 1)
 	go func() {
-		result <- server.ListenAndServe()
+		result <- server.Serve(listener)
 	}()
 	select {
 	case err := <-result:

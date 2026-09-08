@@ -49,6 +49,12 @@ type Runtime struct {
 	github       *github.Client
 	oss          *ossinsight.Client
 	trending     *trending.Client
+
+	importMu     sync.Mutex
+	importCancel context.CancelFunc
+	importDone   chan struct{}
+	importWake   chan struct{}
+	importClosed bool
 }
 
 var _ CommandApplication = (*Runtime)(nil)
@@ -153,6 +159,10 @@ func (runtime *Runtime) Close() error {
 	if runtime == nil {
 		return nil
 	}
+	runtime.importMu.Lock()
+	runtime.importClosed = true
+	runtime.importMu.Unlock()
+	runtime.stopImportWorker()
 	var planningErr, storeErr error
 	if runtime.planningDB != nil {
 		planningErr = runtime.planningDB.Close()
