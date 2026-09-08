@@ -68,6 +68,7 @@ type RepositoryQuery struct {
 	WindowDays       int
 	Search           string
 	TopicSlug        string
+	Tag              string
 	Source           string
 	MonitoringStatus string
 	Sort             string
@@ -84,6 +85,7 @@ type RepositoryPage struct {
 	Total              int
 	Filter             RepositoryQuery
 	Topics             []TopicRef
+	Tags               []TagRef
 	Sources            []string
 	MonitoringStatuses []string
 	Coverage           ComparisonCoverage
@@ -113,6 +115,7 @@ type RepositoryMetric struct {
 	Delta7D           *int64
 	Delta30D          *int64
 	Topics            []TopicRef
+	Tags              []string
 	Analysis          *RepositoryAnalysis
 	FirstSeenSource   string
 	DiscoverySources  []string
@@ -144,6 +147,11 @@ type TopicRef struct {
 	ParentSlug string
 	ParentName string
 	IsParent   bool
+}
+
+type TagRef struct {
+	Name  string
+	Count int
 }
 
 type RepositoryDetail struct {

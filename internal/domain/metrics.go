@@ -76,6 +76,7 @@ type RepositoryTrendQuery struct {
 	WindowDays       int
 	Search           string
 	TopicSlug        string
+	Tag              string
 	DiscoverySource  DiscoverySource
 	MonitoringStatus MonitoringStatus
 	Sort             RepositoryTrendSort
@@ -83,6 +84,13 @@ type RepositoryTrendQuery struct {
 	OnlyFocus        bool
 	Limit            int
 	AfterID          *int64
+}
+
+// RepositoryTag is one exact, normalized label and its repository count in the
+// selected historical registry. Labels do not create taxonomy assignments.
+type RepositoryTag struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
 }
 
 type ComparisonCoverage struct {

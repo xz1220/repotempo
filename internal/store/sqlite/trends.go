@@ -83,6 +83,7 @@ func normalizeTrendQuery(query domain.RepositoryTrendQuery) (domain.RepositoryTr
 		return domain.RepositoryTrendQuery{}, fmt.Errorf("%w: cursor repository ID must be positive", corestore.ErrInvalid)
 	}
 	query.Search = strings.TrimSpace(query.Search)
+	query.Tag = strings.ToLower(strings.TrimSpace(query.Tag))
 	return query, nil
 }
 
@@ -112,6 +113,22 @@ WHERE date(r.first_seen_at, '+8 hours') <= ?`
               AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)
         )`
 		arguments = append(arguments, query.TopicSlug, query.TopicSlug)
+	}
+	if query.Tag != "" {
+		statement += ` AND (
+            EXISTS (SELECT 1 FROM json_each(COALESCE(r.github_topics_json, '[]')) label
+                    WHERE label.type = 'text' AND label.value = ?)
+            OR EXISTS (SELECT 1 FROM json_each(r.research_tags_json) label
+                       WHERE label.type = 'text' AND label.value = ?)
+            OR EXISTS (
+                SELECT 1 FROM repository_topics rt
+                JOIN topics t ON t.id = rt.topic_id AND t.status = 'active'
+                WHERE rt.repository_id = r.github_repo_id
+                  AND NOT (rt.source = 'manual' AND rt.confirmed = 1 AND COALESCE(rt.confidence, -1) = 0)
+                  AND (lower(trim(t.slug)) = ? OR lower(trim(t.name)) = ?)
+            )
+        )`
+		arguments = append(arguments, query.Tag, query.Tag, query.Tag, query.Tag)
 	}
 	if query.DiscoverySource != "" {
 		statement += " AND (r.first_seen_source = ? OR EXISTS (SELECT 1 FROM json_each(r.discovery_sources_json) channel WHERE channel.value = ?))"

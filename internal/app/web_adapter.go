@@ -71,6 +71,7 @@ func (adapter WebAdapter) ListRepositoryMetrics(ctx context.Context, query web.R
 }
 
 func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.RepositoryQuery) (web.RepositoryPage, error) {
+	query.Tag = strings.ToLower(strings.TrimSpace(query.Tag))
 	asOf, err := adapter.resolveLibraryDate(ctx, query.AsOf)
 	if err != nil {
 		return web.RepositoryPage{}, err
@@ -80,6 +81,7 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 		WindowDays:       query.WindowDays,
 		Search:           query.Search,
 		TopicSlug:        query.TopicSlug,
+		Tag:              query.Tag,
 		DiscoverySource:  validDiscoverySource(query.Source),
 		MonitoringStatus: validMonitoringStatus(query.MonitoringStatus),
 		Sort:             validTrendSort(query.Sort),
@@ -96,6 +98,10 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 	if err != nil {
 		return web.RepositoryPage{}, mapWebError(err)
 	}
+	tags, err := adapter.repositoryTagOptions(ctx, value.Coverage.AsOfDate)
+	if err != nil {
+		return web.RepositoryPage{}, mapWebError(err)
+	}
 	query.AsOf = dateTime(value.Coverage.AsOfDate)
 	query.WindowDays = domainQuery.WindowDays
 	query.Sort = string(domainQuery.Sort)
@@ -104,6 +110,7 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 		Total:              value.Total,
 		Filter:             query,
 		Topics:             mapTopicFilterRefs(topics),
+		Tags:               tags,
 		Sources:            []string{"ossinsight", "github_search", "legacy", "manual"},
 		MonitoringStatuses: []string{"active", "paused", "stopped"},
 		Coverage:           mapComparisonCoverage(value.Coverage),
@@ -323,6 +330,7 @@ func mapRepositoryMetric(value domain.RepositoryMetric) web.RepositoryMetric {
 		Delta7D:          value.Growth.SevenDay,
 		Delta30D:         value.Growth.ThirtyDay,
 		Topics:           mapTopicRefs(value.Topics),
+		Tags:             rawRepositoryTags(repository),
 		Analysis:         mapRepositoryAnalysis(value.Analysis),
 		FirstSeenSource:  string(repository.FirstSeenSource),
 		DiscoverySources: discoverySourceStrings(repository.DiscoverySources),
@@ -353,6 +361,7 @@ func mapRepositoryTrends(values []domain.RepositoryTrendMetric) []web.Repository
 			PrimaryLanguage:   repository.PrimaryLanguage,
 			CurrentStars:      value.CurrentStars,
 			Topics:            mapTopicRefs(value.Topics),
+			Tags:              rawRepositoryTags(repository),
 			Analysis:          mapRepositoryAnalysis(value.Analysis),
 			FirstSeenSource:   string(repository.FirstSeenSource),
 			DiscoverySources:  discoverySourceStrings(repository.DiscoverySources),
@@ -379,6 +388,39 @@ func mapRepositoryTrends(values []domain.RepositoryTrendMetric) []web.Repository
 		})
 	}
 	return result
+}
+
+func (adapter WebAdapter) repositoryTagOptions(ctx context.Context, asOf domain.Date) ([]web.TagRef, error) {
+	lister, ok := adapter.Store.(interface {
+		ListRepositoryTags(context.Context, domain.Date) ([]domain.RepositoryTag, error)
+	})
+	if !ok {
+		return []web.TagRef{}, nil
+	}
+	values, err := lister.ListRepositoryTags(ctx, asOf)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]web.TagRef, 0, len(values))
+	for _, value := range values {
+		result = append(result, web.TagRef{Name: value.Name, Count: value.Count})
+	}
+	return result, nil
+}
+
+func rawRepositoryTags(repository domain.Repository) []string {
+	values := make([]string, 0, len(repository.GitHubTopics)+len(repository.ResearchTags))
+	seen := make(map[string]bool)
+	for _, source := range [][]string{repository.GitHubTopics, repository.ResearchTags} {
+		for _, tag := range source {
+			tag = strings.ToLower(strings.TrimSpace(tag))
+			if tag != "" && !seen[tag] {
+				values = append(values, tag)
+				seen[tag] = true
+			}
+		}
+	}
+	return values
 }
 
 func mapRepositoryAnalysis(value *domain.RepositoryAnalysis) *web.RepositoryAnalysis {
