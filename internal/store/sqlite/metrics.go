@@ -613,6 +613,7 @@ func (store *Store) GetRepositoryDetail(ctx context.Context, repositoryID int64,
 	if err != nil {
 		return domain.RepositoryDetail{}, err
 	}
+	metrics[0].Analysis = analysis
 	detail := domain.RepositoryDetail{
 		Metric:      metrics[0],
 		Analysis:    analysis,

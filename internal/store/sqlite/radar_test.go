@@ -60,20 +60,12 @@ func TestRadarOverviewSeparatesGrowthSlowdownAndMissingObservations(t *testing.T
 		t.Fatalf("coverage = %+v, want %+v", value.Coverage, wantCoverage)
 	}
 	assertRadarIDs(t, value.Fastest, []int64{1, 2})
-	assertRadarIDs(t, value.Slowest, []int64{3, 2, 1})
 	assertRadarIDs(t, value.FallingBehind, []int64{2, 3, 4})
-	assertRadarIDs(t, value.NewRepositories, []int64{9, 8})
+	if len(value.Slowest) != 0 || len(value.NewRepositories) != 0 || len(value.History) != 0 {
+		t.Fatalf("overview loaded unused lists or history: %+v", value)
+	}
 	if *value.FallingBehind[0].PreviousDelta != 50 || *value.FallingBehind[0].StarDelta != 10 || *value.FallingBehind[0].MomentumChange != -40 {
 		t.Fatalf("incorrect window comparison: %+v", value.FallingBehind[0])
-	}
-	if !value.NewRepositories[1].IsStale || value.NewRepositories[1].LastObservedStars != nil {
-		t.Fatalf("unobserved new repository must not get invented stars: %+v", value.NewRepositories[1])
-	}
-	if len(value.History) != 8 || value.History[0].Stars == nil || *value.History[0].Stars != 580 ||
-		value.History[7].Stars == nil || *value.History[7].Stars != 620 || value.History[0].CohortCount != 4 ||
-		value.History[1].Stars != nil || value.History[1].Index != nil || *value.History[0].Index != 100 ||
-		math.Abs(*value.History[7].Index-100.0*620/580) > 1e-9 {
-		t.Fatalf("fixed cohort history = %+v", value.History)
 	}
 	page, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{AsOf: date("2026-08-30"), WindowDays: 7, Search: "repo-6"})
 	if err != nil || len(page.Items) != 1 {
@@ -104,10 +96,21 @@ func TestRadarHistoryUsesOneCohortAndPreservesIncompleteDays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value.History[0].Stars == nil || *value.History[0].Stars != 0 || value.History[0].Index != nil ||
-		value.History[1].Stars != nil || value.History[1].ObservedCount != 1 || value.History[1].CohortCount != 2 ||
-		value.History[2].Stars == nil || *value.History[2].Stars != 7 || value.History[2].Index != nil {
-		t.Fatalf("zero baseline or incomplete day was fabricated: %+v", value.History)
+	if len(value.History) != 0 {
+		t.Fatal("overview must not execute its legacy history query")
+	}
+	// The explicit history helper retains its original evidence contract for
+	// callers which request it separately; it is no longer on the overview path.
+	query := domain.RepositoryTrendQuery{AsOf: date("2026-08-30"), WindowDays: 7}
+	scope, arguments := trendScope(query)
+	history, err := store.radarHistory(ctx, query, date("2026-08-23"), scope, arguments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if history[0].Stars == nil || *history[0].Stars != 0 || history[0].Index != nil ||
+		history[1].Stars != nil || history[1].ObservedCount != 1 || history[1].CohortCount != 2 ||
+		history[2].Stars == nil || *history[2].Stars != 7 || history[2].Index != nil {
+		t.Fatalf("zero baseline or incomplete day was fabricated: %+v", history)
 	}
 	if len(value.FallingBehind) != 0 || value.Coverage.MomentumComparableCount != 0 {
 		t.Fatalf("missing third endpoint created a slowdown: %+v", value)
@@ -120,7 +123,7 @@ func TestRadarEmptyAndSingleRepositoryWindows(t *testing.T) {
 			store, _ := newTestStore(t)
 			query := domain.RepositoryTrendQuery{AsOf: date("2026-08-30"), WindowDays: days}
 			empty, err := store.RadarOverview(context.Background(), query)
-			if err != nil || empty.Coverage.ScopeCount != 0 || len(empty.History) != days+1 {
+			if err != nil || empty.Coverage.ScopeCount != 0 || len(empty.History) != 0 || len(empty.Slowest) != 0 || len(empty.NewRepositories) != 0 {
 				t.Fatalf("empty overview: %+v, %v", empty, err)
 			}
 			for _, point := range empty.History {
@@ -212,9 +215,63 @@ func TestRadarNewDiscoveryUsesShanghaiFirstSeenDate(t *testing.T) {
 	if value.Coverage.NewCount != 1 || value.Coverage.ScopeCount != 2 || value.Coverage.ObservedCount != 0 {
 		t.Fatalf("new discovery date was confused with repository creation or success: %+v", value.Coverage)
 	}
-	assertRadarIDs(t, value.NewRepositories, []int64{1})
-	if value.NewRepositories[0].Repository.GitHubCreatedAt == nil || !value.NewRepositories[0].Repository.GitHubCreatedAt.Equal(createdYearsAgo) {
+	if len(value.NewRepositories) != 0 {
+		t.Fatal("overview fetched new-project cards which belong to the discovery feed")
+	}
+	page, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{AsOf: date("2026-08-30"), WindowDays: 1, OnlyNew: true, Sort: domain.RepositoryTrendSortNewest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRadarIDs(t, page.Items, []int64{1})
+	if page.Items[0].Repository.GitHubCreatedAt == nil || !page.Items[0].Repository.GitHubCreatedAt.Equal(createdYearsAgo) {
 		t.Fatal("GitHub creation date was lost")
+	}
+}
+
+func TestRadarOverviewReturnsTenPositiveLeadersAndSixSlowdowns(t *testing.T) {
+	store, _ := newTestStore(t)
+	ctx := context.Background()
+	for id := int64(1); id <= 21; id++ {
+		firstSeen := testNow.AddDate(0, 0, -60)
+		if id == 21 {
+			firstSeen = testNow
+		}
+		addRepositoryFromSource(t, store, id, fmt.Sprintf("owner/leader-%02d", id), domain.DiscoverySourceGitHubSearch, firstSeen)
+	}
+	for id := int64(1); id <= 17; id++ {
+		putSuccess(t, store, id, "2026-08-16", 100)
+		putSuccess(t, store, id, "2026-08-23", 200)
+		stars := int64(200) + id
+		if id == 16 {
+			stars = 200
+		}
+		if id == 17 {
+			stars = 150
+		}
+		putSuccess(t, store, id, "2026-08-30", stars)
+	}
+	putSuccess(t, store, 18, "2026-08-30", 999999) // Large, but missing a comparison baseline.
+	putSuccess(t, store, 19, "2026-08-23", 100)
+	putFailure(t, store, 19, "2026-08-30")
+	putSuccess(t, store, 20, "2026-08-23", 100)
+	putSuccess(t, store, 20, "2026-08-30", 99) // Negative; missing the third endpoint for slowdown.
+	query := domain.RepositoryTrendQuery{AsOf: date("2026-08-30"), WindowDays: 7, Limit: 1}
+	value, err := store.RadarOverview(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRadarIDs(t, value.Fastest, []int64{15, 14, 13, 12, 11, 10, 9, 8, 7, 6})
+	assertRadarIDs(t, value.FallingBehind, []int64{17, 16, 1, 2, 3, 4})
+	if value.Coverage.NewCount != 1 || value.Coverage.UpCount != 15 || value.Coverage.FlatCount != 1 || value.Coverage.DownCount != 2 || value.Coverage.SlowingCount != 17 {
+		t.Fatalf("coverage changed with board limits: %+v", value.Coverage)
+	}
+	if value.Slowest == nil || value.NewRepositories == nil || value.History == nil || len(value.Slowest)+len(value.NewRepositories)+len(value.History) != 0 {
+		t.Fatal("deprecated overview fields must remain empty arrays")
+	}
+	for _, entry := range value.Fastest {
+		if entry.StarDelta == nil || *entry.StarDelta <= 0 {
+			t.Fatalf("non-positive or missing growth in top ten: %+v", entry)
+		}
 	}
 }
 

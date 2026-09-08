@@ -74,6 +74,35 @@ func (store *Store) getRepositoryAnalysis(ctx context.Context, repositoryID int6
 	return &analysis, nil
 }
 
+// loadRepositoryAnalysesByIDs reads the bounded feed page in one query. A
+// missing record remains nil; incomplete saved summaries are not synthesized
+// from GitHub descriptions or manual notes.
+func (store *Store) loadRepositoryAnalysesByIDs(ctx context.Context, repositoryIDs []int64) (map[int64]*domain.RepositoryAnalysis, error) {
+	result := make(map[int64]*domain.RepositoryAnalysis, len(repositoryIDs))
+	if len(repositoryIDs) == 0 {
+		return result, nil
+	}
+	rows, err := store.db.QueryContext(ctx,
+		"SELECT "+repositoryAnalysisColumns+" FROM repository_analyses WHERE repository_id IN ("+placeholders(len(repositoryIDs))+")",
+		anyIDs(repositoryIDs)...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("load feed repository analyses: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		analysis, err := scanRepositoryAnalysis(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan feed repository analysis: %w", err)
+		}
+		result[analysis.RepositoryID] = &analysis
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate feed repository analyses: %w", err)
+	}
+	return result, nil
+}
+
 func (store *Store) PutRepositoryAnalysis(ctx context.Context, analysis domain.RepositoryAnalysis) (domain.RepositoryAnalysis, error) {
 	analysis.SummaryZH = strings.TrimSpace(analysis.SummaryZH)
 	analysis.Source = strings.TrimSpace(analysis.Source)

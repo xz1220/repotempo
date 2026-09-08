@@ -90,7 +90,6 @@ func (store *Store) RadarOverview(ctx context.Context, requested domain.Reposito
 	// The overview is scoped by topic, status, and focus. Search and discovery
 	// filters belong to the repository list, not the population statistics.
 	query.Search, query.OnlyNew, query.AfterID = "", false, nil
-	query.Limit = 6
 	baseline, _ := query.AsOf.AddDays(-query.WindowDays)
 	previous, _ := baseline.AddDays(-query.WindowDays)
 	result := domain.RadarOverview{
@@ -125,28 +124,23 @@ FROM observed`
 	result.Coverage = coverage
 	for _, board := range []struct {
 		sort        domain.RepositoryTrendSort
-		newOnly     bool
+		limit       int
 		destination *[]domain.RepositoryTrendMetric
 	}{
-		{domain.RepositoryTrendSortDelta, false, &result.Fastest},
-		{domain.RepositoryTrendSortLowGrowth, false, &result.Slowest},
-		{domain.RepositoryTrendSortSlowdown, false, &result.FallingBehind},
-		{domain.RepositoryTrendSortNewest, true, &result.NewRepositories},
+		{domain.RepositoryTrendSortDelta, 10, &result.Fastest},
+		{domain.RepositoryTrendSortSlowdown, 6, &result.FallingBehind},
 	} {
 		boardQuery := query
-		boardQuery.Sort, boardQuery.OnlyNew = board.sort, board.newOnly
+		boardQuery.Sort, boardQuery.Limit = board.sort, board.limit
 		page, err := store.ListRepositoryTrends(ctx, boardQuery)
 		if err != nil {
 			return domain.RadarOverview{}, fmt.Errorf("query radar %s board: %w", board.sort, err)
 		}
 		for _, repository := range page.Items {
-			if !board.newOnly && repository.StarDelta == nil {
+			if repository.StarDelta == nil {
 				continue
 			}
 			if board.sort == domain.RepositoryTrendSortDelta && *repository.StarDelta <= 0 {
-				continue
-			}
-			if board.sort == domain.RepositoryTrendSortLowGrowth && *repository.StarDelta < 0 {
 				continue
 			}
 			if board.sort == domain.RepositoryTrendSortSlowdown && (repository.MomentumChange == nil || *repository.MomentumChange >= 0) {
@@ -154,10 +148,6 @@ FROM observed`
 			}
 			*board.destination = append(*board.destination, repository)
 		}
-	}
-	result.History, err = store.radarHistory(ctx, query, baseline, scope, scopeArgs)
-	if err != nil {
-		return domain.RadarOverview{}, err
 	}
 	return result, nil
 }

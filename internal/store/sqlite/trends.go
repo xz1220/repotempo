@@ -432,6 +432,10 @@ LIMIT ?`
 	if err != nil {
 		return domain.RepositoryTrendPage{}, err
 	}
+	analyses, err := store.loadRepositoryAnalysesByIDs(ctx, repositoryIDs)
+	if err != nil {
+		return domain.RepositoryTrendPage{}, err
+	}
 	for _, repositoryID := range repositoryIDs {
 		repository, ok := repositories[repositoryID]
 		if !ok {
@@ -441,6 +445,7 @@ LIMIT ?`
 		page.Items = append(page.Items, domain.RepositoryTrendMetric{
 			Repository:        repository,
 			Topics:            topics[repositoryID],
+			Analysis:          analyses[repositoryID],
 			CurrentStars:      values.CurrentStars,
 			BaselineStars:     values.BaselineStars,
 			CurrentRank:       values.CurrentRank,

@@ -21,9 +21,10 @@ type CoverageMetric struct {
 }
 
 type RepositoryMetric struct {
-	Repository Repository   `json:"repository"`
-	Growth     GrowthMetric `json:"growth"`
-	Topics     []Topic      `json:"topics"`
+	Repository Repository          `json:"repository"`
+	Growth     GrowthMetric        `json:"growth"`
+	Topics     []Topic             `json:"topics"`
+	Analysis   *RepositoryAnalysis `json:"analysis,omitempty"`
 }
 
 type RepositorySort string
@@ -94,22 +95,23 @@ type ComparisonCoverage struct {
 }
 
 type RepositoryTrendMetric struct {
-	Repository        Repository `json:"repository"`
-	Topics            []Topic    `json:"topics"`
-	CurrentStars      *int64     `json:"current_stars,omitempty"`
-	BaselineStars     *int64     `json:"baseline_stars,omitempty"`
-	CurrentRank       *int64     `json:"current_rank,omitempty"`
-	BaselineRank      *int64     `json:"baseline_rank,omitempty"`
-	RankChange        *int64     `json:"rank_change,omitempty"`
-	StarDelta         *int64     `json:"star_delta,omitempty"`
-	GrowthRate        *float64   `json:"growth_rate,omitempty"`
-	DailyVelocity     *float64   `json:"daily_velocity,omitempty"`
-	IsNew             bool       `json:"is_new"`
-	LastObservedDate  *Date      `json:"last_observed_date,omitempty"`
-	LastObservedStars *int64     `json:"last_observed_stars,omitempty"`
-	IsStale           bool       `json:"is_stale"`
-	PreviousDelta     *int64     `json:"previous_delta,omitempty"`
-	MomentumChange    *int64     `json:"momentum_change,omitempty"`
+	Repository        Repository          `json:"repository"`
+	Topics            []Topic             `json:"topics"`
+	Analysis          *RepositoryAnalysis `json:"analysis,omitempty"`
+	CurrentStars      *int64              `json:"current_stars,omitempty"`
+	BaselineStars     *int64              `json:"baseline_stars,omitempty"`
+	CurrentRank       *int64              `json:"current_rank,omitempty"`
+	BaselineRank      *int64              `json:"baseline_rank,omitempty"`
+	RankChange        *int64              `json:"rank_change,omitempty"`
+	StarDelta         *int64              `json:"star_delta,omitempty"`
+	GrowthRate        *float64            `json:"growth_rate,omitempty"`
+	DailyVelocity     *float64            `json:"daily_velocity,omitempty"`
+	IsNew             bool                `json:"is_new"`
+	LastObservedDate  *Date               `json:"last_observed_date,omitempty"`
+	LastObservedStars *int64              `json:"last_observed_stars,omitempty"`
+	IsStale           bool                `json:"is_stale"`
+	PreviousDelta     *int64              `json:"previous_delta,omitempty"`
+	MomentumChange    *int64              `json:"momentum_change,omitempty"`
 }
 
 type RepositoryTrendPage struct {

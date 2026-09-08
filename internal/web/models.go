@@ -113,6 +113,7 @@ type RepositoryMetric struct {
 	Delta7D           *int64
 	Delta30D          *int64
 	Topics            []TopicRef
+	Analysis          *RepositoryAnalysis
 	FirstSeenSource   string
 	DiscoverySources  []string
 	FirstSeenProfile  string

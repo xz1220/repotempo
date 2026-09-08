@@ -28,12 +28,14 @@ type RadarHistoryPoint struct {
 }
 
 type RadarOverview struct {
-	AsOf            Date                    `json:"as_of"`
-	BaselineDate    Date                    `json:"baseline_date"`
-	PreviousDate    Date                    `json:"previous_date"`
-	WindowDays      int                     `json:"window_days"`
-	Coverage        RadarCoverage           `json:"coverage"`
-	Fastest         []RepositoryTrendMetric `json:"fastest"`
+	AsOf         Date                    `json:"as_of"`
+	BaselineDate Date                    `json:"baseline_date"`
+	PreviousDate Date                    `json:"previous_date"`
+	WindowDays   int                     `json:"window_days"`
+	Coverage     RadarCoverage           `json:"coverage"`
+	Fastest      []RepositoryTrendMetric `json:"fastest"`
+	// Legacy overview fields remain empty for wire compatibility. The overview
+	// only queries the positive-growth Top 10 and up to six slowing projects.
 	Slowest         []RepositoryTrendMetric `json:"slowest"`
 	FallingBehind   []RepositoryTrendMetric `json:"falling_behind"`
 	NewRepositories []RepositoryTrendMetric `json:"new_repositories"`
