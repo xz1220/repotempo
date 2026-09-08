@@ -29,25 +29,62 @@
   </form>
   {{if .Repositories.Filter.OnlyNew}}<p class="new-project-note">{{t "ui.new_filter_help"}}</p>{{end}}
   <div class="library-count"><p>{{tf "repositories.count" (formatInt .Repositories.Total)}}</p><span>{{formatDate .Repositories.Coverage.BaselineDate}} → {{formatDate .Repositories.Coverage.AsOfDate}}</span></div>
-  {{if .Repositories.Items}}
-  <div class="table-scroll repository-table-scroll" tabindex="0" role="region" aria-label="{{t "repositories.metrics_region"}}">
-    <table class="data-table repository-trend-table"><thead><tr><th>{{t "repositories.repository"}}</th><th>{{t "repositories.topic_tags"}}</th><th class="numeric">{{t "metric.current_stars"}}</th><th class="numeric">{{t "ui.period_gain"}}</th><th class="numeric">{{t "repositories.growth_rate"}}</th><th class="numeric">{{t "repositories.sample_rank"}}</th><th>{{t "ui.discovered_on"}}</th></tr></thead>
-    <tbody>{{range .Repositories.Items}}<tr class="repository-record">
-      <td class="repo-cell"><div class="repository-identity-line"><a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>{{if .IsNew}}<span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}{{if .IsFocus}}<span class="new-badge">{{t "ui.my_watchlist"}}</span>{{end}}</div><p class="repository-description">{{if .Description}}{{.Description}}{{else}}{{t "ui.no_description"}}{{end}}</p></td>
-      <td><div class="tag-list">{{range .Topics}}<a class="tag" href="/repositories?topic={{.Slug}}">{{topicName .Slug .Name}}</a>{{else}}<span class="tag tag-muted">{{t "category.__unclassified"}}</span>{{end}}</div></td>
-      <td class="numeric metric-value">{{if .CurrentStars}}{{formatIntPtr .CurrentStars}}{{else}}{{formatIntPtr .LastObservedStars}}<small class="cell-secondary">{{t "ui.pending"}}</small>{{end}}</td>
-      <td class="numeric {{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}{{if eq $.Repositories.Filter.Sort "slowdown"}}<small class="cell-secondary">{{formatSigned .PreviousDelta}} → {{formatSigned .StarDelta}}</small>{{end}}</td>
-      <td class="numeric {{floatDeltaClass .GrowthRate}}">{{formatPercent .GrowthRate}}</td>
-      <td class="numeric">{{if .CurrentRank}}<span class="rank-transition">{{formatIntPtr .BaselineRank}} → <strong>{{formatIntPtr .CurrentRank}}</strong></span><small class="{{deltaClass .RankChange}}">{{tf "repositories.rank_change" (formatSigned .RankChange)}}</small>{{else}}<span class="muted">{{t "page.not_available"}}</span>{{end}}</td>
-      <td class="muted">{{formatDate .FirstSeenAt}}{{if .LastObservedAt}}{{if .IsStale}}<small class="cell-secondary">{{tf "ui.last_observed" (formatDatePtr .LastObservedAt)}}</small>{{end}}{{end}}</td>
-    </tr>{{end}}</tbody></table>
-  </div>
-  <ol class="repository-record-list" aria-label="{{t "repositories.metrics_region"}}">{{range .Repositories.Items}}<li>
-    <header class="repository-mobile-header"><div><a class="repo-name" href="/repositories/{{.ID}}" translate="no">{{.FullName}}</a>{{if .IsNew}} <span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}<p class="repository-description">{{if .Description}}{{.Description}}{{else}}{{t "ui.no_description"}}{{end}}</p></div></header>
-    <dl class="repository-mobile-metrics"><div><dt>{{t "metric.current_stars"}}</dt><dd>{{if .CurrentStars}}{{formatIntPtr .CurrentStars}}{{else}}{{formatIntPtr .LastObservedStars}} <small>{{t "ui.pending"}}</small>{{end}}</dd></div><div><dt>{{t "ui.period_gain"}}</dt><dd class="{{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}</dd></div><div><dt>{{t "repositories.growth_rate"}}</dt><dd>{{formatPercent .GrowthRate}}</dd></div><div><dt>{{t "repositories.sample_rank"}}</dt><dd>{{if .CurrentRank}}{{formatIntPtr .BaselineRank}} → {{formatIntPtr .CurrentRank}}{{else}}{{t "page.not_available"}}{{end}}</dd></div><div class="repository-mobile-wide"><dt>{{t "repositories.topic_tags"}}</dt><dd class="tag-list">{{range .Topics}}<a class="tag" href="/repositories?topic={{.Slug}}">{{topicName .Slug .Name}}</a>{{else}}<span class="tag">{{t "category.__unclassified"}}</span>{{end}}</dd></div></dl>
-  </li>{{end}}</ol>
-  {{else}}<div class="empty-state"><h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p><a class="button button-secondary" href="/repositories">{{t "repositories.clear_filters"}}</a></div>{{end}}
 </section>
+{{if .Repositories.Items}}
+<ol class="repository-feed" aria-label="{{t "feed.list_label"}}">
+  {{range .Repositories.Items}}
+  <li>
+    <article class="project-card" aria-labelledby="project-{{.ID}}">
+      <header class="project-card-heading">
+        <div class="project-card-identity">
+          <h2 id="project-{{.ID}}"><a href="/repositories/{{.ID}}?date={{formatDate $.Repositories.Filter.AsOf}}&amp;lang={{$.Meta.Locale}}" translate="no">{{.FullName}}</a></h2>
+          <div class="project-card-badges">{{if .IsNew}}<span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}{{if .IsFocus}}<span class="new-badge">{{t "ui.my_watchlist"}}</span>{{end}}{{if ne .MonitoringStatus "active"}}{{if .MonitoringStatus}}<span class="tag tag-muted">{{statusLabel .MonitoringStatus}}</span>{{end}}{{end}}{{if ne .GitHubStatus "active"}}{{if .GitHubStatus}}<span class="tag tag-muted">{{statusLabel .GitHubStatus}}</span>{{end}}{{end}}</div>
+        </div>
+        {{if .PrimaryLanguage}}<span class="project-language" translate="no">{{.PrimaryLanguage}}</span>{{end}}
+      </header>
+
+      <div class="project-card-body">
+        <div class="project-card-reading">
+          <p class="project-original-description">{{if .Description}}{{.Description}}{{else}}{{t "ui.no_description"}}{{end}}</p>
+          <section class="project-brief" aria-label="{{t "feed.brief"}}">
+            {{if and .Analysis (briefText .Analysis.SummaryZH)}}
+              <div class="project-brief-heading"><h3>{{if aiAnalysis .Analysis.Source}}{{t "feed.ai_brief"}}{{else}}{{t "feed.saved_brief"}}{{end}}</h3><span>{{formatDate .Analysis.AnalyzedAt}}</span></div>
+              <p class="project-brief-text" lang="zh-CN">{{briefText .Analysis.SummaryZH}}</p>
+              <p class="project-brief-source">{{tf "feed.reading_source" (analysisSource .Analysis.Source)}}{{if .Analysis.Model}} · <span translate="no">{{.Analysis.Model}}</span>{{end}}</p>
+            {{else}}
+              <div class="project-brief-heading"><h3>{{t "feed.ai_brief"}}</h3><span>{{t "feed.not_read"}}</span></div>
+              <p class="project-brief-pending">{{t "feed.pending_help"}}</p>
+            {{end}}
+          </section>
+        </div>
+
+        <dl class="project-card-metrics" aria-label="{{t "repositories.metrics_region"}}">
+          <div><dt>{{t "metric.current_stars"}}</dt><dd>{{if .CurrentStars}}{{formatIntPtr .CurrentStars}}{{else}}{{formatIntPtr .LastObservedStars}}{{end}}{{if not .CurrentStars}}<small class="metric-pending">{{t "ui.pending"}}</small>{{end}}</dd></div>
+          <div><dt>{{t "ui.period_gain"}}</dt><dd class="{{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}{{if eq $.Repositories.Filter.Sort "slowdown"}}<small>{{tf "feed.previous_gain" (formatSigned .PreviousDelta)}}</small>{{end}}</dd></div>
+          <div><dt>{{t "repositories.growth_rate"}}</dt><dd class="{{floatDeltaClass .GrowthRate}}">{{formatPercent .GrowthRate}}</dd></div>
+          <div><dt>{{t "feed.sample_rank"}}</dt><dd>{{if .CurrentRank}}<span class="project-card-rank"><span>{{formatIntPtr .BaselineRank}}</span><span aria-hidden="true">→</span><strong>{{formatIntPtr .CurrentRank}}</strong></span>{{else}}{{t "page.not_available"}}{{end}}{{if .RankChange}}<small class="{{deltaClass .RankChange}}">{{tf "repositories.rank_change" (formatSigned .RankChange)}}</small>{{end}}</dd></div>
+          {{if not .StarDelta}}<div class="project-comparison-note"><dt class="sr-only">{{t "feed.comparison_status"}}</dt><dd>{{t "feed.no_comparison"}}</dd></div>{{end}}
+        </dl>
+      </div>
+
+      <div class="project-card-topics">{{range .Topics}}<span class="tag">{{topicName .Slug .Name}}</span>{{else}}<span class="tag tag-muted">{{t "category.__unclassified"}}</span>{{end}}</div>
+      <footer class="project-card-footer">
+        <div class="project-card-meta">
+          <span>{{t "feed.added"}} <time datetime="{{formatDate .FirstSeenAt}}">{{formatDate .FirstSeenAt}}</time></span>
+          {{if .GitHubCreatedAt}}<span>{{t "feed.created"}} {{formatDatePtr .GitHubCreatedAt}}</span>{{end}}
+          <span>{{t "feed.origin"}} {{sourceLabel .FirstSeenSource}}</span>
+          {{if .IsStale}}{{if .LastObservedAt}}<span class="metric-pending">{{tf "ui.last_observed" (formatDatePtr .LastObservedAt)}}</span>{{end}}{{end}}
+        </div>
+        <div class="project-card-actions">
+          <a class="button button-secondary" href="/repositories/{{.ID}}?date={{formatDate $.Repositories.Filter.AsOf}}&amp;lang={{$.Meta.Locale}}">{{t "feed.details"}}</a>
+          {{with projectGitHubURL .FullName .HTMLURL}}<a class="button button-secondary project-github-link" href="{{.}}" target="_blank" rel="noopener noreferrer">{{t "repository.open_github"}} <span aria-hidden="true">↗</span></a>{{end}}
+        </div>
+      </footer>
+    </article>
+  </li>
+  {{end}}
+</ol>
+{{else}}<div class="empty-state"><h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p><a class="button button-secondary" href="/repositories">{{t "repositories.clear_filters"}}</a></div>{{end}}
 <nav class="cursor-pagination" aria-label="{{t "pagination.label"}}"><p>{{tf "repositories.page_summary" (formatInt (len .Repositories.Items)) (formatInt .Repositories.Total)}}</p><div>{{if .Repositories.Filter.AfterID}}<a class="button button-secondary" href="{{.Repositories.FirstPageURL}}">{{t "ui.first_page"}}</a>{{end}}{{if .Repositories.NextCursor}}<a class="button button-secondary" href="{{.Repositories.NextCursor}}" rel="next">{{t "pagination.next"}} {{template "icon-arrow"}}</a>{{end}}</div></nav>
 <details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}} <a class="text-link" href="/topics">{{t "ui.category_rules"}}</a></p></details>
 {{end}}

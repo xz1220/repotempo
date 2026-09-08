@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	repositoryPageSize = 50
+	repositoryPageSize = 20
 	runPageSize        = 50
 )
 

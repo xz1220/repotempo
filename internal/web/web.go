@@ -132,6 +132,7 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /readyz", h.ready)
 	h.mux.HandleFunc("GET /static/tokens.css", h.staticAsset("tokens.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/app.css", h.staticAsset("app.css", "text/css; charset=utf-8"))
+	h.mux.HandleFunc("GET /static/feed.css", h.staticAsset("feed.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/app.js", h.staticAsset("app.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /", h.notFound)
 }
@@ -157,20 +158,24 @@ func (h *Handler) parseTemplates() error {
 			"formatDuration": func(start time.Time, finish *time.Time) string {
 				return formatDuration(start, finish, localized.Text("time.running"), unavailable)
 			},
-			"statusLabel":     localized.StatusLabel,
-			"statusClass":     statusClass,
-			"deltaClass":      deltaClass,
-			"floatDeltaClass": floatDeltaClass,
-			"sourceLabel":     localized.SourceLabel,
-			"trendingPeriod":  localized.TrendingPeriodLabel,
-			"trendingMessage": localized.TrendingMessage,
-			"topicName":       localized.TopicName,
-			"t":               localized.Text,
-			"tf":              localized.Textf,
-			"githubURL":       githubURL,
-			"join":            strings.Join,
-			"lower":           strings.ToLower,
-			"watchText":       func(key string) string { return watchText(locale, key) },
+			"statusLabel":      localized.StatusLabel,
+			"statusClass":      statusClass,
+			"deltaClass":       deltaClass,
+			"floatDeltaClass":  floatDeltaClass,
+			"sourceLabel":      localized.SourceLabel,
+			"trendingPeriod":   localized.TrendingPeriodLabel,
+			"trendingMessage":  localized.TrendingMessage,
+			"topicName":        localized.TopicName,
+			"t":                localized.Text,
+			"tf":               localized.Textf,
+			"githubURL":        githubURL,
+			"briefText":        briefText,
+			"projectGitHubURL": projectGitHubURL,
+			"aiAnalysis":       aiAnalysis,
+			"analysisSource":   analysisSource,
+			"join":             strings.Join,
+			"lower":            strings.ToLower,
+			"watchText":        func(key string) string { return watchText(locale, key) },
 		}
 		h.templates[locale] = make(map[string]*template.Template)
 		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch"} {
