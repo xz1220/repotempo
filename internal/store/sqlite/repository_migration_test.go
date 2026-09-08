@@ -18,7 +18,7 @@ import (
 func newV3MigrationFixture(t *testing.T) (*sql.DB, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "v3.db")
-	db, err := sql.Open("sqlite", path)
+	db, err := openConfiguredSQLite(path, defaultBusyTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +283,12 @@ func TestRepositorySourceMigrationCancellationRollsBack(t *testing.T) {
 	if err == nil || ctx.Err() == nil {
 		t.Fatalf("expected interrupted migration, got %v, context %v", err, ctx.Err())
 	}
+	t.Logf("canceled migration returned: %v", err)
 	assertMigrationSettings(t, db, 3, 0)
+	if _, err := db.Exec(`INSERT INTO daily_snapshots (repository_id, snapshot_date, captured_at, star_count, fetch_status, created_at)
+VALUES (9999999, '2026-09-08', '2026-09-08T00:00:00Z', 1, 'success', '2026-09-08T00:00:00Z')`); err == nil {
+		t.Fatal("canceled migration left foreign-key enforcement disabled")
+	}
 	if !reflect.DeepEqual(before, migrationEvidence(t, db)) {
 		t.Fatal("canceled migration changed stored data")
 	}
