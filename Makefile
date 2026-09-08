@@ -1,6 +1,7 @@
-.PHONY: all fmt fmt-check vet test race build build-linux security ci
+.PHONY: all fmt fmt-check vet test test-js race build build-linux security ci
 
 GO ?= go
+NODE ?= node
 BINARY := bin/repotempo
 
 all: ci
@@ -16,6 +17,9 @@ vet:
 
 test:
 	$(GO) test ./...
+
+test-js:
+	$(NODE) --test scripts/*.test.mjs
 
 race:
 	$(GO) test -race ./...
@@ -33,4 +37,4 @@ build-linux:
 security:
 	$(GO) run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
-ci: fmt-check vet test race build-linux
+ci: fmt-check vet test test-js race build-linux
