@@ -239,7 +239,7 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 		`href="/static/tokens.css"`,
 		`class="app-sidebar"`,
 		`class="primary-nav"`,
-		`>Projects<`,
+		`>GitHub projects<`,
 		`>Trends<`,
 		`>History<`,
 		`href="/runs"`,

@@ -25,7 +25,7 @@ func init() {
 		"category.browser-and-tools":                   {"工具与连接器", "Tools & connectors"},
 		"category.reliability":                         {"评测与可靠性", "Reliability"},
 		"nav.dashboard":                                {"趋势看板", "Trends"},
-		"nav.repositories":                             {"项目库", "Projects"},
+		"nav.repositories":                             {"GitHub 项目", "GitHub projects"},
 		"nav.discoveries":                              {"每日发现", "Discover"},
 		"nav.topics":                                   {"Agent 分类", "Categories"},
 		"ui.brand_note":                                {"开源趋势观察", "independent GitHub trends tracker"},
