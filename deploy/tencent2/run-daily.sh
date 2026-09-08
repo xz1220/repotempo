@@ -28,5 +28,9 @@ exec /usr/bin/flock -n "$data_root/daily.lock" \
       echo "github-radar: production data paths do not match $expected_data_root" >&2
       exit 1
     fi
+    # Supplementary facts run after Star snapshots, with a three-minute
+    # deadline and reserved API headroom. Set the existing env value to 0
+    # to disable this cache refresh without changing the primary collector.
+    export GITHUB_RADAR_ACTIVITY_DAILY_LIMIT=${GITHUB_RADAR_ACTIVITY_DAILY_LIMIT:-500}
     exec /opt/github-radar/github-radar run-daily
   '
