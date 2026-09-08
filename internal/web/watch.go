@@ -21,7 +21,11 @@ import (
 const watchCookie = "github_radar_watch_csrf"
 
 func (h *Handler) watchForm(w http.ResponseWriter, r *http.Request) {
-	h.renderWatch(w, r, http.StatusOK, WatchRequest{}, "")
+	input := WatchRequest{Repository: r.URL.Query().Get("repository"), Focus: r.URL.Query().Get("focus") == "1"}
+	if len(input.Repository) > 300 {
+		input.Repository = ""
+	}
+	h.renderWatch(w, r, http.StatusOK, input, "")
 }
 
 func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +48,11 @@ func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
 		h.renderWatch(w, r, http.StatusRequestEntityTooLarge, WatchRequest{}, "too_large")
 		return
 	}
-	input := WatchRequest{Repository: strings.TrimSpace(r.PostForm.Get("repository")), TopicSlug: strings.TrimSpace(r.PostForm.Get("topic")), Note: strings.TrimSpace(r.PostForm.Get("note"))}
+	input := WatchRequest{Repository: strings.TrimSpace(r.PostForm.Get("repository")), TopicSlug: strings.TrimSpace(r.PostForm.Get("topic")), Note: strings.TrimSpace(r.PostForm.Get("note")), Focus: r.PostForm.Get("focus") == "1"}
+	if values := r.PostForm["focus"]; len(values) > 1 || (len(values) == 1 && values[0] != "0" && values[0] != "1") {
+		h.renderWatch(w, r, http.StatusBadRequest, input, "invalid")
+		return
+	}
 	if len(input.Repository) > 300 || len(input.TopicSlug) > 100 || utf8.RuneCountInString(input.Note) > 2000 {
 		h.renderWatch(w, r, http.StatusBadRequest, WatchRequest{}, "invalid")
 		return
@@ -68,6 +76,21 @@ func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
 	defer func() { h.watchMu.Lock(); h.watchBusy = false; h.watchMu.Unlock() }()
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
+	if importer, ok := h.watcher.(Importer); ok {
+		job, err := importer.SubmitImport(ctx, input)
+		if err != nil {
+			status, key := watchError(err)
+			h.renderWatch(w, r, status, input, key)
+			return
+		}
+		if !validImportID(job.ID) {
+			h.renderWatch(w, r, http.StatusBadGateway, input, "unavailable")
+			return
+		}
+		values := url.Values{"lang": {h.localeFor(r)}}
+		http.Redirect(w, r, "/watch/imports/"+job.ID+"?"+values.Encode(), http.StatusSeeOther)
+		return
+	}
 	result, err := h.watcher.AddWatch(ctx, input)
 	if err != nil {
 		status, key := watchError(err)
@@ -195,6 +218,8 @@ func (h *Handler) consumeWatchNonce(r *http.Request, token string) bool {
 
 func watchError(err error) (int, string) {
 	switch {
+	case errors.Is(err, ErrImportQueueBusy):
+		return http.StatusTooManyRequests, "busy"
 	case errors.Is(err, ErrWatchInvalid):
 		return http.StatusBadRequest, "invalid"
 	case errors.Is(err, ErrWatchPrivate):

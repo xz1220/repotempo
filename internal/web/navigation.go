@@ -32,16 +32,9 @@ func (h *Handler) canonicalLibraryURL(original url.Values, filter RepositoryQuer
 	if filter.OnlyFocus {
 		values.Set("focus", "1")
 	}
-	view := original.Get("view")
-	if view != "daily" && view != "all" && view != "focus" {
-		switch {
-		case filter.OnlyFocus:
-			view = "focus"
-		case filter.OnlyNew:
-			view = "daily"
-		default:
-			view = "all"
-		}
+	view := "all"
+	if filter.OnlyFocus {
+		view = "focus"
 	}
 	values.Set("view", view)
 	for key, value := range map[string]string{
@@ -188,7 +181,7 @@ func (h *Handler) libraryReturnURL(r *http.Request, repositoryID int64) string {
 		if !date.IsZero() && (len(referrerValues) == 0 || (len(referrerValues) == 1 && referrerValues.Has("lang"))) {
 			referrerValues.Set("date", date.Format("2006-01-02"))
 			referrerValues.Set("new", "1")
-			referrerValues.Set("view", "daily")
+			referrerValues.Set("view", "all")
 			referrerValues.Set("period", "1d")
 			referrerValues.Set("sort", "stars")
 			referrer.RawQuery = referrerValues.Encode()

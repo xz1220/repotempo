@@ -147,10 +147,14 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	firstPageValues := cloneValues(r.URL.Query())
 	firstPageValues.Del("cursor")
 	firstPageValues.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
+	firstPageValues.Set("new", "0")
 	if filter.OnlyNew {
 		// Bare project-library URLs default to daily additions. Preserve that
 		// choice when links gain explicit date/category/pagination parameters.
 		firstPageValues.Set("new", "1")
+	}
+	if firstPageValues.Get("view") == "daily" {
+		firstPageValues.Set("view", "all")
 	}
 	data.FirstPageURL = queryPath(path, firstPageValues)
 	if data.HasMore && data.NextCursor != "" {
@@ -176,7 +180,11 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	view.RepositoryDetailURLs = make(map[int64]string, len(data.Items))
 	view.SuggestedTags = suggestedTagLinks(data.Tags, firstPageValues, localized)
 	if filter.OnlyNew && filter.Tag != "" {
-		view.AllProjectsURL = view.LibraryViews[1].URL
+		values := cloneValues(firstPageValues)
+		values.Set("view", "all")
+		values.Set("new", "0")
+		values.Del("focus")
+		view.AllProjectsURL = queryPath(path, values)
 	}
 	for _, item := range data.Items {
 		view.RepositoryTags[item.ID] = makeCardTagLinks(item.Tags, item.Topics, firstPageValues, localized)
@@ -194,79 +202,6 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		}
 	}
 	h.render(w, r, http.StatusOK, "repositories", view)
-}
-
-func (h *Handler) libraryToday() time.Time {
-	// Derive the calendar date in Shanghai even when a test or embedding host
-	// uses a different display timezone. Never substitute the last populated day.
-	shanghai := time.FixedZone("Asia/Shanghai", 8*60*60)
-	return parseDateParameter(h.now().In(shanghai).Format("2006-01-02"), h.location)
-}
-
-func (h *Handler) applyLibraryDefaults(values url.Values, filter *RepositoryQuery) {
-	if !values.Has("focus") && values.Get("view") == "focus" {
-		filter.OnlyFocus = true
-	}
-	if !values.Has("new") {
-		switch values.Get("view") {
-		case "daily":
-			filter.OnlyNew = true
-		case "all", "focus":
-			filter.OnlyNew = false
-		default:
-			// Old shared URLs already express a scope. Preserve their full-library
-			// meaning instead of narrowing searches or dashboard leaderboard links.
-			explicit := false
-			for _, key := range []string{"view", "sort", "period", "date", "topic", "tag", "q", "source", "status", "focus", "cursor"} {
-				explicit = explicit || values.Has(key)
-			}
-			filter.OnlyNew = !explicit
-		}
-	}
-	if filter.OnlyNew {
-		if filter.AsOf.IsZero() {
-			filter.AsOf = h.libraryToday()
-		}
-		if !values.Has("period") || strings.TrimSpace(values.Get("period")) == "" {
-			filter.WindowDays = 1
-		}
-		if !values.Has("sort") || strings.TrimSpace(values.Get("sort")) == "" {
-			filter.Sort = "stars"
-		}
-	}
-}
-
-func (h *Handler) libraryViewOptions(path string, original url.Values, filter RepositoryQuery, localized localizer) []viewOption {
-	dailyDate := h.libraryToday()
-	if strings.TrimSpace(original.Get("date")) != "" {
-		dailyDate = filter.AsOf
-	}
-	label := localized.Text("daily.today")
-	if dailyDate.Format("2006-01-02") != h.libraryToday().Format("2006-01-02") {
-		label = localized.Textf("daily.on_date", dailyDate.Format("2006-01-02"))
-	}
-	link := func(view string) string {
-		values := cloneValues(original)
-		values.Del("cursor")
-		values.Set("view", view)
-		values.Del("focus")
-		values.Set("new", "0")
-		if !filter.AsOf.IsZero() {
-			values.Set("date", filter.AsOf.Format("2006-01-02"))
-		}
-		if view == "daily" {
-			values.Set("new", "1")
-			values.Set("date", dailyDate.Format("2006-01-02"))
-		} else if view == "focus" {
-			values.Set("focus", "1")
-		}
-		return queryPath(path, values)
-	}
-	return []viewOption{
-		{Label: label, URL: link("daily"), Active: filter.OnlyNew && !filter.OnlyFocus},
-		{Label: localized.Text("ui.all_library"), URL: link("all"), Active: !filter.OnlyNew && !filter.OnlyFocus},
-		{Label: localized.Text("ui.my_watchlist"), URL: link("focus"), Active: filter.OnlyFocus},
-	}
 }
 
 func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {

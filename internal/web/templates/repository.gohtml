@@ -31,9 +31,15 @@
         <p class="analysis-provenance">{{if eq .Source "legacy_research"}}{{t "feed.legacy_source"}} · {{t "feed.legacy_date"}}{{else}}{{tf "repository.analysis_provenance" .Source .Revision (formatDate .AnalyzedAt)}}{{end}}{{if .Model}} · <span translate="no">{{.Model}}</span>{{end}}</p>
       {{else}}
         <div class="analysis-pending">
+          {{with .Repository.Repository.Readme}}
+          <h3>{{importText "readme"}}</h3><p class="readme-excerpt" translate="no">{{.Intro}}</p>
+          <p class="readme-source">{{importText "readme_help"}} {{formatDate .FetchedAt}}</p>
+          {{with githubURL .HTMLURL}}<a class="text-link" href="{{.}}" target="_blank" rel="noopener noreferrer">{{importText "readme_open"}} ↗</a>{{end}}
+          {{else}}
           {{if .Repository.Repository.Description}}<p>{{.Repository.Repository.Description}}</p>{{else}}<p>{{t "repository.analysis_no_description"}}</p>{{end}}
-          {{if .Repository.Repository.ManualNote}}<p class="watch-note">{{t "ui.watch_reason"}}{{.Repository.Repository.ManualNote}}</p>{{end}}
           {{with githubURL .Repository.Repository.HTMLURL}}<a class="text-link readme-link" href="{{.}}#readme" target="_blank" rel="noopener noreferrer">{{t "ui.read_readme"}} ↗</a>{{end}}
+          {{end}}
+          {{if .Repository.Repository.ManualNote}}<p class="watch-note">{{t "ui.watch_reason"}}{{.Repository.Repository.ManualNote}}</p>{{end}}
         </div>
       {{end}}
     </section>

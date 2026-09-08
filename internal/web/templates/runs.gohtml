@@ -17,7 +17,7 @@
           <article class="run-row">
             <div class="run-row-main">
               <span class="status-badge {{statusClass .Status}}"><span aria-hidden="true"></span>{{statusLabel .Status}}</span>
-              <div class="run-identity"><h3>{{.JobType}}</h3><p class="mono-value" translate="no">{{.RunID}}</p></div>
+              <div class="run-identity"><h3>{{if eq .JobType "repository_import"}}<a class="text-link" href="/watch/imports/{{.RunID}}?lang={{$.Meta.Locale}}">{{importText "title"}}</a>{{else}}{{.JobType}}{{end}}</h3><p class="mono-value" translate="no">{{.RunID}}</p></div>
               <dl class="run-counts">
                 <div><dt>{{t "runs.target"}}</dt><dd>{{formatInt .TargetCount}}</dd></div>
                 <div><dt>{{t "runs.success"}}</dt><dd>{{formatInt .SuccessCount}}</dd></div>

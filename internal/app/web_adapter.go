@@ -119,6 +119,9 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 	if result.HasMore && len(result.Items) > 0 {
 		result.NextCursor = strconv.FormatInt(result.Items[len(result.Items)-1].ID, 36)
 	}
+	if err := adapter.addImportReadmes(ctx, result.Items); err != nil {
+		return web.RepositoryPage{}, mapWebError(err)
+	}
 	return result, nil
 }
 
@@ -188,9 +191,13 @@ func (adapter WebAdapter) GetRepositoryDetail(ctx context.Context, id int64, asO
 		}
 	}
 	validFrom := datePointer(value.ValidFrom)
+	metrics := []web.RepositoryMetric{mapRepositoryMetric(value.Metric)}
+	if err := adapter.addImportReadmes(ctx, metrics); err != nil {
+		return web.RepositoryDetail{}, mapWebError(err)
+	}
 	return web.RepositoryDetail{
 		AsOf:          asOf,
-		Repository:    mapRepositoryMetric(value.Metric),
+		Repository:    metrics[0],
 		Analysis:      mapRepositoryAnalysis(value.Analysis),
 		History:       history,
 		FailedDates:   failed,

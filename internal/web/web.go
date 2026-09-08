@@ -128,6 +128,8 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /watch", h.watchForm)
 	h.mux.HandleFunc("GET /watch/new", h.watchForm)
 	h.mux.HandleFunc("POST /watch", h.watchAdd)
+	h.mux.HandleFunc("GET /watch/imports/{id}", h.importTask)
+	h.mux.HandleFunc("GET /watch/imports/{id}/status", h.importTaskStatus)
 	h.mux.HandleFunc("GET /healthz", h.health)
 	h.mux.HandleFunc("GET /readyz", h.ready)
 	h.mux.HandleFunc("GET /static/tokens.css", h.staticAsset("tokens.css", "text/css; charset=utf-8"))
@@ -136,6 +138,8 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /static/app.js", h.staticAsset("app.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/reading-state.js", h.staticAsset("reading-state.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/reading-position.js", h.staticAsset("reading-position.js", "text/javascript; charset=utf-8"))
+	h.mux.HandleFunc("GET /static/imports.js", h.staticAsset("imports.js", "text/javascript; charset=utf-8"))
+	h.mux.HandleFunc("GET /static/imports.css", h.staticAsset("imports.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /", h.notFound)
 }
 
@@ -179,6 +183,7 @@ func (h *Handler) parseTemplates() error {
 			"join":             strings.Join,
 			"lower":            strings.ToLower,
 			"watchText":        func(key string) string { return watchText(locale, key) },
+			"importText":       func(key string) string { return importText(locale, key) },
 
 			"briefItems": briefItems,
 			"repositoryAge": func(created *time.Time, asOf time.Time) repositoryAgeView {
@@ -189,7 +194,7 @@ func (h *Handler) parseTemplates() error {
 			},
 		}
 		h.templates[locale] = make(map[string]*template.Template)
-		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch"} {
+		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch", "import"} {
 			tmpl, err := template.New("base.gohtml").Funcs(funcs).ParseFS(
 				assets,
 				"templates/base.gohtml",

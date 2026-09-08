@@ -3,12 +3,12 @@
   <nav class="library-views" aria-label="{{t "daily.views"}}">
     {{range .LibraryViews}}<a href="{{.URL}}" class="{{if .Active}}is-active{{end}}" {{if .Active}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}
   </nav>
-  <a class="button button-secondary library-add" href="/watch/new">{{template "icon-plus"}}{{t "ui.add_project"}}</a>
+  <a class="button button-secondary library-add" href="/watch/new">{{template "icon-plus"}}{{t "library.import"}}</a>
 </div>
 <section class="surface library-surface" aria-label="{{t "repositories.metrics_region"}}">
   <form class="library-filters" method="get" action="/repositories" role="search">
     <input type="hidden" name="lang" value="{{.Meta.Locale}}">
-    <input type="hidden" name="view" value="all">
+    <input type="hidden" name="view" value="{{if .Repositories.Filter.OnlyFocus}}focus{{else}}all{{end}}">
     {{if .Repositories.Filter.TopicSlug}}<input type="hidden" name="topic" value="{{.Repositories.Filter.TopicSlug}}">{{end}}
     {{if .Repositories.Filter.Source}}<input type="hidden" name="source" value="{{.Repositories.Filter.Source}}">{{end}}
     {{if .Repositories.Filter.OnlyFocus}}<input type="hidden" name="focus" value="1">{{end}}
@@ -26,7 +26,7 @@
     </select></div>
     <div class="field"><label for="period-filter">{{t "tags.period"}}</label><select id="period-filter" name="period" aria-describedby="growth-period-help"><option value="1d" {{if eq .Repositories.Filter.WindowDays 1}}selected{{end}}>{{t "tags.1d"}}</option><option value="7d" {{if eq .Repositories.Filter.WindowDays 7}}selected{{end}}>{{t "tags.7d"}}</option><option value="30d" {{if eq .Repositories.Filter.WindowDays 30}}selected{{end}}>{{t "tags.30d"}}</option></select></div>
     <div class="field"><label for="as-of-date">{{t "repositories.as_of_date"}}</label><input id="as-of-date" name="date" type="date" value="{{formatDate .Repositories.Filter.AsOf}}"></div>
-    <div class="filter-actions"><label class="new-project-filter"><input type="checkbox" name="new" value="1" {{if .Repositories.Filter.OnlyNew}}checked{{end}}>{{t "ui.only_new_on_date"}}</label><button class="button button-primary" type="submit">{{t "ui.filter"}}</button></div>
+    <div class="filter-actions"><label class="new-project-filter"><input type="checkbox" name="new" value="1" {{if .Repositories.Filter.OnlyNew}}checked{{end}}>{{t "ui.only_new_on_date"}}</label><input type="hidden" name="new" value="0"><button class="button button-primary" type="submit">{{t "ui.filter"}}</button></div>
   </form>
   {{if .SuggestedTags}}<nav class="library-quick-tags" aria-label="{{t "tags.quick"}}"><span>{{t "tags.quick"}}</span>{{range .SuggestedTags}}<a class="tag {{if .Active}}tag-selected{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}</nav>{{end}}
   <div class="library-filter-help"><p id="tag-filter-help">{{t "tags.help"}}</p><p id="growth-period-help">{{t "tags.period_help"}}</p></div>
@@ -60,6 +60,10 @@
                 {{with briefItems .Analysis.UseCases}}<div class="brief-secondary"><dt>{{t "activity.use_cases"}}</dt><dd lang="zh-CN">{{join . " · "}}</dd></div>{{end}}
               </dl>
               <p class="project-brief-source">{{if eq .Analysis.Source "legacy_research"}}{{tf "feed.reading_source" (t "feed.legacy_source")}}{{else}}{{tf "feed.reading_source" (analysisSource .Analysis.Source)}}{{end}}{{if .Analysis.Model}} · <span translate="no">{{.Analysis.Model}}</span>{{end}}</p>
+            {{else if .Readme}}
+              <div class="project-brief-heading"><h3>{{importText "readme"}}</h3><span>{{formatDate .Readme.FetchedAt}}</span></div>
+              <p class="project-brief-text" translate="no">{{.Readme.Intro}}</p>
+              <p class="readme-source">{{importText "readme_help"}} {{with githubURL .Readme.HTMLURL}}<a class="text-link" href="{{.}}" target="_blank" rel="noopener noreferrer">{{importText "readme_open"}} ↗</a>{{end}}</p>
             {{else}}
               <div class="project-brief-heading"><h3>{{t "feed.ai_brief"}}</h3><span>{{t "feed.not_read"}}</span></div>
               <p class="project-brief-pending">{{t "feed.pending_help"}}</p>
@@ -105,7 +109,17 @@
   </li>
   {{end}}
 </ol>
-{{else}}<div class="empty-state">{{if .Repositories.Filter.OnlyNew}}<h3>{{tf "daily.empty_title" (formatDate .Repositories.Filter.AsOf)}}</h3><p>{{t "daily.empty_help"}}</p><a class="button button-secondary" href="{{.AllProjectsURL}}">{{if .Repositories.Filter.Tag}}{{t "tags.browse_all_matching"}}{{else}}{{t "daily.browse_all"}}{{end}}</a>{{else}}<h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p><a class="button button-secondary" href="{{.AllProjectsURL}}">{{t "repositories.clear_filters"}}</a>{{end}}</div>{{end}}
+{{else}}
+<div class="empty-state">
+  {{if and .Repositories.Filter.OnlyFocus (not .Repositories.Filter.Search) (not .Repositories.Filter.Tag) (not .Repositories.Filter.TopicSlug) (not .Repositories.Filter.Source)}}
+  <h3>{{importText "empty_focus"}}</h3><p>{{importText "empty_focus_help"}}</p>
+  {{else if .Repositories.Filter.OnlyNew}}
+  <h3>{{tf "daily.empty_title" (formatDate .Repositories.Filter.AsOf)}}</h3><p>{{t "daily.empty_help"}}</p><a class="button button-secondary" href="{{.AllProjectsURL}}">{{if .Repositories.Filter.Tag}}{{t "tags.browse_all_matching"}}{{else}}{{t "daily.browse_all"}}{{end}}</a>
+  {{else}}
+  <h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p><a class="button button-secondary" href="{{.AllProjectsURL}}">{{t "repositories.clear_filters"}}</a>
+  {{end}}
+</div>
+{{end}}
 <nav class="cursor-pagination" aria-label="{{t "pagination.label"}}"><p>{{tf "repositories.page_summary" (formatInt (len .Repositories.Items)) (formatInt .Repositories.Total)}}</p><div>{{if .Repositories.Filter.AfterID}}<a class="button button-secondary" href="{{.Repositories.FirstPageURL}}">{{t "ui.first_page"}}</a>{{end}}{{if .Repositories.NextCursor}}<a class="button button-secondary" href="{{.Repositories.NextCursor}}" rel="next">{{t "pagination.next"}} {{template "icon-arrow"}}</a>{{end}}</div></nav>
 <details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}} <a class="text-link" href="/topics">{{t "ui.category_rules"}}</a></p><p>{{t "tags.method_note"}}</p><p>{{t "activity.age_help"}}</p><p>{{t "activity.incomplete"}}</p></details>
 {{end}}

@@ -14,6 +14,10 @@
       <input id="watch-repository" name="repository" value="{{.Watch.Input.Repository}}" placeholder="https://github.com/owner/repository" required maxlength="300" autocapitalize="none" spellcheck="false" aria-describedby="watch-repository-hint">
       <p id="watch-repository-hint" class="field-hint">{{watchText "repository_hint"}}</p>
     </div>
+    <div class="field">
+      <label class="checkbox-label" for="import-focus"><input id="import-focus" type="checkbox" name="focus" value="1" {{if .Watch.Input.Focus}}checked{{end}} aria-describedby="import-focus-hint"> {{watchText "focus"}}</label>
+      <p id="import-focus-hint" class="field-hint">{{watchText "focus_hint"}}</p>
+    </div>
     <div class="field"><label for="watch-topic">{{watchText "topic"}}</label>
       <select id="watch-topic" name="topic"><option value="">{{watchText "topic_default"}}</option>
         {{range .Watch.Topics}}<option value="{{.Slug}}" {{if eq $.Watch.Input.TopicSlug .Slug}}selected{{end}}>{{if .ParentName}}{{topicName .ParentSlug .ParentName}} / {{end}}{{topicName .Slug .Name}}</option>{{end}}

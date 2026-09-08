@@ -15,7 +15,7 @@ func init() {
 		"ui.category_rules_help":                       {"项目可以属于多个类型。自动分类根据项目描述和 GitHub 标签给出，可通过手动添加时选择分类进行确认；证据不足的项目保留为待分类。分类覆盖率不代表整个 GitHub 社区的覆盖率。", "Projects may belong to several types. Automatic suggestions use descriptions and GitHub topics; a manual choice takes precedence. Unclear projects remain unclassified. Coverage refers to this library, not all of GitHub."},
 		"ui.category_metrics":                          {"查看分类的增长数据", "View category growth data"},
 		"ui.read_readme":                               {"阅读项目 README", "Read the project README"},
-		"ui.watch_reason":                              {"关注原因：", "Why follow: "},
+		"ui.watch_reason":                              {"项目备注：", "Project note: "},
 		"category.multi-agent":                         {"多 Agent 协作", "Multi-agent"},
 		"category.workbench":                           {"Agent 工作台", "Workbench"},
 		"category.client-and-remote-access":            {"客户端与远程访问", "Clients & remote access"},

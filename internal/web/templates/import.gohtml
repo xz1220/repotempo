@@ -1,0 +1,27 @@
+{{define "page-meta"}}
+<nav class="breadcrumb" aria-label="{{t "breadcrumb.label"}}"><a class="breadcrumb-link" href="/repositories?lang={{.Meta.Locale}}">← {{t "nav.repositories"}}</a></nav>
+{{end}}
+{{define "content"}}
+<section class="import-task" data-import-status data-poll-url="{{.Import.PollURL}}" data-terminal="{{.Import.Terminal}}" data-paused-label="{{importText "poll_paused"}}">
+  <p class="import-repository" translate="no">{{if .Import.Status.FullName}}{{.Import.Status.FullName}}{{else}}{{.Import.Status.Repository}}{{end}}</p>
+  <h2 data-import-stage>{{.Import.Label}}</h2>
+  <p data-import-message role="status" aria-live="polite">{{.Import.Message}}</p>
+  <p class="import-choice">{{if .Import.Status.Focus}}{{importText "followed"}}{{else}}{{importText "not_followed"}}{{end}}</p>
+  <p class="import-updated">{{importText "updated"}} {{formatDateTime .Import.Status.UpdatedAt}}</p>
+  <div class="form-actions">
+    {{if .Import.DetailURL}}<a class="button button-primary" href="{{.Import.DetailURL}}">{{importText "open"}}</a>{{end}}
+    {{if .Import.Terminal}}{{if ne .Import.Status.Stage "done"}}<a class="button button-secondary" href="{{.Import.RetryURL}}">{{importText "retry"}}</a>{{end}}{{else}}<a class="button button-secondary" href="?lang={{.Meta.Locale}}">{{importText "refresh"}}</a>{{end}}
+    <a class="text-link" href="/repositories?lang={{.Meta.Locale}}">{{importText "back"}}</a>
+  </div>
+  {{with .Import.Status.Readme}}
+  <section class="import-readme" aria-labelledby="import-readme-heading">
+    <h3 id="import-readme-heading">{{importText "readme"}}</h3>
+    <p class="field-hint">{{importText "readme_help"}}</p>
+    <p class="readme-excerpt" translate="no">{{.Intro}}</p>
+    {{if .Truncated}}<p class="field-hint">{{importText "readme_truncated"}}</p>{{end}}
+    {{with githubURL .HTMLURL}}<a class="text-link" href="{{.}}" target="_blank" rel="noopener noreferrer">{{importText "readme_open"}} ↗</a>{{end}}
+  </section>
+  {{end}}
+</section>
+<script defer src="/static/imports.js"></script>
+{{end}}

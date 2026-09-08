@@ -31,7 +31,7 @@ func (runtime *Runtime) AddWatch(ctx context.Context, request web.WatchRequest) 
 		return web.WatchResult{}, web.ErrWatchUnavailable
 	}
 	service := watch.Service{Store: runtime.store, Resolver: client, Now: runtime.now}
-	result, err := service.AddTracked(ctx, request.Repository, request.Note, request.TopicSlug)
+	result, err := service.ImportTracked(ctx, request.Repository, request.Note, request.TopicSlug, request.Focus)
 	if err != nil {
 		return web.WatchResult{}, mapWatchError(err)
 	}

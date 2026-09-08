@@ -13,8 +13,8 @@
     form.addEventListener("submit", () => {
       submit.disabled = true;
       submit.textContent = document.documentElement.lang === "zh-CN"
-        ? "正在获取项目…"
-        : "Fetching project…";
+        ? "正在提交…"
+        : "Submitting…";
       form.setAttribute("aria-busy", "true");
     });
     window.addEventListener("pageshow", () => {

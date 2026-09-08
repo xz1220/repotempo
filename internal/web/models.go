@@ -118,6 +118,7 @@ type RepositoryMetric struct {
 	Tags              []string
 	Analysis          *RepositoryAnalysis
 	Activity          *RepositoryActivity
+	Readme            *RepositoryReadme
 	FirstSeenSource   string
 	DiscoverySources  []string
 	FirstSeenProfile  string
