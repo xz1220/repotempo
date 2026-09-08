@@ -269,7 +269,7 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 	for _, want := range []string{
 		`class="project-card"`,
 		`class="repository-feed"`,
-		`href="/repositories/101?date=2026-08-30&amp;lang=en"`,
+		`href="/repositories/101?date=2026-08-30&amp;lang=en&amp;return_to=`,
 		`action="/repositories"`,
 	} {
 		if !strings.Contains(projects, want) {

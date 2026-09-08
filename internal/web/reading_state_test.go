@@ -70,7 +70,7 @@ func TestReadingControlsHaveStableIDsLocalizedActionsAndOneSiteNotice(t *testing
 					t.Fatal("a nonfunctional reading button must not appear without JavaScript")
 				}
 				for _, want := range []string{
-					fmt.Sprintf(`href="/repositories/%d?date=2026-08-30&lang=%s"`, item.ID, locale),
+					fmt.Sprintf(`href="/repositories/%d?date=2026-08-30&lang=%s&return_to=`, item.ID, locale),
 					`href="https://github.com/` + item.FullName + `" target="_blank" rel="noopener noreferrer"`,
 				} {
 					if !strings.Contains(body, want) {

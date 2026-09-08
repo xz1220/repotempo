@@ -281,7 +281,7 @@ func TestLibraryNewFilterIsVisibleReversibleAndExplainsFirstSeenDate(t *testing.
 					t.Fatal("new-project count must not mix its total with the entire library's comparable population")
 				}
 			}
-			for _, want := range []string{"acme/new-agent", "A newly discovered AI research agent.", `href="/repositories/104?date=2026-08-30&lang=` + locale + `"`} {
+			for _, want := range []string{"acme/new-agent", "A newly discovered AI research agent.", `href="/repositories/104?date=2026-08-30&lang=` + locale + `&return_to=`} {
 				if !strings.Contains(body, want) {
 					t.Errorf("filtered library missing %q", want)
 				}

@@ -69,6 +69,10 @@ type pageView struct {
 	DetailTags        cardTagLinks
 	ActiveFilters     []viewOption
 	SuggestedTags     []viewOption
+
+	ListURL              string
+	RepositoryDetailURLs map[int64]string
+	LibraryReturnURL     string
 }
 
 type viewOption struct {
@@ -168,12 +172,15 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	view.CurrentPath = path
 	view.Categories = categoryLinks(path, firstPageValues)
 	view.RepositoryTags = make(map[int64]cardTagLinks, len(data.Items))
+	view.ListURL = h.canonicalLibraryURL(r.URL.Query(), data.Filter, h.localeFor(r))
+	view.RepositoryDetailURLs = make(map[int64]string, len(data.Items))
 	view.SuggestedTags = suggestedTagLinks(data.Tags, firstPageValues, localized)
 	if filter.OnlyNew && filter.Tag != "" {
 		view.AllProjectsURL = view.LibraryViews[1].URL
 	}
 	for _, item := range data.Items {
 		view.RepositoryTags[item.ID] = makeCardTagLinks(item.Tags, item.Topics, firstPageValues, localized)
+		view.RepositoryDetailURLs[item.ID] = repositoryDetailURL(item.ID, view.ListURL, data.Filter.AsOf.Format("2006-01-02"), h.localeFor(r))
 	}
 	for _, active := range []struct{ key, value, label string }{
 		{"tag", filter.Tag, localized.Textf("tags.active", filter.Tag)},
@@ -290,11 +297,12 @@ func (h *Handler) repository(w http.ResponseWriter, r *http.Request) {
 		meta.AsOfLabel = formatDateLocalized(data.AsOf, h.location, localized.Text("page.not_available"))
 	}
 	view := pageView{
-		Meta:       meta,
-		Repository: data,
-		StarChart:  snapshotStarChart(data.History, localized),
-		RankChart:  snapshotRankChart(data.History, localized),
-		DetailTags: makeCardTagLinks(data.Repository.Tags, data.Repository.Topics, url.Values{"view": {"all"}, "date": {data.AsOf.Format("2006-01-02")}, "lang": {h.localeFor(r)}}, localized),
+		Meta:             meta,
+		Repository:       data,
+		StarChart:        snapshotStarChart(data.History, localized),
+		RankChart:        snapshotRankChart(data.History, localized),
+		DetailTags:       makeCardTagLinks(data.Repository.Tags, data.Repository.Topics, url.Values{"view": {"all"}, "date": {data.AsOf.Format("2006-01-02")}, "lang": {h.localeFor(r)}}, localized),
+		LibraryReturnURL: h.libraryReturnURL(r, id),
 	}
 	h.render(w, r, http.StatusOK, "repository", view)
 }
@@ -452,6 +460,10 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, nam
 	data.Meta.Locale = locale
 	data.Meta.EnglishURL = languageURL(r, localeEnglish)
 	data.Meta.ChineseURL = languageURL(r, localeChinese)
+	if data.LibraryReturnURL != "" {
+		data.Meta.EnglishURL = repositoryLanguageURL(r, localeEnglish, data.LibraryReturnURL)
+		data.Meta.ChineseURL = repositoryLanguageURL(r, localeChinese, data.LibraryReturnURL)
+	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "base", data); err != nil {
 		h.logger.ErrorContext(r.Context(), "web template failed", "template", name, "error", err)

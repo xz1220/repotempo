@@ -36,13 +36,13 @@
 </section>
 {{if .Repositories.Items}}
 <p id="reading-local-note" class="reading-local-note" data-reading-help hidden>{{t "feed.reading_local_note"}}</p>
-<ol class="repository-feed" aria-label="{{t "feed.list_label"}}">
+<ol class="repository-feed" aria-label="{{t "feed.list_label"}}" data-list-url="{{.ListURL}}">
   {{range .Repositories.Items}}
   <li>
     <article class="project-card" aria-labelledby="project-{{.ID}}" data-reading-repository="{{.ID}}">
       <header class="project-card-heading">
         <div class="project-card-identity">
-          <h2 id="project-{{.ID}}"><a href="/repositories/{{.ID}}?date={{formatDate $.Repositories.Filter.AsOf}}&amp;lang={{$.Meta.Locale}}" translate="no">{{.FullName}}</a></h2>
+          <h2 id="project-{{.ID}}"><a href="{{index $.RepositoryDetailURLs .ID}}" data-repository-detail translate="no">{{.FullName}}</a></h2>
           <div class="project-card-badges">{{if .IsNew}}<span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}{{if .IsFocus}}<span class="new-badge">{{t "ui.my_watchlist"}}</span>{{end}}{{if ne .MonitoringStatus "active"}}{{if .MonitoringStatus}}<span class="tag tag-muted">{{statusLabel .MonitoringStatus}}</span>{{end}}{{end}}{{if ne .GitHubStatus "active"}}{{if .GitHubStatus}}<span class="tag tag-muted">{{statusLabel .GitHubStatus}}</span>{{end}}{{end}}</div>
         </div>
         {{if .PrimaryLanguage}}<span class="project-language" translate="no">{{.PrimaryLanguage}}</span>{{end}}
@@ -82,7 +82,7 @@
         </div>
         <div class="project-card-actions">
           <button type="button" class="button button-secondary project-read-toggle" data-reading-toggle data-reading-mark-read="{{t "feed.mark_read"}}" data-reading-mark-unread="{{t "feed.mark_unread"}}" data-reading-load-error="{{t "feed.reading_load_error"}}" data-reading-save-error="{{t "feed.reading_save_error"}}" aria-pressed="false" aria-describedby="reading-local-note reading-note-{{.ID}}" hidden>{{t "feed.mark_read"}}</button>
-          <a class="button button-secondary" href="/repositories/{{.ID}}?date={{formatDate $.Repositories.Filter.AsOf}}&amp;lang={{$.Meta.Locale}}">{{t "feed.details"}}</a>
+          <a class="button button-secondary" href="{{index $.RepositoryDetailURLs .ID}}" data-repository-detail>{{t "feed.details"}}</a>
           {{with projectGitHubURL .FullName .HTMLURL}}<a class="button button-secondary project-github-link" href="{{.}}" target="_blank" rel="noopener noreferrer">{{t "repository.open_github"}} <span aria-hidden="true">↗</span></a>{{end}}
         </div>
       </footer>
