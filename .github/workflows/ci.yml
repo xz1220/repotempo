@@ -19,12 +19,17 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
           cache: true
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24"
       - name: Check formatting
         run: test -z "$(gofmt -l .)"
       - name: Vet
         run: go vet ./...
       - name: Test
         run: go test ./...
+      - name: Test reading interactions and offline tools
+        run: make test-js
       - name: Race detector
         if: matrix.go == '1.27.x'
         run: go test -race ./...
