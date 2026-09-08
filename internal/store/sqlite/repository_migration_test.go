@@ -37,7 +37,7 @@ func newV3MigrationFixture(t *testing.T) (*sql.DB, string) {
 	if _, err := db.Exec("PRAGMA user_version = 3; PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO repositories (` + repositoryColumns + `)
+	if _, err := db.Exec(`INSERT INTO repositories (` + repositoryColumnsV4 + `)
 		VALUES (42, 'node-42', 'owner/existing', 'https://github.com/owner/existing', '原始项目描述',
 		'Go', '2025-01-02T03:04:05Z', '2026-08-11T00:05:06.123456789Z', 'legacy',
 		'original-profile', '["legacy","manual","github_search"]', '2026-09-06T01:02:03Z',
@@ -118,10 +118,18 @@ func migrationEvidence(t *testing.T, db *sql.DB) map[string][][]any {
 	t.Helper()
 	result := map[string][][]any{}
 	for _, table := range []string{"repositories", "daily_snapshots", "repository_topics", "repository_analyses", "topics", "job_runs", "migration_audit"} {
-		result[table] = migrationRows(t, db, "SELECT rowid, * FROM "+table+" ORDER BY rowid")
+		columns := "*"
+		if table == "repositories" {
+			var names []string
+			for _, row := range migrationRows(t, db, "SELECT name FROM pragma_table_xinfo('repositories') WHERE name NOT IN ('github_topics_json','research_tags_json') ORDER BY cid") {
+				names = append(names, `"`+strings.ReplaceAll(row[0].(string), `"`, `""`)+`"`)
+			}
+			columns = strings.Join(names, ",")
+		}
+		result[table] = migrationRows(t, db, "SELECT rowid, "+columns+" FROM "+table+" ORDER BY rowid")
 	}
 	result["dependent_schema"] = migrationRows(t, db, `SELECT type, name, tbl_name, sql FROM sqlite_schema
-		WHERE name NOT LIKE 'sqlite_%' AND name != 'repositories' ORDER BY type, name`)
+		WHERE name NOT LIKE 'sqlite_%' AND name NOT IN ('repositories','repositories_tag_arrays_insert','repositories_tag_arrays_update') ORDER BY type, name`)
 	result["view_results"] = migrationRows(t, db, "SELECT * FROM existing_repository_view")
 	result["foreign_key_check"] = migrationRows(t, db, "SELECT * FROM pragma_foreign_key_check ORDER BY \"table\", rowid, parent, fkid")
 	return result
@@ -155,7 +163,7 @@ func TestRepositorySourceMigrationPreservesAllV3EvidenceAndLegacyOrphans(t *test
 		t.Fatal(err)
 	}
 	defer store.Close()
-	assertMigrationSettings(t, store.db, 4, 0)
+	assertMigrationSettings(t, store.db, 5, 0)
 	after := migrationEvidence(t, store.db)
 	if !reflect.DeepEqual(before, after) {
 		for name, original := range before {
@@ -219,7 +227,7 @@ func TestRepositorySourceMigrationRollsBackAndRestoresConnectionSettings(t *test
 			if err := applyMigrations(context.Background(), db); err != nil {
 				t.Fatalf("retry after rollback failed: %v", err)
 			}
-			assertMigrationSettings(t, db, 4, 0)
+			assertMigrationSettings(t, db, 5, 0)
 		})
 	}
 }
@@ -232,7 +240,7 @@ func TestRepositorySourceMigrationPreservesExistingLegacyAlterSetting(t *testing
 	if err := applyMigrations(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationSettings(t, db, 4, 1)
+	assertMigrationSettings(t, db, 5, 1)
 }
 
 func TestRepositorySourceMigrationIndexRestorationFailureRollsBack(t *testing.T) {
