@@ -22,6 +22,7 @@ type Repository struct {
 	Private       bool
 	GitHubStatus  string
 	Topics        []string
+	ResearchTags  []string
 	CreatedAt     *time.Time
 	UpdatedAt     *time.Time
 	PushedAt      *time.Time
@@ -71,6 +72,7 @@ func MergeCandidates(groups ...[]Candidate) []Candidate {
 	merged := make(map[int64]Candidate)
 	sources := make(map[int64]map[string]struct{})
 	namePriorities := make(map[int64]int)
+	topicPriorities := make(map[int64]int)
 
 	for _, group := range groups {
 		for _, candidate := range group {
@@ -81,13 +83,15 @@ func MergeCandidates(groups ...[]Candidate) []Candidate {
 			current, ok := merged[id]
 			if !ok {
 				current = candidate
-				current.Repository.Topics = append([]string(nil), candidate.Repository.Topics...)
+				current.Repository.Topics = CloneTags(candidate.Repository.Topics)
+				current.Repository.ResearchTags = CloneTags(candidate.Repository.ResearchTags)
 				current.PreviousNames = append([]string(nil), candidate.PreviousNames...)
 				current.Metadata = cloneMetadata(candidate.Metadata)
 				merged[id] = current
 				order = append(order, id)
 				sources[id] = make(map[string]struct{})
 				namePriorities[id] = sourcePriority(candidate.Source)
+				topicPriorities[id] = sourcePriority(candidate.Source)
 			}
 			if candidate.Source != "" {
 				sources[id][candidate.Source] = struct{}{}
@@ -109,6 +113,10 @@ func MergeCandidates(groups ...[]Candidate) []Candidate {
 				}
 			}
 			candidate.Repository.FullName = current.Repository.FullName
+			if candidate.Repository.Topics != nil && (current.Repository.Topics == nil || sourcePriority(candidate.Source) >= topicPriorities[id]) {
+				current.Repository.Topics = CloneTags(candidate.Repository.Topics)
+				topicPriorities[id] = sourcePriority(candidate.Source)
+			}
 			current = mergeCandidate(current, candidate)
 			merged[id] = current
 		}
@@ -149,7 +157,12 @@ func mergeCandidate(dst, src Candidate) Candidate {
 	if src.Repository.GitHubStatus != "" {
 		dst.Repository.GitHubStatus = src.Repository.GitHubStatus
 	}
-	dst.Repository.Topics = appendUnique(dst.Repository.Topics, src.Repository.Topics...)
+	if src.Repository.ResearchTags != nil {
+		if dst.Repository.ResearchTags == nil {
+			dst.Repository.ResearchTags = []string{}
+		}
+		dst.Repository.ResearchTags = appendUnique(dst.Repository.ResearchTags, src.Repository.ResearchTags...)
+	}
 	if dst.Repository.CreatedAt == nil {
 		dst.Repository.CreatedAt = src.Repository.CreatedAt
 	}

@@ -165,7 +165,7 @@ func (service Service) appendPersistenceFailure(report *Report, repository domai
 }
 
 func (service Service) safeETag(ctx context.Context, repository domain.Repository, date domain.Date) (string, error) {
-	if repository.GitHubETag == "" {
+	if repository.GitHubETag == "" || repository.GitHubTopics == nil {
 		return "", nil
 	}
 	previousDate, err := date.AddDays(-1)
@@ -231,6 +231,9 @@ func (service Service) updateRepository(ctx context.Context, existing domain.Rep
 		observation.Description = &repository.Description
 		observation.PrimaryLanguage = &repository.Language
 		observation.GitHubCreatedAt = repository.CreatedAt
+		if repository.Topics != nil {
+			observation.GitHubTopics = &repository.Topics
+		}
 		switch {
 		case repository.Private:
 			observation.GitHubStatus = domain.GitHubPrivate

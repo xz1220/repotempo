@@ -68,6 +68,9 @@ func (service Service) Add(ctx context.Context, fullName, note string, focus, dr
 		ManualNote:       &note,
 		LastCheckedAt:    &now,
 	}
+	if repository.Topics != nil {
+		observation.GitHubTopics = &repository.Topics
+	}
 	if dryRun {
 		return AddResult{Repository: domain.Repository{
 			GitHubRepoID:     repository.ID,
@@ -76,6 +79,7 @@ func (service Service) Add(ctx context.Context, fullName, note string, focus, dr
 			HTMLURL:          repository.HTMLURL,
 			Description:      repository.Description,
 			PrimaryLanguage:  repository.Language,
+			GitHubTopics:     repository.Topics,
 			MonitoringStatus: domain.MonitoringActive,
 			GitHubStatus:     status,
 			IsFocus:          focus,

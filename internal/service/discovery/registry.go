@@ -118,6 +118,12 @@ func (registry Registry) Merge(ctx context.Context, candidates []source.Candidat
 		if etag := candidate.Metadata["etag"]; etag != "" {
 			observation.GitHubETag = &etag
 		}
+		if candidate.Repository.Topics != nil {
+			observation.GitHubTopics = &candidate.Repository.Topics
+		}
+		if candidate.Repository.ResearchTags != nil {
+			observation.ResearchTags = &candidate.Repository.ResearchTags
+		}
 		repository, created, err := registry.Store.UpsertRepository(ctx, observation)
 		if err != nil {
 			report.FailureCount++

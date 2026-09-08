@@ -182,7 +182,7 @@ func (r githubRepository) toSource() (source.Repository, error) {
 		Archived:      r.Archived,
 		Private:       r.Private,
 		GitHubStatus:  githubStatus,
-		Topics:        append([]string(nil), r.Topics...),
+		Topics:        source.CloneTags(r.Topics),
 		CreatedAt:     createdAt,
 		UpdatedAt:     updatedAt,
 		PushedAt:      pushedAt,

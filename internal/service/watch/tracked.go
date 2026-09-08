@@ -90,6 +90,9 @@ func (service Service) AddTracked(ctx context.Context, input, note, topicSlug st
 	if note != "" {
 		observation.ManualNote = &note
 	}
+	if repository.Topics != nil {
+		observation.GitHubTopics = &repository.Topics
+	}
 	statusCode := 200
 	snapshot := domain.DailySnapshot{
 		RepositoryID: repository.ID, SnapshotDate: domain.ShanghaiDate(now),

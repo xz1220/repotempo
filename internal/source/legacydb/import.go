@@ -3,7 +3,6 @@ package legacydb
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -117,20 +116,28 @@ func readRepositories(ctx context.Context, database *sql.DB, catalog map[int64]c
 	if !tableExists(ctx, database, "repos") {
 		return nil, nil, errors.New("legacy database has no repos table")
 	}
+	researchColumn := "NULL"
+	var researchName string
+	columnErr := database.QueryRowContext(ctx, `SELECT name FROM pragma_table_info('repos') WHERE name IN ('research_tags_json','research_tags') ORDER BY name DESC LIMIT 1`).Scan(&researchName)
+	if columnErr == nil {
+		researchColumn = `"` + researchName + `"`
+	} else if !errors.Is(columnErr, sql.ErrNoRows) {
+		return nil, nil, columnErr
+	}
 	rows, err := database.QueryContext(ctx, `
 		SELECT repo_id,
 		       COALESCE(repo_name, ''),
 		       COALESCE(primary_language, ''),
 		       COALESCE(description, ''),
 		       COALESCE(html_url, ''),
-		       COALESCE(github_topics, '[]'),
+		       github_topics,
 		       COALESCE(github_status, ''),
 		       COALESCE(archived, 0),
 		       COALESCE(metadata_etag, ''),
 		       COALESCE(first_seen_at, ''),
 		       COALESCE(last_seen_at, ''),
 		       COALESCE(is_active, 1),
-		       COALESCE(manual_favorite, 0)
+		       COALESCE(manual_favorite, 0), `+researchColumn+`
 		FROM repos`)
 	if err != nil {
 		return nil, nil, fmt.Errorf("query legacy repos: %w", err)
@@ -145,10 +152,12 @@ func readRepositories(ctx context.Context, database *sql.DB, catalog map[int64]c
 		var (
 			repoID, archived, active, favorite       int64
 			fullName, language, description, htmlURL string
-			topicsJSON, githubStatus, etag           string
+			githubStatus, etag                       string
+			topicsJSON                               sql.NullString
 			firstSeenRaw, lastSeenRaw                string
 		)
-		if err := rows.Scan(&repoID, &fullName, &language, &description, &htmlURL, &topicsJSON, &githubStatus, &archived, &etag, &firstSeenRaw, &lastSeenRaw, &active, &favorite); err != nil {
+		var researchJSON sql.NullString
+		if err := rows.Scan(&repoID, &fullName, &language, &description, &htmlURL, &topicsJSON, &githubStatus, &archived, &etag, &firstSeenRaw, &lastSeenRaw, &active, &favorite, &researchJSON); err != nil {
 			return candidates, warnings, fmt.Errorf("scan legacy repos row %d: %w", rowNumber, err)
 		}
 		if repoID <= 0 || !validFullName(fullName) {
@@ -168,7 +177,14 @@ func readRepositories(ctx context.Context, database *sql.DB, catalog map[int64]c
 		if lastErr != nil {
 			warnings = append(warnings, source.Warning{Row: rowNumber, Code: "invalid_last_seen_at", Message: lastErr.Error()})
 		}
-		topics := parseStringList(topicsJSON)
+		topics, topicsErr := source.ParseTagsJSON(topicsJSON.String)
+		if topicsErr != nil {
+			warnings = append(warnings, source.Warning{Row: rowNumber, Code: "invalid_github_topics", Message: topicsErr.Error()})
+		}
+		researchTags, researchErr := source.ParseTagsJSON(researchJSON.String)
+		if researchErr != nil {
+			warnings = append(warnings, source.Warning{Row: rowNumber, Code: "invalid_research_tags", Message: researchErr.Error()})
+		}
 		metadata := map[string]string{
 			"legacy_github_status": githubStatus,
 			"legacy_etag":          etag,
@@ -199,6 +215,7 @@ func readRepositories(ctx context.Context, database *sql.DB, catalog map[int64]c
 				Private:      strings.EqualFold(githubStatus, "private"),
 				GitHubStatus: normalizeGitHubStatus(githubStatus, archived != 0),
 				Topics:       topics,
+				ResearchTags: researchTags,
 				// repos.github_stars has no trustworthy observation timestamp.
 				AbsoluteStars: nil,
 			},
@@ -338,24 +355,6 @@ func parseLegacyTime(raw string, location *time.Location) (*time.Time, error) {
 		}
 	}
 	return nil, fmt.Errorf("unsupported timestamp %q", raw)
-}
-
-func parseStringList(raw string) []string {
-	var values []string
-	if json.Unmarshal([]byte(raw), &values) == nil {
-		return values
-	}
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ",")
-	values = values[:0]
-	for _, part := range parts {
-		if value := strings.TrimSpace(part); value != "" {
-			values = append(values, value)
-		}
-	}
-	return values
 }
 
 func validFullName(value string) bool {

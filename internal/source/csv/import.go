@@ -102,6 +102,25 @@ func Import(reader io.Reader, options Options) (Result, error) {
 		archived, _ := parseOptionalBool(value("archived"))
 		fork, _ := parseOptionalBool(value("fork"))
 		metadata := map[string]string{"csv_row": strconv.Itoa(rowNumber)}
+		var githubTopics, researchTags []string
+		if raw := value("github_topics", "github_topics_json"); raw != "" {
+			if strings.HasPrefix(raw, "[") || raw == "null" {
+				var tagErr error
+				githubTopics, tagErr = source.ParseTagsJSON(raw)
+				if tagErr != nil {
+					result.Warnings = append(result.Warnings, source.Warning{Row: rowNumber, Code: "invalid_github_topics", Message: tagErr.Error()})
+				}
+			} else {
+				githubTopics = splitList(raw)
+			}
+		}
+		if raw := value("research_tags", "research_tags_json"); raw != "" {
+			var tagErr error
+			researchTags, tagErr = source.ParseTagsJSON(raw)
+			if tagErr != nil {
+				result.Warnings = append(result.Warnings, source.Warning{Row: rowNumber, Code: "invalid_research_tags", Message: tagErr.Error()})
+			}
+		}
 		if originalSource != "" && originalSource != sourceName {
 			metadata["original_source"] = originalSource
 		}
@@ -116,7 +135,8 @@ func Import(reader io.Reader, options Options) (Result, error) {
 				Archived:     archived,
 				Fork:         fork,
 				GitHubStatus: value("github_status"),
-				Topics:       splitList(value("topics", "github_topics")),
+				Topics:       githubTopics,
+				ResearchTags: researchTags,
 				CreatedAt:    createdAt,
 			},
 			Source:        sourceName,
