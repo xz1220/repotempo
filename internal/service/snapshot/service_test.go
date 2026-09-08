@@ -107,6 +107,7 @@ func testRepository() domain.Repository {
 		MonitoringStatus: domain.MonitoringActive,
 		GitHubStatus:     domain.GitHubActive,
 		GitHubETag:       `"old"`,
+		GitHubTopics:     []string{},
 	}
 }
 
