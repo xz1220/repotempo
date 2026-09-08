@@ -2,7 +2,8 @@
 
 The product uses a visual trend dashboard and a persistent project library.
 Daily discoveries and My watchlist are library views. Primary navigation has
-only Trends and Project library.
+only Trends and GitHub projects (GitHub 项目). The library page heading remains
+Project library (项目库).
 
 ## Product job
 
@@ -31,9 +32,10 @@ and individual history charts remain on detail pages.
 
 ## App shell
 
-The sidebar primary navigation contains only Trends and Project library.
+The sidebar primary navigation contains only Trends and GitHub projects.
 Collection history and the source-repository link stay in the utility area.
-Categories are contextual filters, and My watchlist is a library tab.
+The dashboard uses category controls; the library uses searchable tags and
+includes My watchlist as an in-page view.
 
 The bright content header shows page context and language selection. The page
 heading carries the data date. Add project appears only as a compact button
@@ -82,7 +84,7 @@ an explicit route to All projects instead of falling back to an older day.
 
 The date and “仅看当天新入库” filter also support historical reading with any
 explicit period or ordering. Preserve existing scoped links and the same
-project records, descriptions, categories, and detail actions.
+project records, descriptions, tags, and detail actions.
 
 The date selector sets the observation date; the new-only filter restricts it
 to that day's entries. GitHub creation time, when available, remains separate
@@ -95,12 +97,17 @@ single addition entry. An empty date is not a collector error.
 ## Project library
 
 Today’s additions, All projects, and My watchlist are tabs inside the library.
-Search, category, period, date, ordering, and the new-only filter describe the
-current slice. Keep source and monitoring-state controls secondary.
+Search, tags, observation date, ordering, and the new-only filter describe the
+current slice. There is no hierarchical topic selector, discovery-source
+selector, or category-tab strip on this page.
+
+Label the period control Compare growth (增长对比). Its choices are Against
+1/7/30 days earlier (与 1/7/30 天前比), measured backward from the observation
+date. Keep the endpoint date and comparison interval visible.
 
 Use a single column of project cards on desktop and mobile, with 20 projects
 per page. Within each card, the reading area leads and the metrics remain easy
-to compare. New, unclassified, awaiting-observation, and stale states stay visible.
+to compare. New, untagged, awaiting-observation, and stale states stay visible.
 
 Each card includes the original description and a separate saved brief with
 its source and date. Label AI-generated and human/imported notes appropriately;
@@ -112,6 +119,24 @@ cards on a page in one database batch, without calling an external model.
 
 Cursor pagination keeps the feed bounded. Sort and filter changes reset
 continuation; browser Back and shared URLs preserve the selected context.
+
+## Searchable project tags
+
+Use a search input with available tag suggestions. Match exact labels after
+trimming and case normalization; preserve Chinese text and unknown GitHub tags.
+Options cover the full registry entered by the observation date.
+
+Card tags combine native GitHub topics, archived research labels, and effective
+classifications without duplicates. Show eight initially; a native expandable
+section retains all remaining labels, including less frequent ones such as SaaS.
+
+Every card and detail tag is a link to its exact library filter. Preserve date,
+growth comparison, search, and view state while resetting the pagination cursor.
+Tags are current saved attributes, not a history of past label assignments.
+
+Old `topic` and `source` URLs remain supported. Show their active filters with
+individual clear actions and preserve them as hidden form fields until cleared.
+Compatibility does not restore the removed dropdown controls.
 
 ## Reading marks
 
@@ -147,8 +172,12 @@ back into the page or persisted as project data.
 
 Root categories describe product purpose: coding, research, browser/computer
 operation, workflow automation, agent platforms, general agents, and AI
-infrastructure. Components such as Skills, Memory, and Harness are supporting
-tags under infrastructure; coordination and workspace tags belong to platforms.
+infrastructure. Skills, Memory, and Harness are second-level taxonomy entries
+under infrastructure; coordination and workspace entries belong to platforms.
+
+This hierarchy supports the trend dashboard and classification-rule pages.
+It remains separate from the two raw tag fields; saving an unfamiliar author
+label must not create a new category or overwrite a classification decision.
 
 A parent category includes its children. Show unclassified projects explicitly.
 Do not imply that every open-source project in the library is an AI agent.
@@ -163,7 +192,7 @@ Lead with identity, the original project description, and a clear GitHub link.
 When a saved research interpretation exists, show its full summary,
 capabilities, use cases, technical notes, and provenance beyond the card excerpt.
 
-Show Star history, effective history start, category, and collection evidence
+Show Star history, effective history start, clickable tags, and collection evidence
 after the explanation. A missing analysis is a normal state, not a broken
 page. The original GitHub description must never be labeled as AI research.
 
@@ -192,6 +221,13 @@ Star collection are separate from the page’s reading behavior.
 - Show the date beside a last-known Star value. Never use it as an exact
   endpoint or as evidence of zero growth.
 - Distinguish first discovery, GitHub creation time, and observation time.
+- Native GitHub topics use `NULL` for not yet observed and `[]` for known empty.
+  A full API response updates this field; 304 responses preserve it. Unknown
+  topics require a full metadata request instead of a conditional one.
+- Archived research tags survive native-topic refreshes. Schema version 5
+  adds two JSON columns to `repositories`; it adds no table or tag-history model.
+- The offline tag importer fills only unknown native lists, merges research
+  tags, and clears the ETag for a newly filled native list. It uses no model.
 
 ## Typography and tokens
 
@@ -227,7 +263,8 @@ Keep business logic outside templates. GET forms and anchors express browsing
 state; the protected Add project form is the scoped Web write path.
 
 Verify the Top 10/six-row limits, 20-card pagination, saved-brief source/date,
-single-project chart values, and manual-add paths. Inspect Chinese/English
+single-project chart values, exact tag filters, complete expanded tag sets,
+legacy-filter clear actions, and manual-add paths. Inspect Chinese/English
 layouts at 320, 375, 414, 768, and 1440px, including long names, sparse history,
 stale data, absent explanations, true empty-today states, local read toggles,
 storage failures, and browser Back.

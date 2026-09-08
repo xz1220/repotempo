@@ -3,9 +3,9 @@
 RepoTempo is an independent, self-hosted workspace for discovering trending GitHub
 projects and following what happens after discovery. It stores daily Star
 observations and makes the history readable through charts, project pages,
-categories, and a personal watchlist. It is not affiliated with GitHub.
+searchable tags, and a personal watchlist. It is not affiliated with GitHub.
 
-中文界面只有趋势看板和项目库两个主入口；项目库支持每日新入库筛选、分类、我的关注和手动添加关注。
+中文界面只有趋势看板和 GitHub 项目两个主入口；项目页支持每日新入库、标签搜索、我的关注和手动添加关注。
 项目入库后持续观测，便于回看它从首次发现到后续增长的过程。
 
 ## What you can do
@@ -22,8 +22,9 @@ categories, and a personal watchlist. It is not affiliated with GitHub.
   are separate from saved research coverage and do not sync across devices.
 - Open a detail for the full saved analysis and individual Star-history chart,
   or follow the card's separate GitHub link.
-- Browse by coding agents, research agents, browser/computer agents, workflow
-  agents, agent platforms, general agents, or AI infrastructure.
+- Search or click exact tags such as 投资, agent, skills, or saas. Cards show
+  eight tags initially and retain every additional label in an expandable section.
+- Use purpose-based categories on the trend dashboard and classification pages.
 - Export monitoring data as CSV, JSON, or a consistent SQLite backup.
 
 The interface uses a dark sidebar and bright chart/list surfaces. Chinese and
@@ -69,6 +70,10 @@ One Go binary provides collection commands and the Web application. SQLite WAL
 stores the registry, observations, categories, job records, and current project
 interpretations. Repository identity uses GitHub's permanent ID across renames
 and transfers.
+
+Schema version 5 adds `github_topics_json` and `research_tags_json` to the
+existing `repositories` table. No tag table is added, and category definitions
+and assignments remain separate from these raw labels.
 
 Cron runs collection; systemd keeps the Web process available. The supplied
 deployment places business data and backups on a dedicated data disk.
@@ -152,13 +157,15 @@ repair failed ones.
 | Page | What it contains |
 | --- | --- |
 | Trends, `/` | Fastest growth Top 10 and up to six largest momentum declines. |
-| Project library, `/repositories` | A single-column, 20-card reading feed with search, category/date controls, new-entry filtering, and My watchlist. |
+| GitHub projects, `/repositories` | The user reads a 20-card feed with tag search, ordering, observation date, growth comparison, and My watchlist. |
 | Agent categories, `/topics` | Purpose-based categories, supporting tags, and classification coverage. |
 | Add project, `/watch/new` | A form for a public repository URL, optional category, and note. |
 | Collection history, `/runs` | Run outcomes, source warnings, failures, and completeness. |
 
-Only Trends and Project library appear in primary navigation. Add project is
-a compact library-toolbar button, and My watchlist is a library tab at
+Only Trends and GitHub projects appear in primary navigation. The library's
+page heading remains Project library (项目库).
+
+Add project is a compact library-toolbar button, and My watchlist is a library tab at
 `/repositories?view=focus`. An unscoped `/repositories` visit defaults to
 Today’s additions using the real Shanghai date, `sort=stars`, and `period=1d`.
 
@@ -172,7 +179,7 @@ Old `/discoveries` links redirect to this filtered library view. Project details
 
 Each library card includes the original description, any saved AI or human
 brief with source and date, Stars, period gain, growth rate, comparable-sample
-ranks, entry date, and detail/GitHub actions. Missing explanations are marked
+ranks, clickable tags, entry date, and detail/GitHub actions. Missing explanations are marked
 as not reviewed. Existing briefs are loaded in one database batch per page;
 browsing does not request a new model-generated summary.
 
@@ -212,8 +219,9 @@ Unlike the Web add flow, CLI `watch add` registers the project; use
 
 ## How to read growth
 
-Choose an endpoint date and a 1, 7, or 30-day period. A project is comparable
-only when both exact endpoints have successful observations.
+Choose an observation date and Compare growth (增长对比). The choices compare
+against 1, 7, or 30 days earlier (与 1/7/30 天前比), using the observation date
+as the endpoint. Both exact dates must have successful observations.
 
 - Fastest growth means the largest positive Star gain.
 - Losing momentum means a smaller Star gain than the previous equal-length
@@ -234,11 +242,45 @@ Dates use the Asia/Shanghai calendar; observation timestamps are stored in UTC.
 Real imported history can extend the effective history start. The system
 does not fabricate daily observations before collection began.
 
-## Categories
+## Project tags
+
+The library has one searchable tag field, plus ordering, observation date, and
+growth comparison. It has no hierarchical category dropdown, discovery-source
+dropdown, or category-tab strip.
+
+Tag suggestions include native GitHub topics, archived research labels, and
+effective category names or slugs. Matching is exact after trimming and case
+normalization; Chinese and unfamiliar upstream labels are preserved.
+
+Suggestions cover all projects entered by the observation date, even when the
+current view shows only today's additions or a narrow search result. A tag
+filter applies before sample ranking and pagination.
+
+Cards preview eight deduplicated labels and expose the rest through an
+expandable section. Card and detail tags open the matching library filter.
+Tag changes reset the cursor while retaining the other selected filters.
+
+Tags represent current saved attributes. Selecting an earlier observation
+date changes the repository-entry scope and Star history; it does not recover
+the labels that a project had on that date.
+
+Existing `topic` and `source` URLs still work. Their restrictions appear as
+clearable active-filter badges and remain in hidden form fields until cleared.
+The old selectors are not shown.
+
+Native topics use `NULL` when not yet collected and `[]` for a known empty
+list. A 200 response containing topics updates them; a 304 preserves them.
+Unknown topics disable conditional metadata requests so a full response can fill them.
+
+API refreshes do not overwrite archived research tags. Raw labels are not
+inserted into the category tables; the two systems have different purposes.
+
+## Agent categories
 
 The seven root slugs are `coding-agents`, `research-agents`,
 `browser-computer-agents`, `workflow-agents`, `agent-platforms`, `ai-agent`,
-and `ai-infrastructure`. Components retain a second-level hierarchy.
+and `ai-infrastructure`. Components retain a second-level hierarchy for the
+dashboard and category-rule pages, independently of raw project tags.
 
 A parent includes its direct children. A project can have several categories,
 and projects without supported classification remain visible.
@@ -285,6 +327,40 @@ scripts/export-feishu-base.sh \
 The bridge uses an authenticated `lark-cli` and resolves permanent repository
 IDs through `gh`. The Go service does not receive Feishu credentials.
 See [Feishu Base import](docs/feishu-base-import.md).
+
+### Import saved project tags
+
+Use `tags import-batch` for already registered projects. Supply the permanent
+repository ID, matching full name, and the tag fields available in the source.
+
+```json
+{
+  "projects": [
+    {
+      "repository_id": 123,
+      "full_name": "owner/name",
+      "github_topics": ["agent", "skills"],
+      "research_tags": ["投资"]
+    }
+  ]
+}
+```
+
+```sh
+./bin/repotempo tags import-batch --file /path/to/tags.json
+```
+
+The transaction fills only unknown native-topic lists, including a supplied
+empty array. It preserves known native lists and merges research tags without
+dropping existing labels. Omit a field when that source did not provide it.
+
+Filling an unknown native list clears that repository's ETag so later metadata
+collection can fetch the full current response. Research-only additions do not
+change a known native list or its ETag. No GitHub or model call runs during this import.
+
+Duplicate or mismatched identities, unknown repositories, and invalid tag
+values fail the transaction without partial updates. This operation adds no
+table and does not change Star snapshots or category assignments.
 
 ## Save a project interpretation
 
@@ -389,11 +465,12 @@ replace custom configuration files.
 ## Commands and verification
 
 ```text
-discover --source ossinsight|github-search|legacy|all [--profile NAME]
+discover --source github-trending|github-search|ossinsight|legacy|all [--profile NAME]
 snapshot
 import-legacy --path PATH
 analysis import --repo OWNER/NAME --file PATH
 analysis import-batch --file PATH
+tags import-batch --file PATH
 topic list|assign|remove|reclassify
 watch add|pause|resume
 export --format csv|json|sqlite
@@ -422,7 +499,8 @@ when needed. Production serving and collection still use the Go binary only.
 Current acceptance should cover the Top 10/six-row dashboard, slowdown across
 three exact dates, true empty-today views, 20-card pagination, explicit local
 read marks, saved-brief source/date and missing states, atomic fill-only batch
-imports, individual history charts, manual addition, and Chinese/English
+imports, exact tag filtering and complete tag expansion, preserved research
+labels, 200/304 tag refresh behavior, individual history charts, manual addition, and Chinese/English
 desktop and mobile layouts. Mock-API tests and live collection
 results should be reported separately. OSS Insight availability is not a
 requirement for GitHub-only operation.

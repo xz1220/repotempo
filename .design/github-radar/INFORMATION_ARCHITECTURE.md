@@ -1,15 +1,16 @@
 # RepoTempo information architecture
 
-Primary navigation has two reading modes: Trends and Project library. The
+Primary navigation has two reading modes: Trends and GitHub projects. The
 library defaults to Today’s additions, with All projects and My watchlist as
-sibling views. Categories, dates, and ordering remain contextual controls.
+sibling views. Tags, observation dates, and ordering remain library controls;
+purpose-based categories remain on the trend dashboard.
 
 ## Site map
 
 ```text
 RepoTempo
 ├── Trends /
-├── Project library /repositories
+├── GitHub projects /repositories
 │   ├── Today’s additions /repositories?view=daily
 │   ├── All projects /repositories?view=all
 │   ├── My watchlist /repositories?view=focus
@@ -19,13 +20,15 @@ RepoTempo
 └── Collection history /runs
 ```
 
-Only Trends and Project library appear in primary navigation. Collection
-history is a utility; `/discoveries` is a compatibility entry for the library's
-new-entry view. Health endpoints remain `/healthz` and `/readyz`.
+Only Trends and GitHub projects appear in primary navigation. The library page
+heading remains Project library (项目库).
+
+Collection history is a utility; `/discoveries` is a compatibility entry for
+the library's new-entry view. Health endpoints remain `/healthz` and `/readyz`.
 
 ## Navigation
 
-A dark fixed desktop sidebar contains Trends and Project library. Collection
+A dark fixed desktop sidebar contains Trends and GitHub projects. Collection
 history belongs to the utility area. The main content remains bright; its
 header supplies page context and a language switch.
 
@@ -37,7 +40,7 @@ The sidebar reorganizes on narrow screens. Main destinations remain reachable
 without root horizontal scrolling. Navigation links are ordinary anchors with
 active-route states, not simulated application tabs.
 
-Project and category details include a breadcrumb. Date, period, category, and
+Project and category details include a breadcrumb. Date, growth comparison, tags, and
 list filters use URL state so links remain useful after refresh, sharing, and
 browser Back.
 
@@ -77,13 +80,24 @@ retains the single Add project action.
 ## Project library
 
 The library is the durable home for every tracked project. Today’s additions,
-All projects, and My watchlist are in-page tabs. Search, category, date, period,
-ordering, and the new-only filter narrow the selected collection.
+All projects, and My watchlist are in-page tabs. Search, tags, observation date,
+growth comparison, ordering, and the new-only filter narrow the collection.
+
+Use a searchable tag field, with available values from the full registry
+entered by the selected date. Do not show hierarchical topic or discovery-source
+dropdowns, or a category-tab strip, on the project-library page.
 
 Desktop and mobile use one column of cards, with 20 projects per page. Each
 card contains the original description, an existing AI or human brief with
 source and date, Stars, gain, growth rate, comparable-sample ranks, entry date,
-categories, and distinct detail/GitHub buttons.
+clickable tags, and distinct detail/GitHub buttons.
+
+Card labels combine native topics, archived research tags, and effective
+classifications without duplicates. Preview eight labels and retain every
+additional label in an expandable section. Details expose the complete set.
+
+A tag link selects one exact normalized tag and clears the pagination cursor.
+It retains the current observation date, growth comparison, search, and view.
 
 The current page's saved explanations are read together in one database batch.
 Browsing never calls an external model. Missing explanations have an explicit
@@ -131,7 +145,7 @@ Content order:
 1. Repository identity, GitHub link, original description, and state.
 2. The complete saved research interpretation, when available, with its provenance.
 3. Current observed scale and comparable period changes.
-4. The individual project's Star-history chart, category, entry date, and history start.
+4. The individual project's Star-history chart, clickable tags, entry date, and history start.
 5. Exact observations and collection evidence.
 
 A saved interpretation explains capabilities and use cases. Without one, the
@@ -155,7 +169,11 @@ scope remains a separate user decision.
 
 The roots are coding agents, research agents, browser/computer agents, workflow
 agents, agent platforms, general agents, and AI infrastructure. Supporting
-tags retain a two-level hierarchy.
+taxonomy entries retain a two-level hierarchy for trend/category pages.
+
+These classifications remain separate from raw GitHub and research labels.
+Their valid names and slugs are searchable as labels for compatibility;
+unfamiliar raw labels do not create taxonomy entries.
 
 Category pages show classification coverage and comparable sample sizes. A
 parent includes direct child assignments; a child selection remains scoped to
@@ -177,7 +195,9 @@ link here. It is an operational utility rather than a reading-mode tab.
 
 ## Comparison model
 
-Let `D` be the selected endpoint and `W` the number of days in the period.
+The library control is Compare growth (增长对比), with Against 1/7/30 days
+earlier (与 1/7/30 天前比) choices. Let `D` be the observation-date endpoint
+and `W` the selected number of days.
 
 | Measure | Meaning |
 | --- | --- |
@@ -195,9 +215,27 @@ negative momentum change; the project may still have gained Stars.
 A failed or missing observation is never zero. Last-known values show their
 actual date and do not replace exact comparison endpoints.
 
-Topic, discovery source, monitoring state, and focus define a comparison scope.
+Tags, compatible topic/source filters, monitoring state, and focus define a comparison scope.
 Text search and the new-only display filter do not turn a matching project
 into rank one. Ranks always refer to the monitored sample.
+
+Tags are current saved metadata, not historical tag snapshots. The selected
+date limits project entry and Star observations, not the version of a project's
+labels. Tag-option counts refer to the entered registry rather than the current page.
+
+## Saved label fields
+
+Schema version 5 adds only `github_topics_json` and `research_tags_json` to
+`repositories`. No tag table is created. Category definitions and relationships
+retain their existing purpose and manual protections.
+
+Native-topic `NULL` means unknown; an empty array means successfully observed
+empty. Full 200 metadata responses update native topics, 304 responses preserve
+them, and unknown native topics require a full request rather than an ETag-only check.
+
+Research tags remain separate and survive native refreshes. `tags import-batch`
+fills only unknown native lists, merges research tags, and clears the ETag when
+filling a native list. The import is transactional and invokes no model or network.
 
 ## Common reading sessions
 
@@ -224,6 +262,9 @@ classification or observation coverage.
 | New-entry filter | 仅看当天新入库 | New on selected date |
 | Default library view | 当天新入库 | Today’s additions |
 | Persistent catalogue | 项目库 | Project library |
+| Sidebar project entry | GitHub 项目 | GitHub projects |
+| Exact project attribute filter | 标签 | Tag |
+| Star comparison window | 增长对比 | Compare growth |
 | Purpose-based taxonomy | Agent 分类 | Agent categories |
 | Operator addition | 添加关注 | Add project |
 | Focused projects | 我的关注 | My watchlist |
@@ -239,7 +280,7 @@ classification or observation coverage.
 
 ## Components and growth
 
-The sidebar, page header, period controls, category controls, project identity,
+The sidebar, page header, growth controls, tag controls, project identity,
 state labels, chart frames, and empty-state patterns are shared.
 
 The library uses a single-column card feed, while the dashboard uses compact
@@ -260,11 +301,13 @@ before compromising date labels or exact-value access.
 - `/discoveries` is a compatibility entry into the library with `new=1`;
   existing date, sort, and other filters are preserved, and `cursor` is cleared.
   Missing sort and period default to `sort=stars` and `period=1d`.
-- Old root catalogue links with search, cursor, or `new=1` can redirect to
+- Old root catalogue links with search, tags, cursor, or `new=1` can redirect to
   `/repositories` while retaining their query values.
-- Browsing state uses `date`, `period=1d|7d|30d`, `sort`, `topic`, `q`,
+- Browsing state uses `date`, `period=1d|7d|30d`, `sort`, `tag`, `topic`, `q`,
   `source`, `status`, `focus=1`, `new=1`, and `cursor` where applicable.
-- Category labels hide reserved filter values from the normal reading path.
+- Old `topic` and `source` restrictions remain visible as individually clearable
+  active-filter badges. Hidden inputs preserve them on form submission until
+  cleared; neither receives a dropdown in the library.
 - Language uses `lang=zh-CN|en` and the existing same-site preference cookie.
 - Operator credentials never appear in query strings.
 - Reading marks use localStorage by repository ID, not query parameters or a

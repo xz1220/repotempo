@@ -30,17 +30,20 @@ project library for context, opens a detail, or adds a repository to follow.
    with source and date, Stars, gain, growth rate, comparable-sample ranks,
    entry date, and detail/GitHub links. Details retain the full saved analysis
    and an individual project's Star-history chart.
-6. Organize projects by a clear product category: coding, research, browser and
-   computer use, workflow automation, agent platforms, general agents, or AI
-   infrastructure. Unclassified projects remain visible.
+6. Filter projects by searchable, clickable tags from GitHub, archived research,
+   or existing classifications. Purpose-based categories remain available for
+   the trend dashboard and classification rules, separately from saved raw tags.
 7. Export monitoring records as CSV, JSON, and SQLite. SQLite backups also
    include saved project interpretations.
 
 ## Navigation
 
-Primary navigation contains only Trends and Project library. The dashboard
-remains the homepage. Opening the library without an explicit scope starts in
-Today’s additions, using the real current Shanghai date, Stars order, and 1 day.
+Primary navigation contains only Trends and GitHub projects (GitHub 项目).
+The library page heading remains Project library (项目库).
+
+The dashboard remains the homepage. Opening the library without an explicit
+scope starts in Today’s additions, using the real current Shanghai date,
+Stars order, and a 1-day growth comparison.
 
 The library offers Today’s additions, All projects, and My watchlist views.
 Explicit dates, periods, orders, and existing shared-link scopes remain usable.
@@ -49,15 +52,23 @@ A day with no additions stays empty; it never borrows an older populated date.
 | Destination | What the user does |
 | --- | --- |
 | Trends, `/` | The user scans fastest growth and largest momentum declines for a chosen date and period. |
-| Project library, `/repositories` | The user starts with today’s new entries and can switch to All projects or My watchlist. |
+| GitHub projects, `/repositories` | The user reads today's new entries, searches tags, or switches to All projects and My watchlist. |
 
 My watchlist is a tab within the project library. Add project appears once as
 a compact library-toolbar action opening `/watch/new`; neither is repeated in
 the sidebar or global page heading.
 
-Category filters and contextual category pages support both reading modes.
-Collection history remains a utility. Existing detail and form routes retain
-the same two-item primary navigation.
+The library uses a flat tag search, ordering, observation date, and growth
+comparison. It has no hierarchical topic or discovery-source selector and no
+category-tab strip. Collection history remains a utility.
+
+Tags match exactly after trimming and case normalization. Choices cover every
+project entered by the selected observation date, including projects outside
+the current new-entry, watchlist, or search result.
+
+Cards preview eight deduplicated tags and expose every remaining tag through
+an expandable control. Card and detail tags open the corresponding library
+filter without changing the selected date.
 
 ## Personal reading marks
 
@@ -88,10 +99,17 @@ Repository identity uses GitHub's permanent ID. Each monitored project gets one
 daily success or failure outcome. Missing days remain missing; a growing
 registry must not manufacture community growth in the charts.
 
+GitHub topics and archived research tags are stored independently. Unknown
+GitHub topics differ from a successfully observed empty list. A full API
+response updates native topics; an unchanged response preserves them.
+
 ## Comparisons users can trust
 
-A selected period is 1, 7, or 30 calendar days ending on a chosen date. Growth
-uses successful observations at both exact endpoints. Slowing momentum needs
+A selected period is 1, 7, or 30 calendar days ending on the observation date.
+The library labels this Compare growth (增长对比), with options comparing
+against 1, 7, or 30 days earlier (与 1/7/30 天前比).
+
+Growth uses successful observations at both exact endpoints. Slowing momentum needs
 three successful observations spanning two adjacent periods of equal length.
 
 Fastest growth is the largest positive Star gain. Slowing momentum means the
@@ -105,6 +123,10 @@ as gaps; the homepage does not aggregate them into an attention curve.
 New discovery means new to this system. Repository creation time is a different
 field. Stale observations show their actual date, and failed requests do not
 appear as zero growth.
+
+Tags describe currently saved project attributes, not historical tag snapshots.
+The observation date limits repository entry and Star history. Old `topic` and
+`source` links retain visible, individually clearable restrictions.
 
 ## Product boundaries
 
@@ -126,6 +148,11 @@ appear as zero growth.
   separate configured operator token. There are no personal accounts.
 - Manual category decisions are preserved. Automated rules can leave a project
   unclassified when the evidence is insufficient.
+- Schema version 5 adds only `github_topics_json` and `research_tags_json` to
+  `repositories`, with no new table. Raw labels never create taxonomy entries.
+- `tags import-batch` fills unknown native topics and merges research labels.
+  It preserves known native lists, invalidates the relevant ETag when filling
+  unknown topics, and makes no model or network call.
 - Star history is an attention signal for research. It does not establish
   demand, causality, investment quality, or full history before observation
   began.
