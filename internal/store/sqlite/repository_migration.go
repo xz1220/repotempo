@@ -58,16 +58,28 @@ func applyRepositoryRebuildMigration(ctx context.Context, database *sql.DB, vers
 	if err := connection.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&disabled); err != nil || disabled != 0 {
 		return fmt.Errorf("cannot safely disable foreign keys for repository rebuild: %v", err)
 	}
-	transaction, err := connection.BeginTx(ctx, nil)
+	// Own rollback synchronously. If BeginTx inherits request cancellation,
+	// database/sql's background rollback may mark the Tx done before the
+	// physical ROLLBACK finishes. Cleanup could then restore foreign_keys while
+	// still inside that transaction, where SQLite silently ignores the change.
+	// Individual SQL operations remain cancellable through the original ctx.
+	transaction, err := connection.BeginTx(context.WithoutCancel(ctx), nil)
 	if err != nil {
 		return err
 	}
-	defer transaction.Rollback()
+	defer func() {
+		if err := transaction.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			returnErr = errors.Join(returnErr, fmt.Errorf("rollback repository migration: %w", err))
+		}
+	}()
 	var current int
 	if err := transaction.QueryRowContext(ctx, "PRAGMA user_version").Scan(&current); err != nil {
 		return err
 	}
 	if current >= version {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return transaction.Commit()
 	}
 	if err := validateRepositoryRebuildColumns(ctx, transaction); err != nil {
@@ -97,6 +109,9 @@ func applyRepositoryRebuildMigration(ctx context.Context, database *sql.DB, vers
 		return fmt.Errorf("repository rebuild changed existing foreign-key violations (before %d, after %d)", len(before), len(after))
 	}
 	if _, err := transaction.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", version)); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	return transaction.Commit()

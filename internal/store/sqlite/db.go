@@ -13,7 +13,6 @@ import (
 
 	corestore "github.com/xz1220/repotempo/internal/store"
 	"github.com/xz1220/repotempo/migrations"
-	_ "modernc.org/sqlite"
 )
 
 const defaultBusyTimeout = 5 * time.Second
@@ -47,13 +46,13 @@ func OpenWithConfig(ctx context.Context, config Config) (*Store, error) {
 		config.Now = time.Now
 	}
 
-	database, err := sql.Open("sqlite", config.Path)
+	database, err := openConfiguredSQLite(config.Path, config.BusyTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("open SQLite database: %w", err)
 	}
-	// Foreign-key PRAGMAs are connection-local. A single pooled connection also
-	// matches the application's one-writer design; WAL still permits other
-	// processes (the collector and read-only Web service) to coexist.
+	// Limit writers to one pooled connection. The connector configures every
+	// replacement physical connection; this pool size alone cannot preserve
+	// connection-local PRAGMAs. WAL permits other processes to read concurrently.
 	database.SetMaxOpenConns(1)
 	database.SetMaxIdleConns(1)
 
@@ -64,25 +63,12 @@ func OpenWithConfig(ctx context.Context, config Config) (*Store, error) {
 	if err := database.PingContext(ctx); err != nil {
 		return closeOnError(fmt.Errorf("ping SQLite database: %w", err))
 	}
-	if _, err := database.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
-		return closeOnError(fmt.Errorf("enable SQLite foreign keys: %w", err))
-	}
-	busyMilliseconds := config.BusyTimeout.Milliseconds()
-	if busyMilliseconds > 2_147_483_647 {
-		busyMilliseconds = 2_147_483_647
-	}
-	if _, err := database.ExecContext(ctx, fmt.Sprintf("PRAGMA busy_timeout = %d", busyMilliseconds)); err != nil {
-		return closeOnError(fmt.Errorf("set SQLite busy timeout: %w", err))
-	}
 	var journalMode string
 	if err := database.QueryRowContext(ctx, "PRAGMA journal_mode = WAL").Scan(&journalMode); err != nil {
 		return closeOnError(fmt.Errorf("enable SQLite WAL: %w", err))
 	}
 	if config.Path != ":memory:" && !strings.EqualFold(journalMode, "wal") {
 		return closeOnError(fmt.Errorf("enable SQLite WAL: database returned journal mode %q", journalMode))
-	}
-	if _, err := database.ExecContext(ctx, "PRAGMA synchronous = NORMAL"); err != nil {
-		return closeOnError(fmt.Errorf("set SQLite synchronous mode: %w", err))
 	}
 	if err := applyMigrations(ctx, database); err != nil {
 		return closeOnError(err)
