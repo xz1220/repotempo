@@ -39,14 +39,17 @@ project library for context, opens a detail, or adds a repository to follow.
 ## Navigation
 
 Primary navigation contains only Trends and Project library. The dashboard
-remains the homepage. Daily discoveries are reviewed inside the library using
-the date and “new on selected date” filter, together with any comparison period
-and ordering, including Stars or growth.
+remains the homepage. Opening the library without an explicit scope starts in
+Today’s additions, using the real current Shanghai date, Stars order, and 1 day.
+
+The library offers Today’s additions, All projects, and My watchlist views.
+Explicit dates, periods, orders, and existing shared-link scopes remain usable.
+A day with no additions stays empty; it never borrows an older populated date.
 
 | Destination | What the user does |
 | --- | --- |
 | Trends, `/` | The user scans fastest growth and largest momentum declines for a chosen date and period. |
-| Project library, `/repositories` | The user reads 20 project cards per page, filters new entries, or switches to My watchlist. |
+| Project library, `/repositories` | The user starts with today’s new entries and can switch to All projects or My watchlist. |
 
 My watchlist is a tab within the project library. Add project appears once as
 a compact library-toolbar action opening `/watch/new`; neither is repeated in
@@ -55,6 +58,16 @@ the sidebar or global page heading.
 Category filters and contextual category pages support both reading modes.
 Collection history remains a utility. Existing detail and form routes retain
 the same two-item primary navigation.
+
+## Personal reading marks
+
+The user explicitly toggles a project between read and unread. Marks are keyed
+by its permanent repository ID in localStorage for this browser profile and
+origin; they are not synchronized across devices, browsers, or site origins.
+
+Opening a page, scrolling, or receiving a saved brief does not mark a project
+read. Reading marks are separate from whether a research brief exists, and
+they do not provide a server-side unread filter over the full library.
 
 ## Data collection
 
@@ -103,6 +116,9 @@ appear as zero growth.
   existing interpretations for the current page in one database batch. Reading
   a card or detail does not invoke an external model; there is no new on-demand
   LLM generation pipeline.
+- Explicit background work can generate missing briefs or reuse old research
+  notes. Batch import fills empty summaries transactionally and preserves
+  existing nonempty summaries in the current analysis table.
 - The current interpretation body is retained; prior bodies and interpretation
   CSV/JSON exports are not included in this iteration.
 - Browsing is public. Adding projects is an operator capability: direct local

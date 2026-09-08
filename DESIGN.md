@@ -76,9 +76,13 @@ aggregate attention-history curve. Method details stay expandable.
 
 ## New discoveries in the library
 
-Use the library date and “仅看当天新入库” filter to review additions. The filter
-works with any comparison period and ordering, including Stars or growth.
-Keep the same readable project records, descriptions, categories, and detail links.
+An unscoped library entry defaults to “当天新入库”: the actual current Shanghai
+date, Stars order, and a 1-day comparison. An empty today remains empty, with
+an explicit route to All projects instead of falling back to an older day.
+
+The date and “仅看当天新入库” filter also support historical reading with any
+explicit period or ordering. Preserve existing scoped links and the same
+project records, descriptions, categories, and detail actions.
 
 The date selector sets the observation date; the new-only filter restricts it
 to that day's entries. GitHub creation time, when available, remains separate
@@ -90,9 +94,9 @@ single addition entry. An empty date is not a collector error.
 
 ## Project library
 
-All projects and My watchlist are tabs inside the library. Search, category,
-period, date, ordering, and the new-only filter describe the current slice.
-Keep advanced source and monitoring-state controls secondary.
+Today’s additions, All projects, and My watchlist are tabs inside the library.
+Search, category, period, date, ordering, and the new-only filter describe the
+current slice. Keep source and monitoring-state controls secondary.
 
 Use a single column of project cards on desktop and mobile, with 20 projects
 per page. Within each card, the reading area leads and the metrics remain easy
@@ -108,6 +112,19 @@ cards on a page in one database batch, without calling an external model.
 
 Cursor pagination keeps the feed bounded. Sort and filter changes reset
 continuation; browser Back and shared URLs preserve the selected context.
+
+## Reading marks
+
+Provide an explicit read/unread toggle per repository ID. Persist it only in
+localStorage for the current browser profile and origin. The interface must
+state that another browser, device, domain, scheme, or port has separate marks.
+
+Do not mark read on opening, scrolling, or viewing an AI brief. A read mark is
+independent of the saved-analysis state and must not hide projects or imply
+that the server can filter the whole library by unread status.
+
+Keep the last known state and explain a storage failure. The saved mark may
+be reflected across tabs on the same browser origin; it is not account sync.
 
 ## Add project
 
@@ -153,6 +170,14 @@ page. The original GitHub description must never be labeled as AI research.
 Interpretations are imported outside the Web interface. Show the source,
 model, analysis time, and revision counter of the current body. Reading details
 does not trigger model generation or a new on-demand LLM workflow.
+
+Missing briefs may be prepared in explicit background batches, including reuse
+of existing historical research. Preserve unknown source/model dates rather
+than inventing attribution. Batch import fills empty summaries in the existing table.
+
+Do not suggest that the full catalogue is already enriched or that automatic
+daily brief generation is active. The current backfill scope and scheduled
+Star collection are separate from the page’s reading behavior.
 
 ## Data semantics
 
@@ -204,7 +229,8 @@ state; the protected Add project form is the scoped Web write path.
 Verify the Top 10/six-row limits, 20-card pagination, saved-brief source/date,
 single-project chart values, and manual-add paths. Inspect Chinese/English
 layouts at 320, 375, 414, 768, and 1440px, including long names, sparse history,
-stale data, absent explanations, and browser Back.
+stale data, absent explanations, true empty-today states, local read toggles,
+storage failures, and browser Back.
 
 This document defines the intended design and acceptance criteria. It does not
 assert that screenshots, a fixed audit score, or a release have passed.

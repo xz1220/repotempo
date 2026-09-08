@@ -12,12 +12,14 @@ categories, and a personal watchlist. It is not affiliated with GitHub.
 
 - Scan a fastest-growth Top 10 and up to six projects with the largest momentum
   declines compared with the preceding period.
-- Read projects newly added on a selected date; they automatically enter the
-  library for continued observation.
+- Start the library with projects newly added today in Shanghai, then switch
+  to All projects or My watchlist. An empty today remains visibly empty.
 - Paste a public GitHub URL or owner/name to follow it, with an optional category
   and note. The Web form saves its first real Star snapshot immediately.
 - Read a single-column project feed, 20 cards per page, with original
   descriptions and saved AI or human briefs showing their source and date.
+- Explicitly mark projects read or unread in this browser. These local marks
+  are separate from saved research coverage and do not sync across devices.
 - Open a detail for the full saved analysis and individual Star-history chart,
   or follow the card's separate GitHub link.
 - Browse by coding agents, research agents, browser/computer agents, workflow
@@ -157,8 +159,13 @@ repair failed ones.
 
 Only Trends and Project library appear in primary navigation. Add project is
 a compact library-toolbar button, and My watchlist is a library tab at
-`/repositories?focus=1`. Daily discoveries use the library's date and ordering
-controls, with `new=1` to show only projects first added on the selected date.
+`/repositories?view=focus`. An unscoped `/repositories` visit defaults to
+Today’s additions using the real Shanghai date, `sort=stars`, and `period=1d`.
+
+Choose `view=all` for the full library or `view=daily` for additions. `new=1`
+limits the selected date to new entries, while explicit dates and ordering
+remain available. Today is never replaced with the last date that has data.
+
 Old `/discoveries` links redirect to this filtered library view. Project details use
 `/repositories/{github_repository_id}`. Health endpoints are `/healthz` and
 `/readyz`.
@@ -168,6 +175,14 @@ brief with source and date, Stars, period gain, growth rate, comparable-sample
 ranks, entry date, and detail/GitHub actions. Missing explanations are marked
 as not reviewed. Existing briefs are loaded in one database batch per page;
 browsing does not request a new model-generated summary.
+
+The read/unread button saves one localStorage value per permanent repository
+ID. It changes only after an explicit click. Page opening, scrolling, and
+brief availability do not automatically mark a project read.
+
+Reading marks belong to the current browser profile and origin (scheme, host,
+and port). They do not cross devices or site addresses, and they are not a
+server-side filter for finding every unread project in the database.
 
 The default direct loopback server supports the Add project form locally.
 For public writes, configure `GITHUB_RADAR_WEB_WRITE_TOKEN` with a separate
@@ -301,6 +316,53 @@ do not yet include them. The Web application batch-loads existing card briefs
 and displays complete analyses; it does not invoke external models or add an
 on-demand LLM pipeline.
 
+Brief generation runs separately as explicit background work. Existing
+historical research can be reused with its provenance; unknown authors,
+models, or original generation dates must remain unknown.
+
+Neither full-library coverage nor automatic daily brief generation is implied
+by these tools.
+
+### Fill missing summaries in a batch
+
+`analysis import-batch` accepts a strict JSON object containing `projects`.
+Each item requires `full_name`, `summary_zh`, and `source`.
+
+Optional fields are `repository_id`, `key_points`, `use_cases`,
+`technical_notes`, `model`, and an RFC3339 `analyzed_at`.
+
+```json
+{
+  "projects": [
+    {
+      "full_name": "owner/name",
+      "summary_zh": "根据已阅读资料整理的项目说明。",
+      "key_points": [],
+      "use_cases": [],
+      "source": "legacy_research",
+      "model": "",
+      "technical_notes": "保留实际资料来源；原始生成模型与时间未留存。"
+    }
+  ]
+}
+```
+
+```sh
+./bin/github-radar analysis import-batch --file /path/to/analyses.json
+```
+
+The batch contains 1–5,000 already registered projects and runs in one
+transaction. It fills only missing or empty summaries, skips existing nonempty
+ones, and creates no new table.
+
+When `analyzed_at` is omitted, the stored timestamp is the import time. For
+reused notes, record that distinction and any unknown original generation
+date in `technical_notes`.
+
+Invalid payloads, duplicate identities, unknown repositories, or mismatched
+repository IDs fail the batch without partial writes. Unlike single-project
+`analysis import`, this command does not replace an existing summary.
+
 ## Export and deploy
 
 ```sh
@@ -331,6 +393,7 @@ discover --source ossinsight|github-search|legacy|all [--profile NAME]
 snapshot
 import-legacy --path PATH
 analysis import --repo OWNER/NAME --file PATH
+analysis import-batch --file PATH
 topic list|assign|remove|reclassify
 watch add|pause|resume
 export --format csv|json|sqlite
@@ -346,14 +409,20 @@ watchlist, and export operations expose applicable dry-run paths.
 make fmt-check
 make vet
 make test
+make test-js
 make race
 make build-linux
 make security
 ```
 
+`make test-js` uses Node.js 24 and its built-in test runner, with no npm
+dependencies. Override the executable with `make test-js NODE=/path/to/node`
+when needed. Production serving and collection still use the Go binary only.
+
 Current acceptance should cover the Top 10/six-row dashboard, slowdown across
-three exact dates, 20-card pagination, saved-brief source/date and missing
-states, individual history charts, manual addition, and Chinese/English
+three exact dates, true empty-today views, 20-card pagination, explicit local
+read marks, saved-brief source/date and missing states, atomic fill-only batch
+imports, individual history charts, manual addition, and Chinese/English
 desktop and mobile layouts. Mock-API tests and live collection
 results should be reported separately. OSS Insight availability is not a
 requirement for GitHub-only operation.

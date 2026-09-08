@@ -1,8 +1,8 @@
 # RepoTempo information architecture
 
-Primary navigation has two reading modes: Trends and Project library. Daily
-discoveries use the library's date, ordering, and new-only controls. My watchlist
-is a library tab, and categories are contextual filters.
+Primary navigation has two reading modes: Trends and Project library. The
+library defaults to Today’s additions, with All projects and My watchlist as
+sibling views. Categories, dates, and ordering remain contextual controls.
 
 ## Site map
 
@@ -10,8 +10,9 @@ is a library tab, and categories are contextual filters.
 RepoTempo
 ├── Trends /
 ├── Project library /repositories
-│   ├── New on selected date /repositories?new=1&date=YYYY-MM-DD
-│   ├── My watchlist tab /repositories?focus=1
+│   ├── Today’s additions /repositories?view=daily
+│   ├── All projects /repositories?view=all
+│   ├── My watchlist /repositories?view=focus
 │   ├── Add project toolbar action /watch/new
 │   ├── Project detail /repositories/{github_repository_id}
 │   └── Category context /topics and /topics/{topic_slug}
@@ -58,9 +59,12 @@ remain on project details.
 
 ## New discoveries in the library
 
-The library archives projects by their first entry into the radar. Its date
-selector and “仅看当天新入库” filter provide the daily-discovery view within the
-same records and pagination, combined with any comparison period and ordering.
+An unscoped library visit starts with the real current Shanghai date, Stars
+order, and a 1-day comparison. No data today produces a real empty state and
+an All projects link; an older populated date must not be substituted.
+
+The date selector and “仅看当天新入库” filter support other dates, periods,
+and orders in the same card feed. Explicit shared-link scopes remain intact.
 
 Each card leads with what the project does and uses the same saved-brief and
 metric layout as the rest of the library. Entry date and GitHub creation time
@@ -72,9 +76,9 @@ retains the single Add project action.
 
 ## Project library
 
-The library is the durable home for every tracked project. All projects and
-My watchlist are in-page tabs. Search, category, date, period, ordering, and the
-new-only filter narrow the selected collection.
+The library is the durable home for every tracked project. Today’s additions,
+All projects, and My watchlist are in-page tabs. Search, category, date, period,
+ordering, and the new-only filter narrow the selected collection.
 
 Desktop and mobile use one column of cards, with 20 projects per page. Each
 card contains the original description, an existing AI or human brief with
@@ -88,6 +92,20 @@ not-reviewed state; new, pending, stale, and unclassified projects stay visible.
 Cursor continuation supports a large collection without loading an unbounded
 feed. Changing sort or filters starts a new traversal. The selected date and
 view state survive refresh and browser Back.
+
+## Reading marks
+
+A read/unread toggle records an explicit user decision for a permanent
+repository ID. It is stored in this browser profile’s localStorage for the
+current origin and never sent to the server.
+
+Other devices, browsers, profiles, or origins have separate marks. Same-origin
+tabs can reflect a changed mark. Opening a page, scrolling, or loading an
+explanation does not mark a project read.
+
+The mark is separate from whether a saved brief exists. It does not remove
+cards or support a whole-library unread filter. Storage errors preserve the
+last known state and receive a visible explanation.
 
 ## Add project
 
@@ -123,7 +141,15 @@ marks further research as unavailable.
 Codex or a researcher prepares interpretations outside the Web interface. The
 current body retains source, model, time, and revision; the revision counter
 does not imply that earlier bodies remain available. Card excerpts and detail
-pages use the same saved analysis, with no new on-demand LLM pipeline.
+pages use the same saved analysis, with no on-demand page-triggered LLM pipeline.
+
+Explicit background work can prepare missing briefs and reuse old research
+cards. A strict transactional batch import fills empty summaries while
+preserving existing ones in the current analysis table.
+
+Current brief backfilling does not establish full-library coverage or an
+automatic daily generation schedule. Historical backfill beyond the selected
+scope remains a separate user decision.
 
 ## Agent categories
 
@@ -178,9 +204,9 @@ into rank one. Ranks always refer to the monitored sample.
 A daily review begins on Trends. The user chooses a window, scans the Top 10
 and up to six momentum declines, then opens a detail or the library's card feed.
 
-Reading new projects begins in the project library. The user chooses a date,
-enables the new-on-selected-date filter, and chooses an ordering such as Stars
-or growth. Clearing the filter returns to the wider collection.
+Reading new projects begins with Today’s additions in the project library.
+The user can change the date/order, explicitly mark individual projects read,
+or switch to All projects and My watchlist.
 
 An external recommendation begins with the library's Add project button.
 After GitHub validation, the detail is available with a real initial observation
@@ -196,10 +222,12 @@ classification or observation coverage.
 | --- | --- | --- |
 | Main trend view | 趋势看板 | Trends |
 | New-entry filter | 仅看当天新入库 | New on selected date |
+| Default library view | 当天新入库 | Today’s additions |
 | Persistent catalogue | 项目库 | Project library |
 | Purpose-based taxonomy | Agent 分类 | Agent categories |
 | Operator addition | 添加关注 | Add project |
 | Focused projects | 我的关注 | My watchlist |
+| Local reading decision | 标为已读 / 标为未读 | Mark read / Mark unread |
 | No supported classification | 待分类 | Unclassified |
 | First local registration | 首次发现 / 入库日期 | First discovery |
 | Actual GitHub creation | 创建于 | Created |
@@ -225,7 +253,10 @@ before compromising date labels or exact-value access.
 
 ## URLs and compatibility
 
-- `/` is the trend dashboard; `/repositories` is the project library.
+- `/` is the trend dashboard; an unscoped `/repositories` defaults to today's
+  new entries in the Shanghai calendar, ordered by Stars with a 1-day period.
+- Library views use `view=daily|all|focus`. Explicit older links retain their
+  date, filters, and comparison scope instead of silently becoming today-only.
 - `/discoveries` is a compatibility entry into the library with `new=1`;
   existing date, sort, and other filters are preserved, and `cursor` is cleared.
   Missing sort and period default to `sort=stars` and `period=1d`.
@@ -236,3 +267,5 @@ before compromising date labels or exact-value access.
 - Category labels hide reserved filter values from the normal reading path.
 - Language uses `lang=zh-CN|en` and the existing same-site preference cookie.
 - Operator credentials never appear in query strings.
+- Reading marks use localStorage by repository ID, not query parameters or a
+  server-side unread filter.
