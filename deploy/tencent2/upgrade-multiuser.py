@@ -31,7 +31,10 @@ def evidence(path):
     for table in TABLES:
         digest = hashlib.sha256()
         count = 0
-        for row in db.execute(f'SELECT * FROM "{table}" ORDER BY rowid'):
+        # Startup re-applies the unchanged taxonomy config and refreshes only
+        # topics.updated_at. Compare its business columns, not that run timestamp.
+        columns = "id,slug,name,parent_id,description,status,created_at" if table == "topics" else "*"
+        for row in db.execute(f'SELECT {columns} FROM "{table}" ORDER BY rowid'):
             digest.update(json.dumps(row, ensure_ascii=False, separators=(",", ":"), default=str).encode())
             digest.update(b"\n")
             count += 1
