@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "baseline": "repotempo-approved-v1",
+  "approval": "用户表示当前前端不错，并要求固定及迁入 github-radar",
+  "createdAt": "2026-09-10T09:53:53.320359+00:00",
+  "referenceRepository": "github-radar",
+  "referenceCommit": "24b0d1dece9448454893cfb3d5252cbf6949a670",
+  "sourceFile": "repotempo-workspace.html",
+  "sourceSha256": "0bb63e913829a1f7eb47fcea58389057137076d6df42e876b5a53f16ce051e40",
+  "files": {
+    "AGENT-TASK.md": "c639f84a0e89eae5b612fb78614b0e4904405cdcc8922a7aacc421ad2f891af4",
+    "DESIGN-LOCK.md": "afb4d5b4ddb1dc0ffc2d57dd99438103f36809541eced666e771e46099556b3c",
+    "IMPLEMENTATION.md": "5c860f5ea6c6b9e0d4387fbbcb9a2cbcda06d80c7769351620e788d5cf07fcca",
+    "brand-spec.md": "4f5f872b1ee0c32603e5a1f3aa9ca9d597c27a5cd096028bb8e486d5c8abbf7a",
+    "repotempo-approved.html": "0bb63e913829a1f7eb47fcea58389057137076d6df42e876b5a53f16ce051e40"
+  }
+}
