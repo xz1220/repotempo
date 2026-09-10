@@ -69,7 +69,8 @@ func normalizeTrendQuery(query domain.RepositoryTrendQuery) (domain.RepositoryTr
 	case domain.RepositoryTrendSortRankChange, domain.RepositoryTrendSortStars,
 		domain.RepositoryTrendSortDelta, domain.RepositoryTrendSortGrowthRate,
 		domain.RepositoryTrendSortVelocity, domain.RepositoryTrendSortLowGrowth,
-		domain.RepositoryTrendSortSlowdown, domain.RepositoryTrendSortNewest:
+		domain.RepositoryTrendSortSlowdown, domain.RepositoryTrendSortNewest,
+		domain.RepositoryTrendSortName:
 	default:
 		return domain.RepositoryTrendQuery{}, fmt.Errorf("%w: invalid trend sort %q", corestore.ErrInvalid, query.Sort)
 	}
@@ -79,8 +80,14 @@ func normalizeTrendQuery(query domain.RepositoryTrendQuery) (domain.RepositoryTr
 	if query.Limit > 100 {
 		query.Limit = 100
 	}
+	if query.Offset < 0 {
+		return domain.RepositoryTrendQuery{}, fmt.Errorf("%w: trend offset must not be negative", corestore.ErrInvalid)
+	}
 	if query.AfterID != nil && *query.AfterID <= 0 {
 		return domain.RepositoryTrendQuery{}, fmt.Errorf("%w: cursor repository ID must be positive", corestore.ErrInvalid)
+	}
+	if query.AfterID != nil && query.Sort == domain.RepositoryTrendSortName {
+		return domain.RepositoryTrendQuery{}, fmt.Errorf("%w: name sort does not support legacy cursors", corestore.ErrInvalid)
 	}
 	query.Search = strings.TrimSpace(query.Search)
 	query.Tag = strings.ToLower(strings.TrimSpace(query.Tag))
@@ -246,7 +253,7 @@ func (store *Store) trendCoverage(
 	baseline domain.Date,
 	scope string,
 	scopeArguments []any,
-) (domain.ComparisonCoverage, int, error) {
+) (domain.ComparisonCoverage, trendPageCounts, error) {
 	filteredWhere, filteredArguments := trendFilteredWhere(query, "scored")
 	statement := trendBaseCTE(scope) + `
 SELECT
@@ -254,23 +261,36 @@ SELECT
     COUNT(current_stars),
     COUNT(star_delta),
     COALESCE(SUM(is_new), 0),
-    COALESCE(SUM(CASE WHEN ` + filteredWhere + ` THEN 1 ELSE 0 END), 0)
+    COALESCE(SUM(CASE WHEN ` + filteredWhere + ` THEN 1 ELSE 0 END), 0),
+    (SELECT COUNT(*) FROM repositories registry
+     WHERE date(registry.first_seen_at, '+8 hours') <= (SELECT as_of_date FROM comparison_dates)),
+    (SELECT COUNT(*) FROM repositories registry
+     WHERE date(registry.first_seen_at, '+8 hours') <= (SELECT as_of_date FROM comparison_dates)
+       AND registry.is_focus = 1)
 FROM observed scored`
 	arguments := append([]any{}, scopeArguments...)
 	arguments = append(arguments, query.AsOf, baseline, query.WindowDays, query.AsOf)
 	arguments = append(arguments, filteredArguments...)
 	coverage := domain.ComparisonCoverage{BaselineDate: baseline, AsOfDate: query.AsOf}
-	var total int
+	var counts trendPageCounts
 	if err := store.db.QueryRowContext(ctx, statement, arguments...).Scan(
 		&coverage.ScopeCount,
 		&coverage.ObservedCount,
 		&coverage.ComparableCount,
 		&coverage.NewCount,
-		&total,
+		&counts.Filtered,
+		&counts.Registry,
+		&counts.Focus,
 	); err != nil {
-		return domain.ComparisonCoverage{}, 0, fmt.Errorf("query repository trend coverage: %w", err)
+		return domain.ComparisonCoverage{}, trendPageCounts{}, fmt.Errorf("query repository trend coverage: %w", err)
 	}
-	return coverage, total, nil
+	return coverage, counts, nil
+}
+
+type trendPageCounts struct {
+	Filtered int
+	Registry int
+	Focus    int
 }
 
 func trendSortExpression(sortValue domain.RepositoryTrendSort, alias string) string {
@@ -293,9 +313,18 @@ func trendSortExpression(sortValue domain.RepositoryTrendSort, alias string) str
 		return "CASE WHEN " + prefix + "momentum_change < 0 THEN -" + prefix + "momentum_change END"
 	case domain.RepositoryTrendSortNewest:
 		return "julianday(" + prefix + "first_seen_at)"
+	case domain.RepositoryTrendSortName:
+		return "lower(" + prefix + "full_name)"
 	default:
 		return prefix + "daily_velocity"
 	}
+}
+
+func trendSortDirection(sortValue domain.RepositoryTrendSort) string {
+	if sortValue == domain.RepositoryTrendSortName {
+		return "ASC"
+	}
+	return "DESC"
 }
 
 func (store *Store) ListRepositoryTrends(ctx context.Context, requested domain.RepositoryTrendQuery) (domain.RepositoryTrendPage, error) {
@@ -308,12 +337,23 @@ func (store *Store) ListRepositoryTrends(ctx context.Context, requested domain.R
 		return domain.RepositoryTrendPage{}, err
 	}
 	scope, scopeArguments := trendScope(query)
-	coverage, total, err := store.trendCoverage(ctx, query, baseline, scope, scopeArguments)
+	coverage, counts, err := store.trendCoverage(ctx, query, baseline, scope, scopeArguments)
 	if err != nil {
 		return domain.RepositoryTrendPage{}, err
 	}
-	page := domain.RepositoryTrendPage{Total: total, Coverage: coverage, Items: []domain.RepositoryTrendMetric{}}
-	if total == 0 {
+	page := domain.RepositoryTrendPage{
+		Total:         counts.Filtered,
+		RegistryTotal: counts.Registry,
+		FocusTotal:    counts.Focus,
+		Coverage:      coverage,
+		Items:         []domain.RepositoryTrendMetric{},
+	}
+	if counts.Filtered == 0 {
+		return page, nil
+	}
+	if query.AfterID == nil && query.Offset >= counts.Filtered {
+		// The handler uses the real total to redirect an out-of-range page.
+		// Avoid asking SQLite to walk an arbitrarily large hostile offset first.
 		return page, nil
 	}
 
@@ -366,10 +406,14 @@ WHERE
         ))
     ))`
 	}
-	statement += ` ORDER BY (` + sortExpression + ` IS NULL) ASC, ` + sortExpression + ` DESC,
+	statement += ` ORDER BY (` + sortExpression + ` IS NULL) ASC, ` + sortExpression + ` ` + trendSortDirection(query.Sort) + `,
     COALESCE(filtered.current_stars, filtered.last_observed_stars, -1) DESC, filtered.github_repo_id ASC
 LIMIT ?`
 	arguments = append(arguments, query.Limit+1)
+	if query.AfterID == nil {
+		statement += ` OFFSET ?`
+		arguments = append(arguments, query.Offset)
+	}
 
 	rows, err := store.db.QueryContext(ctx, statement, arguments...)
 	if err != nil {

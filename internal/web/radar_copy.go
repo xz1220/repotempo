@@ -117,6 +117,7 @@ func init() {
 		"meta.topics.title":                            {"Agent 分类", "Agent categories"},
 		"meta.topics.description":                      {"按用途和能力理解项目，找到你想持续关注的方向。", "Explore projects by their purpose, capabilities, and technical direction."},
 		"repositories.sort_newest":                     {"最近入库", "Recently discovered"},
+		"repositories.sort_name":                       {"仓库名称 A–Z", "Repository name A–Z"},
 		"repositories.sort_low_growth":                 {"增长平缓", "Slowest growth"},
 		"repositories.sort_slowdown":                   {"势头回落", "Losing momentum"},
 		"page.footer":                                  {"GitHub Trending 发现，Search 补充，Star 持续观察。", "Discover via GitHub Trending, supplement with Search, and follow daily stars."},

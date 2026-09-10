@@ -35,6 +35,8 @@ func (h *Handler) canonicalLibraryURL(original url.Values, filter RepositoryQuer
 	view := "all"
 	if filter.OnlyFocus {
 		view = "focus"
+	} else if filter.OnlyNew {
+		view = "daily"
 	}
 	values.Set("view", view)
 	for key, value := range map[string]string{
@@ -45,8 +47,15 @@ func (h *Handler) canonicalLibraryURL(original url.Values, filter RepositoryQuer
 			values.Set(key, value)
 		}
 	}
+	if validRepositoryPageSize(original.Get("size")) && validRepositoryPageSize(strconv.Itoa(filter.Limit)) {
+		values.Set("size", strconv.Itoa(filter.Limit))
+	} else if filter.Limit != repositoryPageSize && validRepositoryPageSize(strconv.Itoa(filter.Limit)) {
+		values.Set("size", strconv.Itoa(filter.Limit))
+	}
 	if filter.AfterID != nil {
 		values.Set("cursor", strconv.FormatInt(*filter.AfterID, 36))
+	} else if filter.Limit > 0 && filter.Offset >= filter.Limit {
+		values.Set("page", strconv.Itoa(filter.Offset/filter.Limit+1))
 	}
 	if safe, ok := validatedLibraryReturnURL(queryPath("/repositories", values)); ok {
 		return safe
@@ -130,6 +139,15 @@ func validatedLibraryReturnURL(raw string) (string, bool) {
 			if parseTrendCursor(value) == nil {
 				return "", false
 			}
+		case "page":
+			page, err := strconv.Atoi(value)
+			if err != nil || page < 1 || strconv.Itoa(page) != value {
+				return "", false
+			}
+		case "size":
+			if !validRepositoryPageSize(value) || strconv.Itoa(normalizeRepositoryPageSize(value)) != value {
+				return "", false
+			}
 		case "tag", "topic", "source", "status", "q":
 			// These are data, never URLs. html/template escapes their display,
 			// and Values.Encode keeps them inside their own query value.
@@ -181,7 +199,7 @@ func (h *Handler) libraryReturnURL(r *http.Request, repositoryID int64) string {
 		if !date.IsZero() && (len(referrerValues) == 0 || (len(referrerValues) == 1 && referrerValues.Has("lang"))) {
 			referrerValues.Set("date", date.Format("2006-01-02"))
 			referrerValues.Set("new", "1")
-			referrerValues.Set("view", "all")
+			referrerValues.Set("view", "daily")
 			referrerValues.Set("period", "1d")
 			referrerValues.Set("sort", "stars")
 			referrer.RawQuery = referrerValues.Encode()

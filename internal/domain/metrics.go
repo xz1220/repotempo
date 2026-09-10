@@ -65,12 +65,14 @@ const (
 	RepositoryTrendSortLowGrowth  RepositoryTrendSort = "low_growth"
 	RepositoryTrendSortSlowdown   RepositoryTrendSort = "slowdown"
 	RepositoryTrendSortNewest     RepositoryTrendSort = "newest"
+	RepositoryTrendSortName       RepositoryTrendSort = "name"
 )
 
 // RepositoryTrendQuery compares two strict calendar endpoints. A repository
-// is comparable only when both dates have successful observations. AfterID is
-// an opaque keyset cursor resolved inside SQLite, so the caller never embeds
-// metric values in a URL.
+// is comparable only when both dates have successful observations. Offset is
+// applied by the database for numbered pages. AfterID remains an opaque legacy
+// keyset cursor resolved inside SQLite, so callers never embed metric values in
+// a URL.
 type RepositoryTrendQuery struct {
 	AsOf             Date
 	WindowDays       int
@@ -83,6 +85,7 @@ type RepositoryTrendQuery struct {
 	OnlyNew          bool
 	OnlyFocus        bool
 	Limit            int
+	Offset           int
 	AfterID          *int64
 }
 
@@ -123,10 +126,12 @@ type RepositoryTrendMetric struct {
 }
 
 type RepositoryTrendPage struct {
-	Items    []RepositoryTrendMetric `json:"items"`
-	Total    int                     `json:"total"`
-	Coverage ComparisonCoverage      `json:"coverage"`
-	HasMore  bool                    `json:"has_more"`
+	Items         []RepositoryTrendMetric `json:"items"`
+	Total         int                     `json:"total"`
+	RegistryTotal int                     `json:"registry_total"`
+	FocusTotal    int                     `json:"focus_total"`
+	Coverage      ComparisonCoverage      `json:"coverage"`
+	HasMore       bool                    `json:"has_more"`
 }
 
 type RepositoryDetail struct {

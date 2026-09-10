@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -74,6 +75,8 @@ type pageView struct {
 	ListURL              string
 	RepositoryDetailURLs map[int64]string
 	LibraryReturnURL     string
+	CanManageFocus       bool
+	FocusCSRFToken       string
 }
 
 type viewOption struct {
@@ -83,11 +86,30 @@ type viewOption struct {
 }
 
 type pagination struct {
-	Start       int
-	End         int
-	Total       int
-	PreviousURL string
-	NextURL     string
+	Start        int
+	End          int
+	Total        int
+	CurrentPage  int
+	PageCount    int
+	PageSize     int
+	PreviousURL  string
+	NextURL      string
+	Pages        []paginationPage
+	Sizes        []paginationSize
+	LegacyCursor bool
+}
+
+type paginationPage struct {
+	Number   int
+	URL      string
+	Current  bool
+	Ellipsis bool
+}
+
+type paginationSize struct {
+	Value    int
+	URL      string
+	Selected bool
 }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +133,13 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		h.badRequest(w, r, localized.Text("error.invalid_date.title"), localized.Text("error.invalid_date.message"))
 		return
 	}
+	pageSize := normalizeRepositoryPageSize(r.URL.Query().Get("size"))
+	pageNumber := normalizeRepositoryPage(r.URL.Query().Get("page"))
+	afterID := parseTrendCursor(r.URL.Query().Get("cursor"))
+	offset := 0
+	if afterID == nil {
+		offset = repositoryPageOffset(pageNumber, pageSize)
+	}
 	filter := RepositoryQuery{
 		AsOf:             asOf,
 		WindowDays:       normalizeRepositoryPeriod(r.URL.Query().Get("period")),
@@ -122,8 +151,9 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		Sort:             normalizeRepositorySort(r.URL.Query().Get("sort")),
 		OnlyNew:          r.URL.Query().Get("new") == "1",
 		OnlyFocus:        r.URL.Query().Get("focus") == "1",
-		Limit:            repositoryPageSize,
-		AfterID:          parseTrendCursor(r.URL.Query().Get("cursor")),
+		Limit:            pageSize,
+		Offset:           offset,
+		AfterID:          afterID,
 	}
 	h.applyLibraryDefaults(r.URL.Query(), &filter)
 	data, err := h.queryer.ListRepositoryTrends(r.Context(), filter)
@@ -147,15 +177,32 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	data.Sources = []string{"github_trending", "github_search", "ossinsight", "legacy", "manual"}
 	firstPageValues := cloneValues(r.URL.Query())
 	firstPageValues.Del("cursor")
+	firstPageValues.Del("page")
+	if validRepositoryPageSize(r.URL.Query().Get("size")) {
+		firstPageValues.Set("size", strconv.Itoa(pageSize))
+	} else {
+		firstPageValues.Del("size")
+	}
 	firstPageValues.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
 	firstPageValues.Set("new", "0")
+	firstPageValues.Set("focus", "0")
+	firstPageValues.Set("view", "all")
 	if filter.OnlyNew {
 		// Bare project-library URLs default to daily additions. Preserve that
 		// choice when links gain explicit date/category/pagination parameters.
 		firstPageValues.Set("new", "1")
+		firstPageValues.Set("view", "daily")
 	}
-	if firstPageValues.Get("view") == "daily" {
-		firstPageValues.Set("view", "all")
+	if filter.OnlyFocus {
+		firstPageValues.Set("focus", "1")
+		firstPageValues.Set("view", "focus")
+	}
+	pageCount := repositoryPageCount(data.Total, pageSize)
+	if afterID == nil && pageNumber > pageCount {
+		values := cloneValues(firstPageValues)
+		setRepositoryPage(values, pageCount)
+		http.Redirect(w, r, queryPath(path, values), http.StatusFound)
+		return
 	}
 	data.FirstPageURL = queryPath(path, firstPageValues)
 	if data.HasMore && data.NextCursor != "" {
@@ -164,13 +211,28 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		values.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
 		data.NextCursor = queryPath(path, values)
 	}
+	allProjectValues := url.Values{
+		"view":   {"all"},
+		"new":    {"0"},
+		"lang":   {h.localeFor(r)},
+		"period": {strconv.Itoa(filter.WindowDays) + "d"},
+		"sort":   {filter.Sort},
+	}
+	if !data.Coverage.AsOfDate.IsZero() {
+		allProjectValues.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
+	}
 	view := pageView{
 		Meta:           h.meta(localized, "meta.repositories.title", "meta.repositories.description", "repositories", data.Warnings),
 		Repositories:   data,
 		TrendPeriods:   repositoryPeriodOptions(path, firstPageValues, filter.WindowDays, localized),
 		TrendSorts:     repositorySortOptions(path, firstPageValues, filter.Sort, localized),
-		LibraryViews:   h.libraryViewOptions(path, r.URL.Query(), data.Filter, localized),
-		AllProjectsURL: queryPath(path, url.Values{"view": {"all"}, "new": {"0"}, "lang": {h.localeFor(r)}}),
+		LibraryViews:   h.libraryViewOptions(path, firstPageValues, data.Filter, localized),
+		AllProjectsURL: queryPath(path, allProjectValues),
+	}
+	if afterID == nil {
+		view.Pagination = repositoryPagination(path, firstPageValues, pageNumber, pageSize, data.Total)
+	} else {
+		view.Pagination = legacyRepositoryPagination(path, firstPageValues, pageSize, data, len(data.Items))
 	}
 	view.Meta.AsOfLabel = formatDateLocalized(data.Coverage.AsOfDate, h.location, localized.Text("page.not_available"))
 	view.Meta.Stale = rawDate == "" && h.isStale(data.Coverage.AsOfDate)
@@ -180,6 +242,15 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	view.ListURL = h.canonicalLibraryURL(r.URL.Query(), data.Filter, h.localeFor(r))
 	view.RepositoryDetailURLs = make(map[int64]string, len(data.Items))
 	view.SuggestedTags = suggestedTagLinks(data.Tags, firstPageValues, localized)
+	allowed, requiresToken := h.watchAccess(r)
+	view.CanManageFocus = allowed && !requiresToken && h.focusUpdater != nil
+	if view.CanManageFocus {
+		view.FocusCSRFToken, err = h.issueWatchNonce(w, r)
+		if err != nil {
+			h.serverError(w, r, err)
+			return
+		}
+	}
 	if filter.OnlyNew && filter.Tag != "" {
 		values := cloneValues(firstPageValues)
 		values.Set("view", "all")
@@ -305,7 +376,9 @@ func (h *Handler) topic(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) discoveries(w http.ResponseWriter, r *http.Request) {
 	values := r.URL.Query()
 	values.Set("new", "1")
+	values.Set("view", "daily")
 	values.Del("cursor")
+	values.Del("page")
 	if values.Get("period") == "" {
 		values.Set("period", "1d")
 	}
@@ -480,6 +553,53 @@ func parseOffset(raw string) int {
 	return value
 }
 
+func normalizeRepositoryPage(raw string) int {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value < 1 {
+		return 1
+	}
+	return value
+}
+
+func validRepositoryPageSize(raw string) bool {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return false
+	}
+	for _, allowed := range []int{6, 12, repositoryPageSize} {
+		if value == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeRepositoryPageSize(raw string) int {
+	if !validRepositoryPageSize(raw) {
+		return repositoryPageSize
+	}
+	value, _ := strconv.Atoi(strings.TrimSpace(raw))
+	return value
+}
+
+func repositoryPageOffset(page, size int) int {
+	if page <= 1 || size <= 0 {
+		return 0
+	}
+	maxInt := int(^uint(0) >> 1)
+	if page-1 > maxInt/size {
+		return maxInt - maxInt%size
+	}
+	return (page - 1) * size
+}
+
+func repositoryPageCount(total, size int) int {
+	if total <= 0 || size <= 0 {
+		return 1
+	}
+	return (total + size - 1) / size
+}
+
 func parseDateParameter(raw string, location *time.Location) time.Time {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -505,7 +625,7 @@ func normalizeRepositoryPeriod(raw string) int {
 
 func normalizeRepositorySort(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "rank_change", "stars", "delta", "growth_rate", "low_growth", "slowdown", "newest":
+	case "rank_change", "stars", "delta", "growth_rate", "low_growth", "slowdown", "newest", "name":
 		return strings.ToLower(strings.TrimSpace(raw))
 	default:
 		return "velocity"
@@ -532,6 +652,7 @@ func repositoryOptionURL(path string, values url.Values, key, value string) stri
 	result := cloneValues(values)
 	result.Set(key, value)
 	result.Del("cursor")
+	result.Del("page")
 	return queryPath(path, result)
 }
 
@@ -555,8 +676,8 @@ func repositoryPeriodOptions(path string, values url.Values, active int, localiz
 }
 
 func repositorySortOptions(path string, values url.Values, active string, localized localizer) []viewOption {
-	options := make([]viewOption, 0, 4)
-	for _, value := range []string{"velocity", "growth_rate", "rank_change", "stars"} {
+	options := make([]viewOption, 0, 5)
+	for _, value := range []string{"velocity", "growth_rate", "rank_change", "stars", "name"} {
 		options = append(options, viewOption{
 			Label:  localized.Text("repositories.sort_" + value),
 			URL:    repositoryOptionURL(path, values, "sort", value),
@@ -602,33 +723,89 @@ func validSlug(value string) bool {
 	return true
 }
 
-func repositoryPagination(values url.Values, offset, limit, total int) pagination {
-	page := make(url.Values, len(values))
-	for key, items := range values {
-		page[key] = append([]string(nil), items...)
+func setRepositoryPage(values url.Values, page int) {
+	values.Del("cursor")
+	if page <= 1 {
+		values.Del("page")
+		return
 	}
-	page.Del("offset")
-	path := func(next int) string {
-		copyValues := make(url.Values, len(page)+1)
-		for key, items := range page {
-			copyValues[key] = append([]string(nil), items...)
+	values.Set("page", strconv.Itoa(page))
+}
+
+func repositoryPageURL(path string, values url.Values, page int) string {
+	result := cloneValues(values)
+	setRepositoryPage(result, page)
+	return queryPath(path, result)
+}
+
+func repositoryPagination(path string, values url.Values, current, size, total int) pagination {
+	pageCount := repositoryPageCount(total, size)
+	current = min(max(current, 1), pageCount)
+	offset := repositoryPageOffset(current, size)
+	result := pagination{
+		Start:       min(offset+1, total),
+		End:         min(offset+size, total),
+		Total:       total,
+		CurrentPage: current,
+		PageCount:   pageCount,
+		PageSize:    size,
+	}
+	if current > 1 {
+		result.PreviousURL = repositoryPageURL(path, values, current-1)
+	}
+	if current < pageCount {
+		result.NextURL = repositoryPageURL(path, values, current+1)
+	}
+	numbers := make([]int, 0, min(pageCount, 7))
+	if pageCount <= 7 {
+		for page := 1; page <= pageCount; page++ {
+			numbers = append(numbers, page)
 		}
-		if next > 0 {
-			copyValues.Set("offset", strconv.Itoa(next))
+	} else {
+		seen := map[int]bool{}
+		for _, page := range []int{1, current - 1, current, current + 1, pageCount} {
+			if page >= 1 && page <= pageCount && !seen[page] {
+				seen[page] = true
+				numbers = append(numbers, page)
+			}
 		}
-		encoded := copyValues.Encode()
-		if encoded == "" {
-			return "/repositories"
+		sort.Ints(numbers)
+	}
+	previous := 0
+	for _, page := range numbers {
+		if previous > 0 && page-previous > 1 {
+			result.Pages = append(result.Pages, paginationPage{Ellipsis: true})
 		}
-		return "/repositories?" + encoded
+		result.Pages = append(result.Pages, paginationPage{
+			Number:  page,
+			URL:     repositoryPageURL(path, values, page),
+			Current: page == current,
+		})
+		previous = page
 	}
-	result := pagination{Start: min(offset+1, total), End: min(offset+limit, total), Total: total}
-	if offset > 0 {
-		result.PreviousURL = path(max(0, offset-limit))
+	for _, value := range []int{6, 12, repositoryPageSize} {
+		sizeValues := cloneValues(values)
+		sizeValues.Del("cursor")
+		sizeValues.Del("page")
+		sizeValues.Set("size", strconv.Itoa(value))
+		result.Sizes = append(result.Sizes, paginationSize{
+			Value:    value,
+			URL:      queryPath(path, sizeValues),
+			Selected: value == size,
+		})
 	}
-	if offset+limit < total {
-		result.NextURL = path(offset + limit)
-	}
+	return result
+}
+
+func legacyRepositoryPagination(path string, values url.Values, size int, page RepositoryPage, itemCount int) pagination {
+	result := repositoryPagination(path, values, 1, size, page.Total)
+	result.Start = 0
+	result.End = itemCount
+	result.CurrentPage = 0
+	result.Pages = nil
+	result.PreviousURL = page.FirstPageURL
+	result.NextURL = page.NextCursor
+	result.LegacyCursor = true
 	return result
 }
 

@@ -28,6 +28,7 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 		SiteName:         "RepoTempo",
 		Locale:           runtime.settings.Locale,
 		Watcher:          runtime,
+		FocusUpdater:     runtime,
 		AllowLocalWrites: isLoopbackListenAddress(address),
 		WriteToken:       runtime.settings.WebWriteToken,
 		Auth:             authenticator,

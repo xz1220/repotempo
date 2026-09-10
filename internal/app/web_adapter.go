@@ -88,6 +88,7 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 		OnlyNew:          query.OnlyNew,
 		OnlyFocus:        query.OnlyFocus,
 		Limit:            query.Limit,
+		Offset:           query.Offset,
 		AfterID:          query.AfterID,
 	}
 	value, err := adapter.Store.ListRepositoryTrends(ctx, domainQuery)
@@ -108,6 +109,8 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 	result := web.RepositoryPage{
 		Items:              mapRepositoryTrends(value.Items),
 		Total:              value.Total,
+		RegistryTotal:      value.RegistryTotal,
+		FocusTotal:         value.FocusTotal,
 		Filter:             query,
 		Topics:             mapTopicFilterRefs(topics),
 		Tags:               tags,
@@ -784,7 +787,8 @@ func validTrendSort(value string) domain.RepositoryTrendSort {
 	case domain.RepositoryTrendSortRankChange, domain.RepositoryTrendSortStars,
 		domain.RepositoryTrendSortDelta, domain.RepositoryTrendSortGrowthRate,
 		domain.RepositoryTrendSortVelocity, domain.RepositoryTrendSortLowGrowth,
-		domain.RepositoryTrendSortSlowdown, domain.RepositoryTrendSortNewest:
+		domain.RepositoryTrendSortSlowdown, domain.RepositoryTrendSortNewest,
+		domain.RepositoryTrendSortName:
 		return sortValue
 	default:
 		return domain.RepositoryTrendSortVelocity

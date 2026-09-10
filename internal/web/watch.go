@@ -34,7 +34,7 @@ func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writable, requiresToken := h.watchAccess(r)
-	if !writable {
+	if h.watcher == nil || !writable {
 		h.renderWatch(w, r, http.StatusForbidden, WatchRequest{}, "read_only")
 		return
 	}
@@ -106,7 +106,7 @@ func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) watchAccess(r *http.Request) (allowed, requiresToken bool) {
-	if h.watcher == nil {
+	if h.watcher == nil && h.focusUpdater == nil {
 		return false, false
 	}
 	if h.auth != nil {
@@ -205,8 +205,14 @@ func (h *Handler) issueWatchNonce(w http.ResponseWriter, r *http.Request) (strin
 }
 
 func (h *Handler) consumeWatchNonce(r *http.Request, token string) bool {
-	cookie, err := r.Cookie(watchCookie)
-	if err != nil || len(token) != 64 || !watchTokenEqual(cookie.Value, token) {
+	cookieValue, cookieCount := "", 0
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == watchCookie {
+			cookieValue = cookie.Value
+			cookieCount++
+		}
+	}
+	if cookieCount != 1 || len(token) != 64 || !watchTokenEqual(cookieValue, token) {
 		return false
 	}
 	h.watchMu.Lock()
@@ -241,6 +247,7 @@ func watchError(err error) (int, string) {
 func (h *Handler) renderWatch(w http.ResponseWriter, r *http.Request, status int, input WatchRequest, errorKey string) {
 	locale := h.localeFor(r)
 	allowed, requiresToken := h.watchAccess(r)
+	allowed = allowed && h.watcher != nil
 	view := watchPageView{pageView: pageView{Meta: h.metaText(h.localizerFor(r), watchText(locale, "title"), watchText(locale, "description"), "watch", nil)}, Watch: watchFormData{Input: input, CanWrite: allowed, RequiresToken: requiresToken}}
 	view.Meta.Locale, view.Meta.EnglishURL, view.Meta.ChineseURL = locale, languageURL(r, localeEnglish), languageURL(r, localeChinese)
 	view.Meta.Auth = h.authInfo(r)

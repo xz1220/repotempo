@@ -11,6 +11,7 @@ import (
 func stripOwnerFields(data pageView) pageView {
 	data.Dashboard.FastestRepositories = stripOwnerMetrics(data.Dashboard.FastestRepositories)
 	data.Repositories.Items = stripOwnerMetrics(data.Repositories.Items)
+	data.Repositories.FocusTotal = 0
 	privateNote := data.Repository.Repository.ManualNote
 	data.Repository.Repository = stripOwnerMetric(data.Repository.Repository)
 	data.Repository.Analysis = stripCopiedOwnerAnalysis(data.Repository.Analysis, privateNote)

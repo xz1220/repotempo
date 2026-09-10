@@ -83,6 +83,8 @@ type RepositoryPage struct {
 	Warnings           []string
 	Items              []RepositoryMetric
 	Total              int
+	RegistryTotal      int
+	FocusTotal         int
 	Filter             RepositoryQuery
 	Topics             []TopicRef
 	Tags               []TagRef

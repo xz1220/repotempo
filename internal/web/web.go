@@ -25,6 +25,7 @@ type Options struct {
 	SiteName         string
 	Locale           string
 	Watcher          Watcher
+	FocusUpdater     FocusUpdater
 	AllowLocalWrites bool
 	WriteToken       string
 	Auth             Authenticator
@@ -41,6 +42,7 @@ type Handler struct {
 	mux              *http.ServeMux
 	static           fs.FS
 	watcher          Watcher
+	focusUpdater     FocusUpdater
 	allowLocalWrites bool
 	writeToken       string
 	watchMu          sync.Mutex
@@ -88,6 +90,7 @@ func New(queryer Queryer, options Options) (*Handler, error) {
 		static:           staticAssets,
 		mux:              http.NewServeMux(),
 		watcher:          options.Watcher,
+		focusUpdater:     options.FocusUpdater,
 		allowLocalWrites: options.AllowLocalWrites,
 		writeToken:       options.WriteToken,
 		watchNonces:      make(map[string]time.Time),
@@ -144,6 +147,7 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /watch", h.watchForm)
 	h.mux.HandleFunc("GET /watch/new", h.watchForm)
 	h.mux.HandleFunc("POST /watch", h.watchAdd)
+	h.mux.HandleFunc("POST /watch/focus", h.watchFocus)
 	h.mux.HandleFunc("GET /watch/imports/{id}", h.importTask)
 	h.mux.HandleFunc("GET /watch/imports/{id}/status", h.importTaskStatus)
 	h.mux.HandleFunc("GET /healthz", h.health)
@@ -195,6 +199,8 @@ func (h *Handler) parseTemplates() error {
 			"githubURL":        githubURL,
 			"briefText":        briefText,
 			"projectGitHubURL": projectGitHubURL,
+			"repositoryOwner":  repositoryOwner,
+			"repositoryName":   repositoryName,
 			"aiAnalysis":       aiAnalysis,
 			"analysisSource":   analysisSource,
 			"tagOptionLabel":   func(tag string) string { return tagOptionLabel(tag, locale) },
