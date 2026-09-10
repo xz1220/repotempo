@@ -16,9 +16,10 @@ func TestLibraryDetailReturnContextRoundTrip(t *testing.T) {
 	for _, locale := range []string{localeChinese, localeEnglish} {
 		t.Run(locale, func(t *testing.T) {
 			queryer := populatedFake()
+			queryer.repositories.Total = 12
 			handler := newTestHandler(t, queryer)
 			values := url.Values{
-				"cursor": {"az"}, "date": {"2026-08-30"}, "period": {"30d"}, "sort": {"stars"},
+				"page": {"2"}, "size": {"6"}, "date": {"2026-08-30"}, "period": {"30d"}, "sort": {"stars"},
 				"tag": {"中文写作"}, "topic": {"coding-agent"}, "source": {"github_trending"},
 				"status": {"active"}, "q": {"C++ a+b&c% 工具"}, "new": {"0"}, "focus": {"1"},
 				"view": {"focus"}, "lang": {locale},
@@ -29,8 +30,8 @@ func TestLibraryDetailReturnContextRoundTrip(t *testing.T) {
 				t.Fatalf("canonical list URL lost effective scope: %s", listURL)
 			}
 			links := regexp.MustCompile(`href="([^"]+)" data-repository-detail`).FindAllStringSubmatch(body, -1)
-			if len(links) != 2 || links[0][1] != links[1][1] {
-				t.Fatalf("title and details do not share their return context: %v", links)
+			if len(links) != 1 {
+				t.Fatalf("approved list should use one title detail link: %v", links)
 			}
 			detailURL, err := url.Parse(html.UnescapeString(links[0][1]))
 			if err != nil {
@@ -52,7 +53,7 @@ func TestLibraryDetailReturnContextRoundTrip(t *testing.T) {
 			}
 			request(t, handler, want)
 			filter := queryer.lastRepositoryQuery
-			if filter.AfterID == nil || *filter.AfterID != 395 || !filter.OnlyFocus || filter.OnlyNew || filter.Sort != "stars" || filter.WindowDays != 30 || filter.Tag != "中文写作" || filter.Search != values.Get("q") || filter.Source != "github_trending" {
+			if filter.AfterID != nil || filter.Offset != 6 || filter.Limit != 6 || !filter.OnlyFocus || filter.OnlyNew || filter.Sort != "stars" || filter.WindowDays != 30 || filter.Tag != "中文写作" || filter.Search != values.Get("q") || filter.Source != "github_trending" {
 				t.Fatalf("roundtrip changed the actual query: %+v", filter)
 			}
 			if strings.Contains(body, "data-library-return") {
@@ -69,7 +70,7 @@ func TestLibraryReturnFreezesImplicitDefaultsAndDoesNotCopyUnknownQuery(t *testi
 	h.applyLibraryDefaults(values, &filter)
 	canonical := h.canonicalLibraryURL(values, filter, localeChinese)
 	parsed, _ := url.Parse(canonical)
-	want := url.Values{"date": {"2026-09-08"}, "period": {"1d"}, "sort": {"stars"}, "new": {"1"}, "focus": {"0"}, "view": {"all"}, "lang": {localeChinese}}
+	want := url.Values{"date": {"2026-09-08"}, "period": {"1d"}, "sort": {"stars"}, "new": {"1"}, "focus": {"0"}, "view": {"daily"}, "lang": {localeChinese}}
 	if !reflect.DeepEqual(parsed.Query(), want) {
 		t.Fatalf("defaults not recorded: %s", canonical)
 	}
@@ -79,11 +80,19 @@ func TestLibraryReturnFreezesImplicitDefaultsAndDoesNotCopyUnknownQuery(t *testi
 	if replayed.AsOf.Format("2006-01-02") != "2026-09-08" || !replayed.OnlyNew || replayed.WindowDays != 1 || replayed.Sort != "stars" {
 		t.Fatalf("return drifted across midnight: %+v", replayed)
 	}
+	paged := h.canonicalLibraryURL(url.Values{"size": {"6"}}, RepositoryQuery{
+		AsOf: mustDate("2026-09-08"), WindowDays: 30, Sort: "name", Limit: 6, Offset: 12,
+	}, localeChinese)
+	pagedURL, err := url.Parse(paged)
+	if err != nil || pagedURL.Query().Get("page") != "3" || pagedURL.Query().Get("size") != "6" || pagedURL.Query().Get("view") != "all" {
+		t.Fatalf("numbered return context was not recorded: %s", paged)
+	}
 }
 
 func TestLibraryReturnValidation(t *testing.T) {
 	for _, good := range []string{
 		"/repositories", "/repositories#project-101", "/repositories?cursor=az&new=0&lang=zh-CN#project-101",
+		"/repositories?page=2&size=6&view=all&new=0&lang=zh-CN#project-101",
 		"/repositories?q=" + url.QueryEscape("C++ 中文 & percent%20 literal") + "&tag=" + url.QueryEscape("文档"),
 	} {
 		if _, ok := validatedLibraryReturnURL(good); !ok {
@@ -96,6 +105,7 @@ func TestLibraryReturnValidation(t *testing.T) {
 		"/repositories%2f..%2fother", "/repositories\\evil", "/repositories?q=%5cevil", "/repositories?q=%0aevil", "/repositories?q=\x00", "/repositories?q=%ff",
 		"/repositories?return_to=%2Frepositories", "/repositories?%72eturn_to=x", "/repositories?%2572eturn_to=x", "/repositories?unknown=x",
 		"/repositories?new=1&%6eew=0", "/repositories?cursor=-1", "/repositories?period=3d", "/repositories?lang=fr", "/repositories?date=2026-02-30",
+		"/repositories?page=0", "/repositories?page=-1", "/repositories?page=02", "/repositories?page=2&page=3", "/repositories?size=5", "/repositories?size=6&size=12",
 		"/repositories?q=%", "/repositories?q=x;y=z", "/repositories#evil", "/repositories#project-0", "/repositories#project--1", "/repositories#project-001", "/repositories#project-9223372036854775808",
 		"/repositories?q=" + strings.Repeat("x", maxLibraryReturnBytes),
 		"/repositories?q=" + strings.Repeat("文", 1000),
@@ -110,8 +120,8 @@ func TestLibraryReturnLegacyReferrerAndExplicitInvalid(t *testing.T) {
 	h := &Handler{}
 	for _, test := range []struct{ name, target, referrer, want string }{
 		{"same origin legacy", "/repositories/101", "http://example.com/repositories?cursor=az&date=2026-08-30&lang=en", "/repositories?cursor=az&date=2026-08-30&lang=en#project-101"},
-		{"old daily freezes detail date", "/repositories/101?date=2026-08-30", "http://example.com/repositories?lang=zh-CN", "/repositories?date=2026-08-30&lang=zh-CN&new=1&period=1d&sort=stars&view=all#project-101"},
-		{"old bare daily freezes detail date", "/repositories/101?date=2026-08-30", "http://example.com/repositories", "/repositories?date=2026-08-30&new=1&period=1d&sort=stars&view=all#project-101"},
+		{"old daily freezes detail date", "/repositories/101?date=2026-08-30", "http://example.com/repositories?lang=zh-CN", "/repositories?date=2026-08-30&lang=zh-CN&new=1&period=1d&sort=stars&view=daily#project-101"},
+		{"old bare daily freezes detail date", "/repositories/101?date=2026-08-30", "http://example.com/repositories", "/repositories?date=2026-08-30&new=1&period=1d&sort=stars&view=daily#project-101"},
 		{"old explicit scope not narrowed", "/repositories/101?date=2026-08-30", "http://example.com/repositories?cursor=az", "/repositories?cursor=az#project-101"},
 		{"external", "/repositories/101", "http://evil.test/repositories?cursor=az", "/repositories"},
 		{"different port", "/repositories/101", "http://example.com:8080/repositories?cursor=az", "/repositories"},

@@ -41,9 +41,9 @@ func TestFeedCardsKeepProjectIdentityEvidenceAndReadingSourceTogether(t *testing
 			for index, item := range []RepositoryMetric{first, second} {
 				card := html.UnescapeString(cards[index])
 				reader := "Codex"
-				wantBadges := 2
+				wantNew, wantFocus := true, true
 				if index == 1 {
-					reader, wantBadges = "Kimi", 0
+					reader, wantNew, wantFocus = "Kimi", false, false
 				}
 				for _, want := range []string{
 					fmt.Sprintf(`aria-labelledby="project-%d"`, item.ID), item.FullName, item.Description,
@@ -62,7 +62,7 @@ func TestFeedCardsKeepProjectIdentityEvidenceAndReadingSourceTogether(t *testing
 						t.Errorf("card %d missing %q", item.ID, want)
 					}
 				}
-				if strings.Count(card, `class="new-badge"`) != wantBadges {
+				if strings.Contains(card, `class="project-state"`) != wantNew || strings.Contains(card, l.Text("ui.watched")) != wantFocus {
 					t.Fatalf("card %d did not preserve its new/watchlist states", item.ID)
 				}
 				other := first
@@ -157,8 +157,8 @@ func TestFeedRequestsTwentyEntriesAndPreservesDetailDateAndLanguage(t *testing.T
 		t.Fatalf("reading feed must request and render a page of 20; query limit=%d", queryer.lastRepositoryQuery.Limit)
 	}
 	links := regexp.MustCompile(`href="(/repositories/[0-9]+[^\"]*)"`).FindAllStringSubmatch(body, -1)
-	if len(links) != 40 {
-		t.Fatalf("expected title and detail links for each of 20 projects; got %d", len(links))
+	if len(links) != 20 {
+		t.Fatalf("expected one title detail link for each of 20 projects; got %d", len(links))
 	}
 	for _, match := range links {
 		location, err := url.Parse(html.UnescapeString(match[1]))
@@ -166,8 +166,10 @@ func TestFeedRequestsTwentyEntriesAndPreservesDetailDateAndLanguage(t *testing.T
 			t.Fatalf("detail URL lost observation context: %q", match[1])
 		}
 	}
-	if !strings.Contains(html.UnescapeString(body), `/repositories?cursor=ef&date=2026-08-30&focus=1&lang=zh-CN&new=0&period=7d`) {
-		t.Fatal("next page did not preserve the selected date and filters")
+	nextURL := navigationAttribute(t, html.UnescapeString(body), `href="([^"]+)" rel="next"`)
+	nextPage, err := url.Parse(nextURL)
+	if err != nil || nextPage.Query().Get("page") != "2" || nextPage.Query().Get("date") != "2026-08-30" || nextPage.Query().Get("focus") != "1" || nextPage.Query().Get("period") != "7d" || nextPage.Query().Get("lang") != localeChinese {
+		t.Fatalf("next page did not preserve the selected date and filters: %s", nextURL)
 	}
 	response := request(t, handler, html.UnescapeString(links[0][1]))
 	if response.Code != http.StatusOK || queryer.lastRepositoryAsOf.Format("2006-01-02") != "2026-08-30" {

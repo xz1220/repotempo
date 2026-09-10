@@ -28,10 +28,10 @@ func TestCommonTagLinksOnlyOfferAvailableValuesAndKeepScope(t *testing.T) {
 	}
 }
 
-func TestSelectedTagStaysVisibleOutsideTheInitialEight(t *testing.T) {
+func TestSelectedTagStaysVisibleOutsideTheInitialFour(t *testing.T) {
 	tags := []string{"a", "b", "c", "d", "e", "f", "g", "h", "investment"}
 	links := makeCardTagLinks(tags, nil, url.Values{"tag": {"investment"}}, newLocalizer(localeChinese))
-	if len(links.Visible) != 8 || len(links.More) != 1 || !links.Visible[0].Active || links.Visible[0].Label != "investment" {
+	if len(links.Visible) != 4 || len(links.More) != 5 || !links.Visible[0].Active || links.Visible[0].Label != "investment" {
 		t.Fatalf("selected tag hidden in overflow: %+v", links)
 	}
 	links = makeCardTagLinks(nil, []TopicRef{{Slug: "skills", Name: "技能"}}, url.Values{"tag": {"技能"}}, newLocalizer(localeChinese))
@@ -50,7 +50,7 @@ func TestEmptyDailyTagViewCanBroadenWithoutDroppingTheTag(t *testing.T) {
 	response := request(t, newTestHandlerWithLocale(t, queryer, localeChinese), "/repositories?view=daily&new=1&tag=investment&date=2026-08-30&lang=zh-CN")
 	found := false
 	for _, link := range parsedTagLinks(t, response.Body.String()) {
-		if link.Label == newLocalizer(localeChinese).Text("tags.browse_all_matching") {
+		if strings.Contains(link.Label, newLocalizer(localeChinese).Text("ui.browse_all_projects")) {
 			found = true
 			if link.URL.Query().Get("view") != "all" || link.URL.Query().Get("new") != "0" || link.URL.Query().Get("tag") != "investment" || link.URL.Query().Get("date") != "2026-08-30" {
 				t.Fatalf("empty daily exit lost the tag: %s", link.URL)
@@ -92,7 +92,7 @@ func parsedTagLinks(t *testing.T, markup string) []parsedTagLink {
 func cardTagsMarkup(t *testing.T, body string) string {
 	t.Helper()
 	card := feedCards(t, body)[0]
-	match := regexp.MustCompile(`(?s)<div class="project-card-topics">(.*?)</div>\s*<footer`).FindStringSubmatch(card)
+	match := regexp.MustCompile(`(?s)<div class="project-card-topics">(.*?)</div>\s*<p class="project-extra-meta">`).FindStringSubmatch(card)
 	if len(match) != 2 {
 		t.Fatal("project card has no tag block")
 	}
@@ -110,7 +110,7 @@ func TestTagFilterAndGrowthLabelsReplaceTheOldSelectorsInBothLanguages(t *testin
 		}
 		body := html.UnescapeString(response.Body.String())
 		l := newLocalizer(locale)
-		for _, expected := range []string{`<label for="tag-filter">` + l.Text("tags.filter") + `</label>`, `list="repository-tags"`, `<datalist id="repository-tags">`, `maxlength="80"`, `id="sort-filter"`, `id="as-of-date"`, l.Text("tags.period"), l.Text("tags.1d"), l.Text("tags.7d"), l.Text("tags.30d"), l.Text("tags.period_help"), l.Text("tags.method_note")} {
+		for _, expected := range []string{`<label for="repository-search">` + l.Text("ui.search_repository_or_tag") + `</label>`, `list="repository-tags"`, `<datalist id="repository-tags">`, `maxlength="120"`, `id="sort-filter"`, `id="as-of-date"`, l.Text("tags.period"), l.Text("tags.1d"), l.Text("tags.7d"), l.Text("tags.30d"), l.Text("tags.period_help"), l.Text("tags.method_note")} {
 			if !strings.Contains(body, expected) {
 				t.Errorf("%s tag/growth UI missing %q", locale, expected)
 			}
@@ -169,7 +169,7 @@ func TestTagAndLegacyFilterBadgesAreIndependentlyClearable(t *testing.T) {
 		values := url.Values{"tag": {"skills"}, "topic": {"ai-agent"}, "source": {"github_trending"}, "date": {"2026-08-30"}, "period": {"7d"}, "focus": {"1"}, "new": {"1"}, "q": {"agent"}, "sort": {"growth_rate"}, "cursor": {"2s"}, "lang": {locale}}
 		response := request(t, handler, "/repositories?"+values.Encode())
 		body := html.UnescapeString(response.Body.String())
-		badge := regexp.MustCompile(`(?s)<div class="library-active-filters">(.*?)</div>`).FindString(body)
+		badge := regexp.MustCompile(`(?s)<nav class="library-active-filters"[^>]*>(.*?)</nav>`).FindString(body)
 		links := parsedTagLinks(t, badge)
 		if len(links) != 3 {
 			t.Fatalf("expected tag/category/legacy-source badges, got %d", len(links))
@@ -220,10 +220,10 @@ func TestCardExtraTagsStayCompleteAndClickableIncludingSaaS(t *testing.T) {
 	if len(parts) != 2 {
 		t.Fatal("extra labels have no native details expansion")
 	}
-	if len(parsedTagLinks(t, parts[0])) != 8 || len(parsedTagLinks(t, parts[1])) != 4 {
-		t.Fatal("the first eight/remaining four label split lost labels")
+	if len(parsedTagLinks(t, parts[0])) != 4 || len(parsedTagLinks(t, parts[1])) != 8 {
+		t.Fatal("the first four/remaining eight label split lost labels")
 	}
-	if !strings.Contains(parts[1], "Show 4 more tags") || !strings.Contains(parts[1], ">SaaS</a>") {
+	if !strings.Contains(parts[1], "Show 8 more tags") || !strings.Contains(parts[1], ">SaaS</a>") {
 		t.Fatal("SaaS was dropped beyond the initial visible labels")
 	}
 	keys := map[string]bool{}

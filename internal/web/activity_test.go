@@ -130,12 +130,12 @@ func TestActivityCardsStructureExistingBriefsAndKeepNavigation(t *testing.T) {
 			body := request(t, newTestHandlerWithLocale(t, queryer, locale), "/repositories?date=2026-08-30&cursor=az&lang="+locale).Body.String()
 			card := html.UnescapeString(feedCards(t, body)[0])
 			l := newLocalizer(locale)
-			for _, want := range []string{l.Text("activity.purpose"), l.Text("activity.capabilities"), l.Text("activity.use_cases"), item.Analysis.SummaryZH, "自动同步真实 Star", "投资方向研究", l.Textf("activity.counts", 6, 3), l.Text("activity.card_window"), l.Text("activity.source"), "4.0", "data-repository-detail", "return_to=", "data-reading-repository", "data-reading-toggle"} {
+			for _, want := range []string{item.Analysis.SummaryZH, l.Textf("activity.counts", 6, 3), l.Text("activity.card_window"), l.Text("activity.source"), "4.0", "data-repository-detail", "return_to=", "data-reading-repository", "data-reading-toggle"} {
 				if !strings.Contains(card, want) {
 					t.Errorf("card missing %q", want)
 				}
 			}
-			if strings.Contains(card, "不在卡片展开的第三条能力") || strings.Contains(card, "commit-bars") {
+			if strings.Contains(card, "自动同步真实 Star") || strings.Contains(card, "投资方向研究") || strings.Contains(card, "不在卡片展开的第三条能力") || strings.Contains(card, "commit-bars") {
 				t.Fatal("feed should remain a compact preview, with full text/chart in detail")
 			}
 		})

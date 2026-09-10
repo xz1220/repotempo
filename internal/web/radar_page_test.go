@@ -151,7 +151,7 @@ func TestLibraryKeepsMissingEvidenceSeparateFromObservedZero(t *testing.T) {
 	queryer.repositories.Items = []RepositoryMetric{zero, missing}
 	queryer.repositories.Total = 2
 	body := html.UnescapeString(request(t, newTestHandler(t, queryer), "/repositories").Body.String())
-	for _, want := range []string{"acme/steady", "acme/missing", "999", "Awaiting observation", "Last observed 2026-08-29", `<dd class="metric-neutral">0`, `<dd class="metric-neutral">N/A`} {
+	for _, want := range []string{"acme", "steady", "missing", "999", "Awaiting observation", "Last observed 2026-08-29", `class="project-stat project-growth"`, `<strong class="metric-neutral">0`, `<strong class="metric-neutral">N/A`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("library missing evidence state %q", want)
 		}
@@ -160,19 +160,25 @@ func TestLibraryKeepsMissingEvidenceSeparateFromObservedZero(t *testing.T) {
 
 func TestLibraryPaginationPreservesFocusAndFreezesObservationDate(t *testing.T) {
 	queryer := populatedFake()
-	queryer.repositories.Total, queryer.repositories.HasMore, queryer.repositories.NextCursor = 120, true, "2t"
-	body := html.UnescapeString(request(t, newTestHandler(t, queryer), "/repositories?focus=1&q=agent&topic=research-agents&period=30d&sort=stars&source=github_trending&new=1&cursor=2s&lang=zh-CN").Body.String())
-	if !queryer.lastRepositoryQuery.OnlyFocus {
-		t.Fatal("focus filter not sent to storage")
+	queryer.repositories.Total = 120
+	body := html.UnescapeString(request(t, newTestHandler(t, queryer), "/repositories?view=focus&focus=1&q=agent&topic=research-agents&period=30d&sort=stars&source=github_trending&new=0&page=2&size=6&lang=zh-CN").Body.String())
+	if !queryer.lastRepositoryQuery.OnlyFocus || queryer.lastRepositoryQuery.OnlyNew || queryer.lastRepositoryQuery.Limit != 6 || queryer.lastRepositoryQuery.Offset != 6 || queryer.lastRepositoryQuery.AfterID != nil {
+		t.Fatalf("numbered focus page not sent to storage: %+v", queryer.lastRepositoryQuery)
 	}
-	for _, want := range []string{
-		`href="/repositories?cursor=2t&date=2026-08-30&focus=1&lang=zh-CN&new=1&period=30d&q=agent&sort=stars&source=github_trending&topic=research-agents"`,
-		`href="/repositories?date=2026-08-30&focus=1&lang=zh-CN&new=1&period=30d&q=agent&sort=stars&source=github_trending&topic=research-agents"`,
-		`name="focus" value="1"`,
-	} {
-		if !strings.Contains(body, want) {
-			t.Errorf("pagination or filter form lost %q", want)
+	for relation, wantPage := range map[string]string{"prev": "", "next": "3"} {
+		raw := navigationAttribute(t, body, `href="([^"]+)" rel="`+relation+`"`)
+		location, err := url.Parse(raw)
+		if err != nil || location.Path != "/repositories" || location.Query().Has("cursor") || location.Query().Get("page") != wantPage || location.Fragment != "project-list" {
+			t.Fatalf("invalid %s page URL %q", relation, raw)
 		}
+		for key, want := range map[string]string{"date": "2026-08-30", "focus": "1", "view": "focus", "new": "0", "topic": "research-agents", "source": "github_trending", "sort": "stars", "q": "agent", "lang": "zh-CN", "period": "30d", "size": "6"} {
+			if got := location.Query().Get(key); got != want {
+				t.Errorf("%s page lost %s: got %q, want %q", relation, key, got, want)
+			}
+		}
+	}
+	if !strings.Contains(body, `name="focus" value="1"`) || !strings.Contains(body, `name="size" value="6"`) || !strings.Contains(body, `7–12 / 120`) {
+		t.Fatal("filter form or numbered range summary lost its state")
 	}
 	parts := strings.SplitN(body, `<nav class="library-views"`, 2)
 	if len(parts) != 2 {
@@ -180,32 +186,22 @@ func TestLibraryPaginationPreservesFocusAndFreezesObservationDate(t *testing.T) 
 	}
 	navigation := strings.SplitN(parts[1], "</nav>", 2)[0]
 	links := regexp.MustCompile(`href="([^"]+)"`).FindAllStringSubmatch(navigation, -1)
-	if len(links) != 2 {
-		t.Fatalf("library view links = %d, want All and My watchlist", len(links))
+	if len(links) != 3 {
+		t.Fatalf("library view links = %d, want daily, all, and watchlist", len(links))
 	}
+	wantViews := []struct{ view, newOnly, focus string }{{"daily", "1", "0"}, {"all", "0", "0"}, {"focus", "0", "1"}}
 	for index, link := range links {
 		location, err := url.Parse(link[1])
-		if err != nil || location.Path != "/repositories" || location.Query().Has("cursor") {
+		if err != nil || location.Path != "/repositories" || location.Query().Has("cursor") || location.Query().Has("page") {
 			t.Fatalf("invalid library view URL %q", link[1])
 		}
-		for key, want := range map[string]string{"date": "2026-08-30", "topic": "research-agents", "source": "github_trending", "sort": "stars", "q": "agent", "lang": "zh-CN", "period": "30d"} {
+		for key, want := range map[string]string{"date": "2026-08-30", "topic": "research-agents", "source": "github_trending", "sort": "stars", "q": "agent", "lang": "zh-CN", "period": "30d", "size": "6"} {
 			if got := location.Query().Get(key); got != want {
 				t.Errorf("view %d lost %s: got %q, want %q", index, key, got, want)
 			}
 		}
-		wantNew := "0"
-		if index == 0 {
-			wantNew = "1"
-		}
-		if location.Query().Get("new") != wantNew {
-			t.Errorf("view %d new = %q, want %q", index, location.Query().Get("new"), wantNew)
-		}
-		wantFocus := "0"
-		if index == 1 {
-			wantFocus = "1"
-		}
-		if location.Query().Get("focus") != wantFocus {
-			t.Errorf("view %d focus = %q, want %q", index, location.Query().Get("focus"), wantFocus)
+		if location.Query().Get("view") != wantViews[index].view || location.Query().Get("new") != wantViews[index].newOnly || location.Query().Get("focus") != wantViews[index].focus {
+			t.Errorf("view %d has wrong scope: %s", index, location)
 		}
 	}
 }
@@ -231,7 +227,7 @@ func TestLibraryDiscoverySourceFilterAndCountStayScoped(t *testing.T) {
 			}
 			count := l.Textf("repositories.count", "1")
 			mixedCount := l.Textf("ui.library_note", "1", formatInt(queryer.repositories.Coverage.ComparableCount))
-			if !strings.Contains(body, `<div class="library-count"><p>`+count+`</p>`) || strings.Contains(body, mixedCount) {
+			if !strings.Contains(body, `<div class="library-result-meta">`+"\n  <span>"+count+`</span>`) || strings.Contains(body, mixedCount) {
 				t.Fatal("filtered count was mixed with the unfiltered comparable population")
 			}
 		}
@@ -247,7 +243,7 @@ func TestLibraryDiscoverySourceFilterAndCountStayScoped(t *testing.T) {
 	}
 }
 
-func TestLibraryNewFilterIsVisibleReversibleAndExplainsFirstSeenDate(t *testing.T) {
+func TestLibraryDailyTabIsVisibleReversibleAndExplainsFirstSeenDate(t *testing.T) {
 	for _, locale := range []string{localeEnglish, localeChinese} {
 		queryer := populatedFake()
 		queryer.repositories.Items = []RepositoryMetric{queryer.radar.NewRepositories[0].RepositoryMetric}
@@ -264,18 +260,23 @@ func TestLibraryNewFilterIsVisibleReversibleAndExplainsFirstSeenDate(t *testing.
 			}
 			body := html.UnescapeString(response.Body.String())
 			inputs := regexp.MustCompile(`<input\b[^>]*type="checkbox"[^>]*\bname="new"[^>]*>`).FindAllString(body, -1)
-			if len(inputs) != 1 || !strings.Contains(inputs[0], `type="checkbox"`) || !strings.Contains(inputs[0], `value="1"`) || strings.Contains(inputs[0], "checked") != selected {
-				t.Fatalf("new filter should be one reversible checkbox: %v", inputs)
+			if len(inputs) != 0 {
+				t.Fatalf("daily scope should use the approved tab, not a duplicate checkbox: %v", inputs)
 			}
-			label, help := "New on this date only", "Only projects first added on the observation date. This is not their GitHub creation date."
-			if locale == localeChinese {
-				label, help = "仅看当天新入库", "仅显示在所选观测日期首次入库的项目，入库日期不等于 GitHub 创建日期。"
+			nav := strings.SplitN(strings.SplitN(body, `<nav class="library-views"`, 2)[1], "</nav>", 2)[0]
+			l := newLocalizer(locale)
+			active := l.Text("ui.all_library")
+			if selected {
+				active = l.Text("daily.today")
 			}
-			if !strings.Contains(body, label) || strings.Contains(body, help) != selected {
+			if strings.Count(nav, `role="tab"`) != 3 || strings.Count(nav, `aria-current="page"`) != 1 || !strings.Contains(nav, `aria-current="page">`+active) {
+				t.Fatalf("locale %s has wrong daily/all/watchlist tab state: %s", locale, nav)
+			}
+			help := l.Text("ui.new_filter_help")
+			if strings.Contains(body, help) != selected {
 				t.Fatalf("locale %s did not explain the selected filter", locale)
 			}
 			if selected {
-				l := newLocalizer(locale)
 				mixedCount := l.Textf("ui.library_note", formatInt(queryer.repositories.Total), formatInt(queryer.repositories.Coverage.ComparableCount))
 				if strings.Contains(body, mixedCount) || !strings.Contains(body, l.Textf("repositories.count", "1")) {
 					t.Fatal("new-project count must not mix its total with the entire library's comparable population")

@@ -468,7 +468,7 @@ func TestAuthHTTPAnonymousProjectionAndOwnerRenderingAreIsolated(t *testing.T) {
 	for _, path := range []string{"/repositories?new=0", "/repositories/101"} {
 		public := fixture.send(fixture.request(http.MethodGet, path, nil))
 		body := html.UnescapeString(public.Body.String())
-		if public.Code != http.StatusOK || strings.Contains(body, privateNote) || strings.Contains(body, `<span class="new-badge">My watchlist</span>`) || !strings.Contains(body, `data-reading-enabled="false"`) {
+		if public.Code != http.StatusOK || strings.Contains(body, privateNote) || strings.Contains(body, `<span class="new-badge">My watchlist</span>`) || strings.Contains(body, `data-focus-form`) || strings.Contains(body, `class="project-focus-state"`) || !strings.Contains(body, `data-reading-enabled="false"`) {
 			t.Fatalf("public page leaks owner state: %s", path)
 		}
 	}

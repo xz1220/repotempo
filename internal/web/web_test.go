@@ -159,7 +159,7 @@ func TestChineseLocaleRendersAllProductRoutes(t *testing.T) {
 	}{
 		{path: "/", want: "开源项目，持续关注"},
 		{path: "/repositories", want: "项目库"},
-		{path: "/repositories?new=1", want: "仅看当天新入库"},
+		{path: "/repositories?new=1", want: "当天新入库"},
 		{path: "/repositories/101", want: "有效历史起始日"},
 		{path: "/topics", want: "主题指标"},
 		{path: "/topics/ai-agent", want: "头部项目占比"},
@@ -305,18 +305,14 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 func TestRepoTempoBrandAndSourceAttributionRenderInBothLanguages(t *testing.T) {
 	for _, locale := range []string{localeEnglish, localeChinese} {
 		handler := newTestHandlerWithLocale(t, populatedFake(), locale)
-		subtitle := "independent GitHub trends tracker"
-		if locale == localeChinese {
-			subtitle = "开源趋势观察"
-		}
 		for _, path := range []string{"/", "/repositories", "/repositories/101", "/watch/new"} {
 			body := html.UnescapeString(request(t, handler, path).Body.String())
-			for _, want := range []string{" · RepoTempo</title>", "RepoTempo · MIT", subtitle, `href="https://github.com/xz1220/repotempo"`, "GitHub Trending", "Search"} {
+			for _, want := range []string{" · RepoTempo</title>", "RepoTempo · MIT", `href="https://github.com/xz1220/repotempo"`, ">Star on GitHub<", "GitHub Trending", "Search"} {
 				if !strings.Contains(body, want) {
 					t.Errorf("%s (%s) missing new branding/source attribution %q", path, locale, want)
 				}
 			}
-			if strings.Contains(body, "GitHub Radar") || strings.Contains(body, "https://github.com/xz1220/github-radar") {
+			if strings.Contains(body, "GitHub Radar") || strings.Contains(body, "https://github.com/xz1220/github-radar") || strings.Contains(body, "independent GitHub trends tracker") || strings.Contains(body, "开源趋势观察") {
 				t.Errorf("%s (%s) still uses the old public brand", path, locale)
 			}
 		}
@@ -381,39 +377,38 @@ func TestEmptyDatabaseRendersInstructionalStates(t *testing.T) {
 	}
 }
 
-func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
+func TestRepositoryTrendControlsUseNumberedPagination(t *testing.T) {
 	queryer := populatedFake()
 	queryer.repositories.Total = 120
-	queryer.repositories.HasMore = true
-	queryer.repositories.NextCursor = "2t"
 	queryer.repositories.Items[0].IsNew = true
 	handler := newTestHandler(t, queryer)
-	response := request(t, handler, "/repositories?q=acme+radar&topic=ai-agent&date=2026-08-29&period=30d&sort=rank_change&new=1&focus=1&source=manual&status=active&cursor=2s&lang=en")
+	response := request(t, handler, "/repositories?q=acme+radar&topic=ai-agent&date=2026-08-29&period=30d&sort=rank_change&new=0&focus=1&view=focus&source=manual&status=active&page=2&size=6&lang=en")
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", response.Code)
 	}
 	got := queryer.lastRepositoryQuery
-	if got.Search != "acme radar" || got.TopicSlug != "ai-agent" || got.Source != "manual" || got.MonitoringStatus != "active" || got.Sort != "rank_change" || !got.OnlyNew || !got.OnlyFocus {
+	if got.Search != "acme radar" || got.TopicSlug != "ai-agent" || got.Source != "manual" || got.MonitoringStatus != "active" || got.Sort != "rank_change" || got.OnlyNew || !got.OnlyFocus {
 		t.Fatalf("unexpected filter: %#v", got)
 	}
 	if got.WindowDays != 30 || got.AsOf.Format("2006-01-02") != "2026-08-29" {
 		t.Fatalf("unexpected comparison window: %#v", got)
 	}
-	if got.Limit != repositoryPageSize || got.AfterID == nil || *got.AfterID != 100 {
+	if got.Limit != 6 || got.Offset != 6 || got.AfterID != nil {
 		t.Fatalf("unexpected pagination query: %#v", got)
 	}
 	body := html.UnescapeString(response.Body.String())
 	for _, value := range []string{
-		`href="/repositories?cursor=2t&date=2026-08-30&focus=1&lang=en&new=1&period=30d&q=acme+radar&sort=rank_change&source=manual&status=active&topic=ai-agent"`,
+		`href="/repositories?date=2026-08-30&focus=1&lang=en&new=0&period=30d&q=acme+radar&size=6&sort=rank_change&source=manual&status=active&topic=ai-agent&view=focus#project-list" rel="prev"`,
+		`href="/repositories?date=2026-08-30&focus=1&lang=en&new=0&page=3&period=30d&q=acme+radar&size=6&sort=rank_change&source=manual&status=active&topic=ai-agent&view=focus#project-list" rel="next"`,
 		`value="30d" selected`,
 		`value="rank_change" selected`,
 		`name="focus" value="1"`,
-		`name="new" value="1"`,
+		`name="new" value="0"`,
+		`name="size" value="6"`,
 		`120 repositories`,
-		`class="new-badge">New`,
-		`class="project-card-rank"`,
-		`<span>7</span><span aria-hidden="true">→</span><strong>4</strong>`,
+		`class="project-state">New`,
+		`Comparable-sample rank 7 → 4`,
 		`+3 places`,
 		`+430`,
 	} {
@@ -425,9 +420,9 @@ func TestRepositoryTrendControlsQueryAndPreserveCursor(t *testing.T) {
 
 func TestLegacyDiscoveriesRedirectToNewProjectsWithoutLosingFilters(t *testing.T) {
 	for _, test := range []struct{ path, want string }{
-		{"/discoveries", "/repositories?new=1&period=1d&sort=stars"},
-		{"/discoveries?lang=zh-CN&q=radar&date=2026-08-30&focus=1&topic=research-agents&cursor=abc&new=0", "/repositories?date=2026-08-30&focus=1&lang=zh-CN&new=1&period=1d&q=radar&sort=stars&topic=research-agents"},
-		{"/discoveries?period=30d&sort=growth_rate&date=2026-08-29&cursor=abc", "/repositories?date=2026-08-29&new=1&period=30d&sort=growth_rate"},
+		{"/discoveries", "/repositories?new=1&period=1d&sort=stars&view=daily"},
+		{"/discoveries?lang=zh-CN&q=radar&date=2026-08-30&focus=1&topic=research-agents&cursor=abc&new=0", "/repositories?date=2026-08-30&focus=1&lang=zh-CN&new=1&period=1d&q=radar&sort=stars&topic=research-agents&view=daily"},
+		{"/discoveries?period=30d&sort=growth_rate&date=2026-08-29&cursor=abc", "/repositories?date=2026-08-29&new=1&period=30d&sort=growth_rate&view=daily"},
 	} {
 		t.Run(test.path, func(t *testing.T) {
 			queryer := populatedFake()
