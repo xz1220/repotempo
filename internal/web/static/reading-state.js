@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+  if (document.body?.dataset.readingEnabled === "false") return;
 
   // One key per immutable repository ID avoids overwriting another tab's marks
   // for other projects. These marks never leave this browser and origin.

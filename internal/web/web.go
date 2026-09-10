@@ -27,6 +27,7 @@ type Options struct {
 	Watcher          Watcher
 	AllowLocalWrites bool
 	WriteToken       string
+	Auth             Authenticator
 }
 
 type Handler struct {
@@ -45,6 +46,8 @@ type Handler struct {
 	watchMu          sync.Mutex
 	watchNonces      map[string]time.Time
 	watchBusy        bool
+	auth             Authenticator
+	authStarts       authStartLimiter
 }
 
 // New creates the dashboard, including embedded assets and optional protected
@@ -88,6 +91,7 @@ func New(queryer Queryer, options Options) (*Handler, error) {
 		allowLocalWrites: options.AllowLocalWrites,
 		writeToken:       options.WriteToken,
 		watchNonces:      make(map[string]time.Time),
+		auth:             options.Auth,
 	}
 	if err := h.parseTemplates(); err != nil {
 		return nil, err
@@ -114,10 +118,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
+	if strings.HasPrefix(r.URL.Path, "/auth/") {
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Cache-Control", "no-store")
+	}
+	r = h.authenticateRequest(w, r)
+	if !h.authorizeRequest(w, r) {
+		return
+	}
 	h.mux.ServeHTTP(w, r)
 }
 
 func (h *Handler) routes() {
+	h.mux.HandleFunc("GET /auth/login", h.authLogin)
+	h.mux.HandleFunc("GET /auth/github/start", h.authStart)
+	h.mux.HandleFunc("GET /auth/github/callback", h.authCallback)
+	h.mux.HandleFunc("POST /auth/logout", h.authLogout)
 	h.mux.HandleFunc("GET /{$}", h.home)
 	h.mux.HandleFunc("GET /repositories", h.repositories)
 	h.mux.HandleFunc("GET /repositories/{id}", h.repository)
@@ -140,6 +156,8 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /static/reading-position.js", h.staticAsset("reading-position.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/imports.js", h.staticAsset("imports.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/imports.css", h.staticAsset("imports.css", "text/css; charset=utf-8"))
+	h.mux.HandleFunc("GET /static/auth.css", h.staticAsset("auth.css", "text/css; charset=utf-8"))
+	h.mux.HandleFunc("GET /static/auth.js", h.staticAsset("auth.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /", h.notFound)
 }
 
@@ -184,6 +202,7 @@ func (h *Handler) parseTemplates() error {
 			"lower":            strings.ToLower,
 			"watchText":        func(key string) string { return watchText(locale, key) },
 			"importText":       func(key string) string { return importText(locale, key) },
+			"authText":         func(key string) string { return authText(locale, key) },
 
 			"briefItems": briefItems,
 			"repositoryAge": func(created *time.Time, asOf time.Time) repositoryAgeView {
@@ -194,7 +213,7 @@ func (h *Handler) parseTemplates() error {
 			},
 		}
 		h.templates[locale] = make(map[string]*template.Template)
-		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch", "import"} {
+		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch", "import", "login"} {
 			tmpl, err := template.New("base.gohtml").Funcs(funcs).ParseFS(
 				assets,
 				"templates/base.gohtml",

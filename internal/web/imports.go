@@ -157,6 +157,7 @@ func (h *Handler) serveImport(w http.ResponseWriter, r *http.Request, asJSON boo
 	}
 	page := importPageView{pageView: pageView{Meta: h.metaText(h.localizerFor(r), importText(locale, "title"), importText(locale, "description"), "repositories", nil)}, Import: view}
 	page.Meta.Locale, page.Meta.EnglishURL, page.Meta.ChineseURL = locale, languageURL(r, localeEnglish), languageURL(r, localeChinese)
+	page.Meta.Auth = h.authInfo(r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Language", locale)
 	if err := h.templates[locale]["import"].ExecuteTemplate(w, "base", page); err != nil {

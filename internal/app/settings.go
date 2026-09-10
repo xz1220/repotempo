@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/xz1220/repotempo/internal/service/auth"
 )
 
 const (
@@ -38,6 +40,7 @@ type Settings struct {
 	ExportRetention    int
 	BackupRetention    int
 	ActivityLimit      int
+	GitHubOAuth        auth.Configuration `json:"-"`
 }
 
 // LoadSettings reads environment variables without loading dotenv files or
@@ -60,6 +63,10 @@ func LoadSettings() (Settings, error) {
 	}
 
 	var err error
+	settings.GitHubOAuth, err = loadGitHubOAuth()
+	if err != nil {
+		return Settings{}, err
+	}
 	settings.ActivityLimit, err = strconv.Atoi(envOr("GITHUB_RADAR_ACTIVITY_DAILY_LIMIT", "0"))
 	if err != nil || settings.ActivityLimit < 0 || settings.ActivityLimit > 500 {
 		return Settings{}, fmt.Errorf("GITHUB_RADAR_ACTIVITY_DAILY_LIMIT must be between 0 and 500 (0 disables supplementary activity collection)")
@@ -101,6 +108,7 @@ func (settings Settings) DiagnosticFields() map[string]any {
 		"activity_daily_limit":       settings.ActivityLimit,
 		"github_token_configured":    settings.GitHubToken != "",
 		"web_write_token_configured": settings.WebWriteToken != "",
+		"github_login_configured":    oauthConfigured(settings.GitHubOAuth),
 	}
 }
 

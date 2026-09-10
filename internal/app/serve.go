@@ -17,6 +17,10 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 	if err := runtime.ensureTopics(ctx); err != nil {
 		return err
 	}
+	authenticator, err := runtime.webAuthenticator()
+	if err != nil {
+		return err
+	}
 	handler, err := web.New(WebAdapter{Store: runtime.store}, web.Options{
 		Logger:           runtime.logger,
 		Now:              runtime.now,
@@ -26,6 +30,7 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 		Watcher:          runtime,
 		AllowLocalWrites: isLoopbackListenAddress(address),
 		WriteToken:       runtime.settings.WebWriteToken,
+		Auth:             authenticator,
 	})
 	if err != nil {
 		return err

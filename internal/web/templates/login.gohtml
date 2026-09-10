@@ -1,0 +1,12 @@
+{{define "page-meta"}}<a class="breadcrumb-link" href="/repositories?lang={{.Meta.Locale}}">← {{t "nav.repositories"}}</a>{{end}}
+{{define "content"}}
+<section class="login-panel" aria-label="{{authText "title"}}">
+  {{if .Error}}<div class="notice notice-warning" role="alert"><p>{{.Error}}</p></div>{{end}}
+  {{if .Configured}}
+    {{if .Meta.Auth.SignedIn}}<p>{{authText "signed_in"}}</p>{{else}}<a class="button button-primary github-sign-in" href="{{.StartURL}}">{{authText "login"}}</a>{{end}}
+    <p class="login-help">{{authText "scope"}}</p>
+    <p class="login-help">{{authText "workspace"}}</p>
+  {{end}}
+  <a class="text-link" href="/repositories?lang={{.Meta.Locale}}">{{authText "back"}}</a>
+</section>
+{{end}}

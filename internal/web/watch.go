@@ -109,6 +109,9 @@ func (h *Handler) watchAccess(r *http.Request) (allowed, requiresToken bool) {
 	if h.watcher == nil {
 		return false, false
 	}
+	if h.auth != nil {
+		return h.isAdmin(r), false
+	}
 	if h.allowLocalWrites && watchLoopbackRequest(r) {
 		return true, false
 	}
@@ -240,6 +243,7 @@ func (h *Handler) renderWatch(w http.ResponseWriter, r *http.Request, status int
 	allowed, requiresToken := h.watchAccess(r)
 	view := watchPageView{pageView: pageView{Meta: h.metaText(h.localizerFor(r), watchText(locale, "title"), watchText(locale, "description"), "watch", nil)}, Watch: watchFormData{Input: input, CanWrite: allowed, RequiresToken: requiresToken}}
 	view.Meta.Locale, view.Meta.EnglishURL, view.Meta.ChineseURL = locale, languageURL(r, localeEnglish), languageURL(r, localeChinese)
+	view.Meta.Auth = h.authInfo(r)
 	if errorKey != "" {
 		view.Watch.Error = watchText(locale, errorKey)
 	}

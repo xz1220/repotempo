@@ -30,6 +30,7 @@ type pageMeta struct {
 	ChineseURL  string
 	TitleKind   string
 	Stale       bool
+	Auth        authView
 }
 
 type pageView struct {
@@ -382,6 +383,10 @@ func (h *Handler) serverError(w http.ResponseWriter, r *http.Request, err error)
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, name string, data pageView) {
+	data.Meta.Auth = h.authInfo(r)
+	if data.Meta.Auth.Enabled && !data.Meta.Auth.SignedIn {
+		data = stripOwnerFields(data)
+	}
 	locale := h.localeFor(r)
 	templates, ok := h.templates[locale]
 	if !ok {

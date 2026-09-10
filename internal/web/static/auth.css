@@ -1,0 +1,12 @@
+.account-controls { display:flex; align-items:center; gap:10px; }
+.account-controls form { margin:0; }
+.account-name { font-size:12px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.account-button { display:inline-flex; align-items:center; min-height:34px; padding:6px 10px; border:var(--rule); border-radius:6px; background:var(--surface); color:var(--ink); font:inherit; font-size:12px; cursor:pointer; text-decoration:none; }
+.account-button:hover { background:var(--surface-strong); }
+.account-button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.login-panel { max-width:650px; padding:8px 0 32px; }
+.login-panel .notice { margin-bottom:24px; }
+.login-help { margin:20px 0; font-size:13px; line-height:1.75; color:var(--muted); }
+.github-sign-in { min-height:42px; }
+body[data-reading-enabled="false"] [data-reading-toggle],body[data-reading-enabled="false"] [data-reading-help],body[data-reading-enabled="false"] [data-reading-note] { display:none; }
+@media(max-width:600px) { .header-right { flex-wrap:wrap; row-gap:8px; } .account-name { max-width:85px; } .account-controls { gap:6px; } .account-button { padding:5px 8px; } }

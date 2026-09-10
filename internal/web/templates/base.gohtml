@@ -11,11 +11,13 @@
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/feed.css">
   <link rel="stylesheet" href="/static/imports.css">
+  {{if or .Meta.Auth.Enabled (eq .Meta.ActiveNav "auth")}}<link rel="stylesheet" href="/static/auth.css">{{end}}
+  {{if .Meta.Auth.Enabled}}<script defer src="/static/auth.js"></script>{{end}}
   <script defer src="/static/app.js"></script>
   <script defer src="/static/reading-state.js"></script>
   <script defer src="/static/reading-position.js"></script>
 </head>
-<body>
+<body{{if .Meta.Auth.Enabled}} data-auth-enabled="true" data-reading-enabled="{{.Meta.Auth.SignedIn}}"{{end}}>
   <a class="skip-link" href="#main-content">{{t "nav.skip"}}</a>
   <aside class="app-sidebar">
     <a class="brand" href="/" aria-label="{{.Meta.SiteName}}">
@@ -38,6 +40,12 @@
     <header class="app-header">
       <div class="header-context"><span class="status-dot" aria-hidden="true"></span><span>{{t "ui.observation_workspace"}}</span><span class="header-slash">/</span><span>{{.Meta.Title}}</span></div>
       <div class="header-right">
+      {{if and .Meta.Auth.Enabled (or .Meta.Auth.SignedIn (ne .Meta.ActiveNav "auth"))}}
+      <div class="account-controls">
+        {{if .Meta.Auth.SignedIn}}<span class="account-name" translate="no">@{{.Meta.Auth.Login}}</span><form action="/auth/logout?lang={{.Meta.Locale}}" method="post"><input type="hidden" name="csrf_token" value="{{.Meta.Auth.CSRFToken}}"><button class="account-button" type="submit">{{authText "logout"}}</button></form>
+        {{else}}<a class="account-button" href="{{.Meta.Auth.LoginURL}}">{{authText "login"}}</a>{{end}}
+      </div>
+      {{end}}
       <a class="mobile-history" href="/runs" aria-label="{{t "nav.history"}}">{{template "icon-history"}}</a>
       <nav class="language-switch" aria-label="{{t "language.label"}}">
         <a href="{{.Meta.ChineseURL}}" lang="zh-CN" {{if eq .Meta.Locale "zh-CN"}}aria-current="true"{{end}}>中文</a>
@@ -53,7 +61,7 @@
           <p>{{.Meta.Description}}</p>
         </div>
         <div class="page-heading-tools">
-          {{if ne .Meta.ActiveNav "watch"}}<span class="as-of">{{tf "ui.data_date" .Meta.AsOfLabel}}</span>{{end}}
+          {{if and (ne .Meta.ActiveNav "watch") (ne .Meta.ActiveNav "auth")}}<span class="as-of">{{tf "ui.data_date" .Meta.AsOfLabel}}</span>{{end}}
         </div>
       </header>
       {{if .Meta.Stale}}<div class="notice notice-warning" role="status">{{template "icon-history"}}<p>{{tf "ui.stale_notice" .Meta.AsOfLabel}} <a href="/runs">{{t "ui.inspect_collection"}}</a></p></div>{{end}}
