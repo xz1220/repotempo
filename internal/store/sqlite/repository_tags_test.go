@@ -209,7 +209,7 @@ func TestRepositoryTagsMigrationFromV3AndV4PreservesHistory(t *testing.T) {
 			if err := applyMigrations(context.Background(), db); err != nil {
 				t.Fatal(err)
 			}
-			assertMigrationSettings(t, db, 6, 0)
+			assertMigrationSettings(t, db, 7, 0)
 			if !reflect.DeepEqual(before, migrationEvidence(t, db)) {
 				t.Fatal("metadata migration changed existing history/schema/custom data")
 			}

@@ -315,7 +315,7 @@ func TestActivityMigrationFromV5PreservesAllMetadataHistoryAndOrphans(t *testing
 	if err := applyMigrations(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationSettings(t, db, 6, 0)
+	assertMigrationSettings(t, db, 7, 0)
 	if !reflect.DeepEqual(before, migrationEvidence(t, db)) || !reflect.DeepEqual(oldRepositories, migrationRows(t, db, "SELECT "+repositoryColumnsV5+" FROM repositories ORDER BY github_repo_id")) {
 		t.Fatal("activity migration changed existing metadata, tags, schema, history, or orphan mappings")
 	}

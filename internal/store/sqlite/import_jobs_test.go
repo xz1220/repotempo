@@ -58,7 +58,7 @@ func TestImportQueueDeduplicatesAndBoundsWithoutSchemaChange(t *testing.T) {
 	var version, count int
 	_ = store.db.QueryRow("PRAGMA user_version").Scan(&version)
 	_ = store.db.QueryRow("SELECT count(*) FROM job_runs WHERE job_type=?", domain.ImportJobType).Scan(&count)
-	if version != 6 || count != 8 {
+	if version != 7 || count != 8 {
 		t.Fatalf("schema=%d queue=%d", version, count)
 	}
 	if _, err := store.GetRepositoryImport(ctx, "unknown"); !errors.Is(err, corestore.ErrNotFound) {

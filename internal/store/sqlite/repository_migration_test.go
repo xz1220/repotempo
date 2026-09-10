@@ -129,7 +129,8 @@ func migrationEvidence(t *testing.T, db *sql.DB) map[string][][]any {
 		result[table] = migrationRows(t, db, "SELECT rowid, "+columns+" FROM "+table+" ORDER BY rowid")
 	}
 	result["dependent_schema"] = migrationRows(t, db, `SELECT type, name, tbl_name, sql FROM sqlite_schema
-		WHERE name NOT LIKE 'sqlite_%' AND name NOT IN ('repositories','repositories_tag_arrays_insert','repositories_tag_arrays_update') ORDER BY type, name`)
+		WHERE name NOT LIKE 'sqlite_%' AND name NOT IN ('repositories','repositories_tag_arrays_insert','repositories_tag_arrays_update')
+		AND tbl_name NOT IN ('oauth_login_states','web_auth_sessions') ORDER BY type, name`)
 	result["view_results"] = migrationRows(t, db, "SELECT * FROM existing_repository_view")
 	result["foreign_key_check"] = migrationRows(t, db, "SELECT * FROM pragma_foreign_key_check ORDER BY \"table\", rowid, parent, fkid")
 	return result
@@ -163,7 +164,7 @@ func TestRepositorySourceMigrationPreservesAllV3EvidenceAndLegacyOrphans(t *test
 		t.Fatal(err)
 	}
 	defer store.Close()
-	assertMigrationSettings(t, store.db, 6, 0)
+	assertMigrationSettings(t, store.db, 7, 0)
 	after := migrationEvidence(t, store.db)
 	if !reflect.DeepEqual(before, after) {
 		for name, original := range before {
@@ -227,7 +228,7 @@ func TestRepositorySourceMigrationRollsBackAndRestoresConnectionSettings(t *test
 			if err := applyMigrations(context.Background(), db); err != nil {
 				t.Fatalf("retry after rollback failed: %v", err)
 			}
-			assertMigrationSettings(t, db, 6, 0)
+			assertMigrationSettings(t, db, 7, 0)
 		})
 	}
 }
@@ -240,7 +241,7 @@ func TestRepositorySourceMigrationPreservesExistingLegacyAlterSetting(t *testing
 	if err := applyMigrations(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationSettings(t, db, 6, 1)
+	assertMigrationSettings(t, db, 7, 1)
 }
 
 func TestRepositorySourceMigrationIndexRestorationFailureRollsBack(t *testing.T) {

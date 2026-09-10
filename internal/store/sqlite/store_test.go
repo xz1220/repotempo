@@ -117,10 +117,12 @@ ORDER BY name`)
 	wantTables := []string{
 		"daily_snapshots",
 		"job_runs",
+		"oauth_login_states",
 		"repositories",
 		"repository_analyses",
 		"repository_topics",
 		"topics",
+		"web_auth_sessions",
 	}
 	if !reflect.DeepEqual(tables, wantTables) {
 		t.Fatalf("tables = %v, want %v", tables, wantTables)
@@ -143,8 +145,8 @@ ORDER BY name`)
 	if err := store.db.QueryRow("PRAGMA user_version").Scan(&migrationVersion); err != nil {
 		t.Fatalf("read user_version: %v", err)
 	}
-	if migrationVersion != 6 {
-		t.Fatalf("user_version = %d, want 6", migrationVersion)
+	if migrationVersion != 7 {
+		t.Fatalf("user_version = %d, want 7", migrationVersion)
 	}
 
 	if err := store.Close(); err != nil {
@@ -158,7 +160,7 @@ ORDER BY name`)
 	if _, err := reopened.GetRepository(context.Background(), 1); err != nil {
 		t.Fatalf("data did not survive repeated migration: %v", err)
 	}
-	if err := reopened.db.QueryRow("PRAGMA user_version").Scan(&migrationVersion); err != nil || migrationVersion != 6 {
+	if err := reopened.db.QueryRow("PRAGMA user_version").Scan(&migrationVersion); err != nil || migrationVersion != 7 {
 		t.Fatalf("reopened user_version = %d, err = %v", migrationVersion, err)
 	}
 }
