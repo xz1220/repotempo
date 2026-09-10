@@ -1,5 +1,16 @@
 # RepoTempo design system
 
+The September 10 multi-user implementation keeps the approved v1 layout while
+activating its account and API-access surfaces. GitHub OAuth replaces the
+prototype's email/password form. The account menu exposes API access to signed-in
+users and collection history to administrators. The API panel follows the
+frozen dialog, creation, one-time secret, revocation and Agent-instruction
+states. Personal notes and follows belong to the signed-in account; browser
+read marks are additionally namespaced by that account.
+
+The prototype's signature draft is superseded by the implemented protocol in
+`integrations/repotempo-agent/README.md`. The frozen files are not edited.
+
 The product uses a visual trend dashboard and a persistent project library.
 Daily discoveries and My watchlist are library views. Primary navigation has
 only Trends and GitHub projects (GitHub 项目). The library page heading remains

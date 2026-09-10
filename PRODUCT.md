@@ -1,5 +1,23 @@
 # RepoTempo
 
+## Multi-user release, September 10, 2026
+
+GitHub sign-in is open to any GitHub account when `GITHUB_RADAR_PUBLIC_SIGNUP=1`.
+The numeric administrator list controls collection history and new catalogue
+imports. Every signed-in user can maintain personal follows and notes for
+existing projects, and issue read-only Agent credentials. Public catalogue,
+Star history and saved research remain shared; follows and notes are keyed by
+immutable GitHub user ID. The first explicitly configured administrator receives
+the legacy private workspace once, independent of who signs in first.
+
+Agent access is available through a signed JSON API, a signed HTTP MCP endpoint,
+and a downloadable local stdio MCP / Skill / Codex Plugin bundle. Keys have
+read scopes, expiry and revocation. They never authorize administrator actions.
+Browser-local reading marks are namespaced by user when signed in. Web CSV
+export reads the real selected scope, omits private notes, and limits one export
+to 10,000 projects. These account rules supersede the earlier shared-admin
+workspace description below; the approved visual baseline remains unchanged.
+
 RepoTempo helps a researcher discover trending GitHub projects and keep
 following them after the first report. It combines a daily project archive,
 continuous Star observations, and a visual trend dashboard.

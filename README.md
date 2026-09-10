@@ -1,5 +1,11 @@
 # RepoTempo
 
+GitHub accounts, private watchlists and Agent access are now available. See
+[account setup](docs/github-login.md) and the
+[MCP / Skill / Plugin bundle](integrations/repotempo-agent/README.md).
+After signing in, open API access from the sidebar account menu to create
+a read-only credential and download the integration bundle.
+
 RepoTempo is an independent, self-hosted workspace for discovering trending GitHub
 projects and following what happens after discovery. It stores daily Star
 observations and makes the history readable through charts, project pages,
