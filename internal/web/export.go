@@ -44,6 +44,12 @@ func (h *Handler) exportRepositories(w http.ResponseWriter, r *http.Request) {
 	}
 	filter.Limit = 100
 	filter.Offset = 0
+	query := h.queryer.ListRepositoryTrends
+	if exporter, ok := h.queryer.(interface {
+		ExportRepositoryTrends(context.Context, RepositoryQuery) (RepositoryPage, error)
+	}); ok {
+		query = exporter.ExportRepositoryTrends
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	var output bytes.Buffer
@@ -51,7 +57,7 @@ func (h *Handler) exportRepositories(w http.ResponseWriter, r *http.Request) {
 	writer := csv.NewWriter(&output)
 	_ = writer.Write([]string{"repository_id", "repository", "description", "observation_date", "stars", "period_gain", "growth_rate", "entered_at", "github_url"})
 	for {
-		page, err := h.queryer.ListRepositoryTrends(ctx, filter)
+		page, err := query(ctx, filter)
 		if err != nil {
 			h.serverError(w, r, err)
 			return

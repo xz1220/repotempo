@@ -116,6 +116,10 @@ func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 		library.Total != 2 || library.RegistryTotal != 2 || library.FocusTotal != 1 {
 		t.Fatalf("offset library page = (%#v, %v)", library, err)
 	}
+	exported, err := adapter.ExportRepositoryTrends(ctx, web.RepositoryQuery{AsOf: now, WindowDays: 1, Sort: "name", Limit: 1, Offset: 1})
+	if err != nil || len(exported.Items) != 2 || exported.HasMore {
+		t.Fatalf("complete export = (%+v, %v)", exported, err)
+	}
 	if _, err := adapter.GetRepositoryDetail(ctx, 1, now); err != nil {
 		t.Fatal(err)
 	}

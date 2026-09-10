@@ -58,6 +58,10 @@ func TestRepositoryTrendOffsetPaginationAndNameSort(t *testing.T) {
 	if page.Total != 5 || page.RegistryTotal != 5 || page.FocusTotal != 3 || !page.HasMore {
 		t.Fatalf("page metadata = %+v", page)
 	}
+	exported, err := store.ExportRepositoryTrends(ctx, domain.RepositoryTrendQuery{AsOf: date("2026-08-30"), Sort: domain.RepositoryTrendSortName, Limit: 2, Offset: 2})
+	if err != nil || len(exported.Items) != 5 || exported.HasMore || exported.Items[0].Repository.FullName != "team/Alpha" {
+		t.Fatalf("export retained interactive pagination: %+v %v", exported, err)
+	}
 	outOfRange, err := store.ListRepositoryTrends(ctx, domain.RepositoryTrendQuery{
 		AsOf: date("2026-08-30"), WindowDays: 7, Sort: domain.RepositoryTrendSortName, Limit: 2, Offset: int(^uint(0) >> 1),
 	})

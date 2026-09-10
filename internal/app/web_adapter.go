@@ -79,6 +79,14 @@ func (adapter WebAdapter) ListRepositoryMetrics(ctx context.Context, query web.R
 }
 
 func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.RepositoryQuery) (web.RepositoryPage, error) {
+	return adapter.repositoryTrendPage(ctx, query, false)
+}
+
+func (adapter WebAdapter) ExportRepositoryTrends(ctx context.Context, query web.RepositoryQuery) (web.RepositoryPage, error) {
+	return adapter.repositoryTrendPage(ctx, query, true)
+}
+
+func (adapter WebAdapter) repositoryTrendPage(ctx context.Context, query web.RepositoryQuery, exporting bool) (web.RepositoryPage, error) {
 	query.Tag = strings.ToLower(strings.TrimSpace(query.Tag))
 	asOf, err := adapter.resolveLibraryDate(ctx, query.AsOf)
 	if err != nil {
@@ -99,7 +107,18 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 		Offset:           query.Offset,
 		AfterID:          query.AfterID,
 	}
-	value, err := adapter.Store.ListRepositoryTrends(ctx, domainQuery)
+	var value domain.RepositoryTrendPage
+	if exporting {
+		exporter, ok := adapter.Store.(interface {
+			ExportRepositoryTrends(context.Context, domain.RepositoryTrendQuery) (domain.RepositoryTrendPage, error)
+		})
+		if !ok {
+			return web.RepositoryPage{}, web.ErrInvalid
+		}
+		value, err = exporter.ExportRepositoryTrends(ctx, domainQuery)
+	} else {
+		value, err = adapter.Store.ListRepositoryTrends(ctx, domainQuery)
+	}
 	if err != nil {
 		return web.RepositoryPage{}, mapWebError(err)
 	}

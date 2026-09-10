@@ -330,9 +330,23 @@ func trendSortDirection(sortValue domain.RepositoryTrendSort) string {
 }
 
 func (store *Store) ListRepositoryTrends(ctx context.Context, requested domain.RepositoryTrendQuery) (domain.RepositoryTrendPage, error) {
+	return store.listRepositoryTrends(ctx, requested, false)
+}
+
+// ExportRepositoryTrends evaluates the scope once for a bounded server export.
+// Interactive and Agent page sizes remain constrained by ListRepositoryTrends.
+func (store *Store) ExportRepositoryTrends(ctx context.Context, requested domain.RepositoryTrendQuery) (domain.RepositoryTrendPage, error) {
+	requested.AfterID, requested.Offset = nil, 0
+	return store.listRepositoryTrends(ctx, requested, true)
+}
+
+func (store *Store) listRepositoryTrends(ctx context.Context, requested domain.RepositoryTrendQuery, exporting bool) (domain.RepositoryTrendPage, error) {
 	query, err := normalizeTrendQuery(requested)
 	if err != nil {
 		return domain.RepositoryTrendPage{}, err
+	}
+	if exporting {
+		query.Limit = 10000
 	}
 	baseline, err := query.AsOf.AddDays(-query.WindowDays)
 	if err != nil {
@@ -350,7 +364,7 @@ func (store *Store) ListRepositoryTrends(ctx context.Context, requested domain.R
 		Coverage:      coverage,
 		Items:         []domain.RepositoryTrendMetric{},
 	}
-	if counts.Filtered == 0 {
+	if counts.Filtered == 0 || exporting && counts.Filtered > query.Limit {
 		return page, nil
 	}
 	if query.AfterID == nil && query.Offset >= counts.Filtered {
