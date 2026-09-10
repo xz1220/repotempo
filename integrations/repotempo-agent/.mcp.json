@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "repotempo": {
+      "command": "node",
+      "args": ["scripts/mcp.mjs"],
+      "cwd": ".",
+      "env_vars": ["REPOTEMPO_URL", "REPOTEMPO_AK", "REPOTEMPO_SK"]
+    }
+  }
+}

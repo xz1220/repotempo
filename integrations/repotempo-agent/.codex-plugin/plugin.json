@@ -1,0 +1,18 @@
+{
+  "name": "repotempo-agent",
+  "version": "1.0.0",
+  "description": "Read RepoTempo projects, observed GitHub growth and your personal watchlist through a signed API.",
+  "author": { "name": "RepoTempo" },
+  "repository": "https://github.com/xz1220/repotempo",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "RepoTempo",
+    "shortDescription": "Research saved GitHub trends and your watchlist.",
+    "longDescription": "Connect an AI agent to RepoTempo with your own account credentials. Search projects, inspect observed Star history and saved research, and read your personal watchlist.",
+    "developerName": "RepoTempo",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": ["Find the fastest-growing agent projects this week.", "Summarize changes in my RepoTempo watchlist."]
+  }
+}
