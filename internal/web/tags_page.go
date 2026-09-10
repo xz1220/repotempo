@@ -33,6 +33,7 @@ func makeCardTagLinks(tags []string, topics []TopicRef, values url.Values, l loc
 		seen[key] = len(items)
 		query := cloneValues(values)
 		query.Del("cursor")
+		query.Del("page")
 		query.Set("tag", key)
 		items = append(items, viewOption{Label: label, URL: queryPath("/repositories", query), Active: active})
 	}
@@ -43,8 +44,8 @@ func makeCardTagLinks(tags []string, topics []TopicRef, values url.Values, l loc
 		add(topic.Slug, l.TopicName(topic.Slug, topic.Name), topic.Name)
 	}
 	sort.SliceStable(items, func(i, j int) bool { return items[i].Active && !items[j].Active })
-	if len(items) > 8 {
-		return cardTagLinks{Visible: items[:8], More: items[8:]}
+	if len(items) > 4 {
+		return cardTagLinks{Visible: items[:4], More: items[4:]}
 	}
 	return cardTagLinks{Visible: items}
 }
@@ -75,6 +76,7 @@ func suggestedTagLinks(tags []TagRef, values url.Values, l localizer) []viewOpti
 		}
 		query := cloneValues(values)
 		query.Del("cursor")
+		query.Del("page")
 		query.Set("tag", name)
 		links = append(links, viewOption{Label: l.Text("tags.quick." + name), URL: queryPath("/repositories", query), Active: strings.EqualFold(strings.TrimSpace(values.Get("tag")), name)})
 	}

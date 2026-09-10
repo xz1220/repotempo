@@ -1,125 +1,146 @@
 {{define "content"}}
+<section class="library-summary" aria-label="{{t "repositories.metrics_region"}}">
+  <dl>
+    <div><dt>{{t "ui.monitored_projects"}}</dt><dd>{{formatInt .Repositories.RegistryTotal}}</dd></div>
+    <div><dt>{{t "ui.my_watchlist"}}</dt><dd>{{if and .Meta.Auth.Enabled (not .Meta.Auth.SignedIn)}}{{t "page.not_available"}}{{else}}{{formatInt .Repositories.FocusTotal}}{{end}}</dd></div>
+    <div><dt>{{t "ui.latest_observation"}}</dt><dd><time datetime="{{formatDate .Repositories.Coverage.AsOfDate}}">{{.Meta.AsOfLabel}}</time></dd></div>
+  </dl>
+</section>
+
 <div class="library-toolbar">
-  <nav class="library-views" aria-label="{{t "daily.views"}}">
-    {{range .LibraryViews}}<a href="{{.URL}}" class="{{if .Active}}is-active{{end}}" {{if .Active}}aria-current="page"{{end}}>{{.Label}}</a>{{end}}
+  <nav class="library-views" aria-label="{{t "daily.views"}}" role="tablist">
+    {{$page := .}}{{range $index, $view := .LibraryViews}}<a href="{{$view.URL}}" role="tab" aria-selected="{{$view.Active}}" tabindex="{{if $view.Active}}0{{else}}-1{{end}}" class="{{if $view.Active}}is-active{{end}}" {{if $view.Active}}aria-current="page"{{end}}>{{$view.Label}} <span>{{if eq $index 0}}{{formatInt $page.Repositories.Coverage.NewCount}}{{else if eq $index 1}}{{formatInt $page.Repositories.RegistryTotal}}{{else if and $page.Meta.Auth.Enabled (not $page.Meta.Auth.SignedIn)}}{{t "page.not_available"}}{{else}}{{formatInt $page.Repositories.FocusTotal}}{{end}}</span></a>{{end}}
   </nav>
-  <a class="button button-secondary library-add" href="/watch/new">{{template "icon-plus"}}{{t "library.import"}}</a>
+  <div class="library-tools">
+    <button class="button button-secondary filter-toggle" type="button" aria-expanded="false" aria-controls="library-filter-panel" data-filter-toggle>{{template "icon-filter"}}{{t "ui.filters"}}<span class="filter-count" data-filter-count hidden></span></button>
+    <div class="view-toggle" role="group" aria-label="{{t "ui.view_mode"}}">
+      <button type="button" aria-pressed="true" title="{{t "ui.reading_view"}}" data-view-mode="reading">{{template "icon-reading"}}<span class="sr-only">{{t "ui.reading_view"}}</span></button>
+      <button type="button" aria-pressed="false" title="{{t "ui.compact_view"}}" data-view-mode="compact">{{template "icon-compact"}}<span class="sr-only">{{t "ui.compact_view"}}</span></button>
+    </div>
+  </div>
 </div>
-<section class="surface library-surface" aria-label="{{t "repositories.metrics_region"}}">
+
+<section class="library-filter-panel" id="library-filter-panel" data-filter-panel data-collapsed="true" aria-label="{{t "repositories.filters"}}">
   <form class="library-filters" method="get" action="/repositories" role="search">
     <input type="hidden" name="lang" value="{{.Meta.Locale}}">
-    <input type="hidden" name="view" value="{{if .Repositories.Filter.OnlyFocus}}focus{{else}}all{{end}}">
+    <input type="hidden" name="view" value="{{if .Repositories.Filter.OnlyFocus}}focus{{else if .Repositories.Filter.OnlyNew}}daily{{else}}all{{end}}">
+    <input type="hidden" name="new" value="{{if .Repositories.Filter.OnlyNew}}1{{else}}0{{end}}">
+    {{if .Repositories.Filter.OnlyFocus}}<input type="hidden" name="focus" value="1">{{end}}
     {{if .Repositories.Filter.TopicSlug}}<input type="hidden" name="topic" value="{{.Repositories.Filter.TopicSlug}}">{{end}}
     {{if .Repositories.Filter.Source}}<input type="hidden" name="source" value="{{.Repositories.Filter.Source}}">{{end}}
-    {{if .Repositories.Filter.OnlyFocus}}<input type="hidden" name="focus" value="1">{{end}}
-    <div class="field field-search"><label for="repository-search">{{t "repositories.search"}}</label><input id="repository-search" name="q" type="search" value="{{.Repositories.Filter.Search}}" placeholder="{{t "ui.search_hint"}}" autocomplete="off"></div>
-    <div class="field field-tags"><label for="tag-filter">{{t "tags.filter"}}</label><input type="search" name="tag" id="tag-filter" list="repository-tags" value="{{.Repositories.Filter.Tag}}" placeholder="{{t "tags.placeholder"}}" maxlength="80" autocomplete="off" aria-describedby="tag-filter-help"><datalist id="repository-tags">{{range .Repositories.Tags}}<option value="{{.Name}}">{{tagOptionLabel .Name}}</option>{{end}}</datalist></div>
-    <div class="field"><label for="sort-filter">{{t "repositories.sort_label"}}</label><select id="sort-filter" name="sort">
-      <option value="velocity" {{if eq .Repositories.Filter.Sort "velocity"}}selected{{end}}>{{t "ui.fastest"}}</option>
-      <option value="delta" {{if eq .Repositories.Filter.Sort "delta"}}selected{{end}}>{{t "ui.period_gain"}}</option>
-      <option value="growth_rate" {{if eq .Repositories.Filter.Sort "growth_rate"}}selected{{end}}>{{t "repositories.sort_growth_rate"}}</option>
-      <option value="low_growth" {{if eq .Repositories.Filter.Sort "low_growth"}}selected{{end}}>{{t "ui.slowest"}}</option>
-      <option value="slowdown" {{if eq .Repositories.Filter.Sort "slowdown"}}selected{{end}}>{{t "ui.slowdown"}}</option>
+    {{if .Repositories.Filter.MonitoringStatus}}<input type="hidden" name="status" value="{{.Repositories.Filter.MonitoringStatus}}">{{end}}
+    <input type="hidden" name="size" value="{{.Repositories.Filter.Limit}}">
+    <div class="field field-search">
+      <label for="repository-search">{{t "ui.search_repository_or_tag"}}</label>
+      <div class="search-control">{{template "icon-search"}}<input id="repository-search" name="{{if .Repositories.Filter.Tag}}tag{{else}}q{{end}}" type="search" list="repository-tags" value="{{if .Repositories.Filter.Tag}}{{.Repositories.Filter.Tag}}{{else}}{{.Repositories.Filter.Search}}{{end}}" placeholder="{{t "ui.search_hint"}}" autocomplete="off" maxlength="120" data-library-search></div>
+      <datalist id="repository-tags">{{range .Repositories.Tags}}<option value="{{.Name}}">{{tagOptionLabel .Name}}</option>{{end}}</datalist>
+    </div>
+    <div class="field"><label for="as-of-date">{{t "repositories.as_of_date"}}</label><input id="as-of-date" name="date" type="date" value="{{formatDate .Repositories.Filter.AsOf}}" data-submit-on-change></div>
+    <div class="field"><label for="period-filter">{{t "tags.period"}}</label><select id="period-filter" name="period" aria-describedby="growth-period-help" data-submit-on-change><option value="1d" {{if eq .Repositories.Filter.WindowDays 1}}selected{{end}}>{{t "tags.1d"}}</option><option value="7d" {{if eq .Repositories.Filter.WindowDays 7}}selected{{end}}>{{t "tags.7d"}}</option><option value="30d" {{if eq .Repositories.Filter.WindowDays 30}}selected{{end}}>{{t "tags.30d"}}</option></select></div>
+    <div class="field"><label for="sort-filter">{{t "repositories.sort_label"}}</label><select id="sort-filter" name="sort" data-submit-on-change>
+      {{if eq .Repositories.Filter.Sort "velocity"}}<option value="velocity" selected>{{t "ui.fastest"}}</option>{{end}}
+      {{if eq .Repositories.Filter.Sort "delta"}}<option value="delta" selected>{{t "ui.period_gain"}}</option>{{end}}
+      {{if eq .Repositories.Filter.Sort "growth_rate"}}<option value="growth_rate" selected>{{t "repositories.sort_growth_rate"}}</option>{{end}}
+      {{if eq .Repositories.Filter.Sort "low_growth"}}<option value="low_growth" selected>{{t "ui.slowest"}}</option>{{end}}
+      {{if eq .Repositories.Filter.Sort "slowdown"}}<option value="slowdown" selected>{{t "ui.slowdown"}}</option>{{end}}
+      {{if eq .Repositories.Filter.Sort "rank_change"}}<option value="rank_change" selected>{{t "repositories.sort_rank_change"}}</option>{{end}}
       <option value="stars" {{if eq .Repositories.Filter.Sort "stars"}}selected{{end}}>{{t "repositories.sort_stars"}}</option>
-      <option value="rank_change" {{if eq .Repositories.Filter.Sort "rank_change"}}selected{{end}}>{{t "repositories.sort_rank_change"}}</option>
+      <option value="name" {{if eq .Repositories.Filter.Sort "name"}}selected{{end}}>{{t "ui.repository_name_az"}}</option>
       <option value="newest" {{if eq .Repositories.Filter.Sort "newest"}}selected{{end}}>{{t "repositories.sort_newest"}}</option>
     </select></div>
-    <div class="field"><label for="period-filter">{{t "tags.period"}}</label><select id="period-filter" name="period" aria-describedby="growth-period-help"><option value="1d" {{if eq .Repositories.Filter.WindowDays 1}}selected{{end}}>{{t "tags.1d"}}</option><option value="7d" {{if eq .Repositories.Filter.WindowDays 7}}selected{{end}}>{{t "tags.7d"}}</option><option value="30d" {{if eq .Repositories.Filter.WindowDays 30}}selected{{end}}>{{t "tags.30d"}}</option></select></div>
-    <div class="field"><label for="as-of-date">{{t "repositories.as_of_date"}}</label><input id="as-of-date" name="date" type="date" value="{{formatDate .Repositories.Filter.AsOf}}"></div>
-    <div class="filter-actions"><label class="new-project-filter"><input type="checkbox" name="new" value="1" {{if .Repositories.Filter.OnlyNew}}checked{{end}}>{{t "ui.only_new_on_date"}}</label><input type="hidden" name="new" value="0"><button class="button button-primary" type="submit">{{t "ui.filter"}}</button></div>
+    <div class="library-filter-actions"><button class="button button-primary" type="submit">{{t "ui.filter"}}</button></div>
   </form>
-  {{if .SuggestedTags}}<nav class="library-quick-tags" aria-label="{{t "tags.quick"}}"><span>{{t "tags.quick"}}</span>{{range .SuggestedTags}}<a class="tag {{if .Active}}tag-selected{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}</nav>{{end}}
-  <div class="library-filter-help"><p id="tag-filter-help">{{t "tags.help"}}</p><p id="growth-period-help">{{t "tags.period_help"}}</p></div>
-  {{if .ActiveFilters}}<div class="library-active-filters">{{range .ActiveFilters}}<a class="tag" href="{{.URL}}">{{.Label}} <span aria-hidden="true">×</span><span class="sr-only">{{t "tags.clear"}}</span></a>{{end}}</div>{{end}}
-  {{if .Repositories.Filter.OnlyNew}}<p class="new-project-note">{{t "ui.new_filter_help"}}</p>{{end}}
-  <div class="library-count"><p>{{tf "repositories.count" (formatInt .Repositories.Total)}}</p><span>{{tf "tags.comparison" (formatDate .Repositories.Coverage.BaselineDate) (formatDate .Repositories.Coverage.AsOfDate)}}</span></div>
+  <p class="library-filter-help" id="growth-period-help">{{t "tags.help"}} {{t "tags.period_help"}}</p>
 </section>
+
+{{if .ActiveFilters}}<nav class="library-active-filters" aria-label="{{t "ui.active_filters"}}">{{range .ActiveFilters}}<a class="tag" href="{{.URL}}">{{.Label}} <span aria-hidden="true">×</span><span class="sr-only">{{t "tags.clear"}}</span></a>{{end}}</nav>{{end}}
+{{if .Repositories.Filter.OnlyNew}}<p class="new-project-note">{{t "ui.new_filter_help"}}</p>{{end}}
+
+<div class="library-result-meta">
+  <span>{{tf "repositories.count" (formatInt .Repositories.Total)}}</span>
+  <a class="clear-filters" href="{{.AllProjectsURL}}"{{if not .ActiveFilters}}{{if and (not .Repositories.Filter.Search) (eq .Repositories.Filter.Sort "stars") (eq .Repositories.Filter.WindowDays 1)}} hidden{{end}}{{end}}>{{t "repositories.clear_filters"}} <span aria-hidden="true">×</span></a>
+  <span>{{tf "tags.comparison" (formatDate .Repositories.Coverage.BaselineDate) (formatDate .Repositories.Coverage.AsOfDate)}}</span>
+</div>
+
 {{if .Repositories.Items}}
 <p id="reading-local-note" class="reading-local-note" data-reading-help hidden>{{t "feed.reading_local_note"}}</p>
-<ol class="repository-feed" aria-label="{{t "feed.list_label"}}" data-list-url="{{.ListURL}}">
-  {{range .Repositories.Items}}
-  <li>
-    <article class="project-card" aria-labelledby="project-{{.ID}}" data-reading-repository="{{.ID}}">
-      <header class="project-card-heading">
-        <div class="project-card-identity">
-          <h2 id="project-{{.ID}}"><a href="{{index $.RepositoryDetailURLs .ID}}" data-repository-detail translate="no">{{.FullName}}</a></h2>
-          <div class="project-card-badges">{{if .IsNew}}<span class="new-badge">{{t "repositories.new_badge"}}</span>{{end}}{{if .IsFocus}}<span class="new-badge">{{t "ui.my_watchlist"}}</span>{{end}}{{if ne .MonitoringStatus "active"}}{{if .MonitoringStatus}}<span class="tag tag-muted">{{statusLabel .MonitoringStatus}}</span>{{end}}{{end}}{{if ne .GitHubStatus "active"}}{{if .GitHubStatus}}<span class="tag tag-muted">{{statusLabel .GitHubStatus}}</span>{{end}}{{end}}</div>
-        </div>
-        {{if .PrimaryLanguage}}<span class="project-language" translate="no">{{.PrimaryLanguage}}</span>{{end}}
-      </header>
-
-      <div class="project-card-body">
-        <div class="project-card-reading">
-          <p class="project-original-description">{{if .Description}}{{.Description}}{{else}}{{t "ui.no_description"}}{{end}}</p>
-          <section class="project-brief" aria-label="{{t "feed.brief"}}">
-            {{if and .Analysis (briefText .Analysis.SummaryZH)}}
-              <div class="project-brief-heading"><h3>{{if aiAnalysis .Analysis.Source}}{{t "feed.ai_brief"}}{{else}}{{t "feed.saved_brief"}}{{end}}</h3><span>{{if eq .Analysis.Source "legacy_research"}}{{t "feed.legacy_date"}}{{else}}{{formatDate .Analysis.AnalyzedAt}}{{end}}</span></div>
-              <dl class="project-brief-outline">
-                <div><dt>{{t "activity.purpose"}}</dt><dd><p class="project-brief-text" lang="zh-CN">{{briefText .Analysis.SummaryZH}}</p></dd></div>
-                {{with briefItems .Analysis.KeyPoints}}<div class="brief-secondary"><dt>{{t "activity.capabilities"}}</dt><dd lang="zh-CN">{{join . " · "}}</dd></div>{{end}}
-                {{with briefItems .Analysis.UseCases}}<div class="brief-secondary"><dt>{{t "activity.use_cases"}}</dt><dd lang="zh-CN">{{join . " · "}}</dd></div>{{end}}
-              </dl>
-              <p class="project-brief-source">{{if eq .Analysis.Source "legacy_research"}}{{tf "feed.reading_source" (t "feed.legacy_source")}}{{else}}{{tf "feed.reading_source" (analysisSource .Analysis.Source)}}{{end}}{{if .Analysis.Model}} · <span translate="no">{{.Analysis.Model}}</span>{{end}}</p>
-            {{else if .Readme}}
-              <div class="project-brief-heading"><h3>{{importText "readme"}}</h3><span>{{formatDate .Readme.FetchedAt}}</span></div>
-              <p class="project-brief-text" translate="no">{{.Readme.Intro}}</p>
-              <p class="readme-source">{{importText "readme_help"}} {{with githubURL .Readme.HTMLURL}}<a class="text-link" href="{{.}}" target="_blank" rel="noopener noreferrer">{{importText "readme_open"}} ↗</a>{{end}}</p>
-            {{else}}
-              <div class="project-brief-heading"><h3>{{t "feed.ai_brief"}}</h3><span>{{t "feed.not_read"}}</span></div>
-              <p class="project-brief-pending">{{t "feed.pending_help"}}</p>
+<section class="project-table" aria-label="{{t "feed.list_label"}}">
+  <div class="project-columns" aria-hidden="true"><span>{{t "repositories.repository"}}</span><span>{{t "metric.current_stars"}}</span><span>{{t "ui.period_gain"}}</span><span>{{t "ui.actions"}}</span></div>
+  <ol class="repository-feed" id="project-list" tabindex="-1" data-list-url="{{.ListURL}}" data-library-list>
+    {{range .Repositories.Items}}
+    <li>
+      <article class="project-card" aria-labelledby="project-{{.ID}}" data-reading-repository="{{.ID}}">
+        <div class="project-main">
+          <div class="project-identity">
+            <div class="project-title-row">
+              <h2 id="project-{{.ID}}"><a href="{{index $.RepositoryDetailURLs .ID}}" data-repository-detail translate="no"><span class="project-owner">{{repositoryOwner .FullName}} / </span>{{repositoryName .FullName}}</a></h2>
+              {{with projectGitHubURL .FullName .HTMLURL}}<a class="project-external" href="{{.}}" target="_blank" rel="noopener noreferrer" aria-label="{{t "repository.open_github"}}">{{template "icon-external"}}</a>{{end}}
+            </div>
+            <p class="project-meta">{{if .PrimaryLanguage}}<span translate="no">{{.PrimaryLanguage}}</span>{{end}}<span>{{t "feed.added"}} <time datetime="{{formatDate .FirstSeenAt}}">{{formatDate .FirstSeenAt}}</time></span>{{if .IsNew}}<span class="project-state">{{t "repositories.new_badge"}}</span>{{end}}{{if ne .MonitoringStatus "active"}}{{if .MonitoringStatus}}<span>{{statusLabel .MonitoringStatus}}</span>{{end}}{{end}}{{if ne .GitHubStatus "active"}}{{if .GitHubStatus}}<span>{{statusLabel .GitHubStatus}}</span>{{end}}{{end}}</p>
+            <p class="project-original-description">{{if .Description}}{{.Description}}{{else}}{{t "ui.no_description"}}{{end}}</p>
+            <section class="project-brief" aria-label="{{t "feed.brief"}}">
+              {{if and .Analysis (briefText .Analysis.SummaryZH)}}
+                <div class="project-brief-heading"><h3>{{if aiAnalysis .Analysis.Source}}{{t "feed.ai_brief"}}{{else}}{{t "feed.saved_brief"}}{{end}}</h3><span>{{if eq .Analysis.Source "legacy_research"}}{{t "feed.legacy_date"}}{{else}}{{formatDate .Analysis.AnalyzedAt}}{{end}} · {{if eq .Analysis.Source "legacy_research"}}{{tf "feed.reading_source" (t "feed.legacy_source")}}{{else}}{{tf "feed.reading_source" (analysisSource .Analysis.Source)}}{{end}}{{if .Analysis.Model}} · <span translate="no">{{.Analysis.Model}}</span>{{end}}</span></div>
+                <p class="project-brief-text" lang="zh-CN">{{briefText .Analysis.SummaryZH}}</p>
+              {{else if .Readme}}
+                <div class="project-brief-heading"><h3>{{importText "readme"}}</h3><span>{{formatDate .Readme.FetchedAt}}</span></div>
+                <p class="project-brief-text" translate="no">{{.Readme.Intro}}</p>
+                <p class="readme-source">{{importText "readme_help"}} {{with githubURL .Readme.HTMLURL}}<a class="text-link" href="{{.}}" target="_blank" rel="noopener noreferrer">{{importText "readme_open"}} ↗</a>{{end}}</p>
+              {{else}}
+                <div class="project-brief-heading"><h3>{{t "feed.ai_brief"}}</h3><span>{{t "feed.not_read"}}</span></div>
+                <p class="project-brief-pending">{{t "feed.pending_help"}}</p>
+              {{end}}
+            </section>
+            {{with activityView . $.Repositories.Filter.AsOf}}
+              <div class="project-development">{{if .HasCache}}<p class="activity-heading" title="{{.PeriodLabel}}">{{.Heading}} · {{t "activity.card_window"}}</p><p class="activity-summary"><strong>{{.Summary}}</strong>{{if .Incomplete}} <span class="activity-partial" title="{{t "activity.incomplete"}}">{{t "activity.partial"}}</span>{{end}} <span class="activity-source">{{t "activity.source"}}{{if .Branch}} · <span translate="no">{{.Branch}}</span>{{end}}</span></p>{{else}}{{if .CommitsURL}}<a class="text-link activity-source" href="{{.CommitsURL}}" target="_blank" rel="noopener noreferrer">{{t "activity.view_commits"}} ↗</a>{{end}}{{end}}</div>
             {{end}}
-          </section>
-          {{with activityView . $.Repositories.Filter.AsOf}}
-          <div class="project-development">
-            {{if .HasCache}}
-            <p class="activity-heading" title="{{.PeriodLabel}}">{{.Heading}} · {{t "activity.card_window"}}</p>
-            <p class="activity-summary"><strong>{{.Summary}}</strong>{{if .Incomplete}} <span class="activity-partial" title="{{t "activity.incomplete"}}">{{t "activity.partial"}}</span>{{end}} <span class="activity-source">{{t "activity.source"}}{{if .Branch}} · <span translate="no">{{.Branch}}</span>{{end}}</span></p>
-            {{if .IsFork}}<p class="activity-note">{{t "activity.fork"}}</p>{{end}}
-            {{else}}{{if .CommitsURL}}<a class="text-link activity-source" href="{{.CommitsURL}}" target="_blank" rel="noopener noreferrer">{{t "activity.view_commits"}} ↗</a>{{end}}{{end}}
+            <div class="project-card-topics">{{with index $.RepositoryTags .ID}}{{range .Visible}}<a class="tag {{if .Active}}tag-selected{{end}}" href="{{.URL}}">{{.Label}}</a>{{else}}<span class="tag tag-muted">{{t "tags.none"}}</span>{{end}}{{if .More}}<details class="project-more-tags"><summary>{{tf "tags.more" (len .More)}}</summary><div>{{range .More}}<a class="tag {{if .Active}}tag-selected{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}</div></details>{{end}}{{end}}</div>
+            <p class="project-extra-meta">{{if .GitHubCreatedAt}}<span>{{t "feed.created"}} {{formatDatePtr .GitHubCreatedAt}}</span>{{end}}{{with repositoryAge .GitHubCreatedAt $.Repositories.Filter.AsOf}}<span title="{{.Help}}">{{t "activity.age"}} {{.Label}}</span>{{end}}<span>{{t "feed.origin"}} {{sourceLabel .FirstSeenSource}}</span>{{if .IsStale}}{{if .LastObservedAt}}<span>{{tf "ui.last_observed" (formatDatePtr .LastObservedAt)}}</span>{{end}}{{end}}</p>
           </div>
-          {{end}}
         </div>
 
-        <dl class="project-card-metrics" aria-label="{{t "repositories.metrics_region"}}">
-          <div><dt>{{t "metric.current_stars"}}</dt><dd>{{if .CurrentStars}}{{formatIntPtr .CurrentStars}}{{else}}{{formatIntPtr .LastObservedStars}}{{end}}{{if not .CurrentStars}}<small class="metric-pending">{{t "ui.pending"}}</small>{{end}}</dd></div>
-          <div><dt>{{t "ui.period_gain"}}</dt><dd class="{{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}{{if eq $.Repositories.Filter.Sort "slowdown"}}<small>{{tf "feed.previous_gain" (formatSigned .PreviousDelta)}}</small>{{end}}</dd></div>
-          <div><dt>{{t "repositories.growth_rate"}}</dt><dd class="{{floatDeltaClass .GrowthRate}}">{{formatPercent .GrowthRate}}</dd></div>
-          <div><dt>{{t "feed.sample_rank"}}</dt><dd>{{if .CurrentRank}}<span class="project-card-rank"><span>{{formatIntPtr .BaselineRank}}</span><span aria-hidden="true">→</span><strong>{{formatIntPtr .CurrentRank}}</strong></span>{{else}}{{t "page.not_available"}}{{end}}{{if .RankChange}}<small class="{{deltaClass .RankChange}}">{{tf "repositories.rank_change" (formatSigned .RankChange)}}</small>{{end}}</dd></div>
-          {{if not .StarDelta}}<div class="project-comparison-note"><dt class="sr-only">{{t "feed.comparison_status"}}</dt><dd>{{t "feed.no_comparison"}}</dd></div>{{end}}
-        </dl>
-      </div>
-
-      <div class="project-card-topics">{{with index $.RepositoryTags .ID}}{{range .Visible}}<a class="tag {{if .Active}}tag-selected{{end}}" href="{{.URL}}">{{.Label}}</a>{{else}}<span class="tag tag-muted">{{t "tags.none"}}</span>{{end}}{{if .More}}<details class="project-more-tags"><summary>{{tf "tags.more" (len .More)}}</summary><div>{{range .More}}<a class="tag {{if .Active}}tag-selected{{end}}" href="{{.URL}}">{{.Label}}</a>{{end}}</div></details>{{end}}{{end}}</div>
-      <footer class="project-card-footer">
-        <div class="project-card-meta">
-          <span>{{t "feed.added"}} <time datetime="{{formatDate .FirstSeenAt}}">{{formatDate .FirstSeenAt}}</time></span>
-          {{if .GitHubCreatedAt}}<span>{{t "feed.created"}} {{formatDatePtr .GitHubCreatedAt}}</span>{{end}}
-          {{with repositoryAge .GitHubCreatedAt $.Repositories.Filter.AsOf}}<span class="repository-age" title="{{.Help}}">{{t "activity.age"}} {{.Label}}</span>{{end}}
-          <span>{{t "feed.origin"}} {{sourceLabel .FirstSeenSource}}</span>
-          {{if .IsStale}}{{if .LastObservedAt}}<span class="metric-pending">{{tf "ui.last_observed" (formatDatePtr .LastObservedAt)}}</span>{{end}}{{end}}
+        <div class="project-stat project-stars"><span class="mobile-metric-label">{{t "metric.current_stars"}}</span><strong>{{if .CurrentStars}}{{formatIntPtr .CurrentStars}}{{else}}{{formatIntPtr .LastObservedStars}}{{end}}</strong>{{if not .CurrentStars}}<small>{{t "ui.pending"}}</small>{{end}}</div>
+        <div class="project-stat project-growth"><span class="mobile-metric-label">{{t "ui.period_gain"}}</span><strong class="{{deltaClass .StarDelta}}">{{formatSigned .StarDelta}}</strong>{{if eq $.Repositories.Filter.Sort "slowdown"}}<small>{{tf "feed.previous_gain" (formatSigned .PreviousDelta)}}</small>{{end}}<small>{{t "repositories.growth_rate"}} {{formatPercent .GrowthRate}}</small>{{if .CurrentRank}}<small>{{t "feed.sample_rank"}} {{formatIntPtr .BaselineRank}} → {{formatIntPtr .CurrentRank}}{{if .RankChange}} · <span class="{{deltaClass .RankChange}}">{{tf "repositories.rank_change" (formatSigned .RankChange)}}</span>{{end}}</small>{{else if not .StarDelta}}<small>{{t "feed.no_comparison"}}</small>{{end}}</div>
+        <div class="project-actions">
+          {{if $.CanManageFocus}}
+          <form action="/watch/focus" method="post" data-focus-form><input type="hidden" name="csrf_token" value="{{$.FocusCSRFToken}}"><input type="hidden" name="repository_id" value="{{.ID}}"><input type="hidden" name="focus" value="{{if .IsFocus}}0{{else}}1{{end}}"><input type="hidden" name="return_to" value="{{$.ListURL}}#project-{{.ID}}"><button class="button button-secondary project-focus-toggle" type="submit" aria-pressed="{{.IsFocus}}">{{if .IsFocus}}{{t "ui.watched"}}{{else}}{{t "ui.watch"}}{{end}}</button></form>
+          {{else if .IsFocus}}<span class="project-focus-state">{{t "ui.watched"}}</span>{{end}}
+          <button type="button" class="project-read-toggle" data-reading-toggle data-reading-mark-read="{{t "feed.mark_read"}}" data-reading-mark-unread="{{t "feed.mark_unread"}}" data-reading-load-error="{{t "feed.reading_load_error"}}" data-reading-save-error="{{t "feed.reading_save_error"}}" aria-pressed="false" aria-describedby="reading-local-note reading-note-{{.ID}}" hidden>{{t "feed.mark_read"}}</button>
         </div>
-        <div class="project-card-actions">
-          <button type="button" class="button button-secondary project-read-toggle" data-reading-toggle data-reading-mark-read="{{t "feed.mark_read"}}" data-reading-mark-unread="{{t "feed.mark_unread"}}" data-reading-load-error="{{t "feed.reading_load_error"}}" data-reading-save-error="{{t "feed.reading_save_error"}}" aria-pressed="false" aria-describedby="reading-local-note reading-note-{{.ID}}" hidden>{{t "feed.mark_read"}}</button>
-          <a class="button button-secondary" href="{{index $.RepositoryDetailURLs .ID}}" data-repository-detail>{{t "feed.details"}}</a>
-          {{with projectGitHubURL .FullName .HTMLURL}}<a class="button button-secondary project-github-link" href="{{.}}" target="_blank" rel="noopener noreferrer">{{t "repository.open_github"}} <span aria-hidden="true">↗</span></a>{{end}}
-        </div>
-      </footer>
-      <p id="reading-note-{{.ID}}" class="project-reading-note" data-reading-note role="status" aria-live="polite" hidden></p>
-    </article>
-  </li>
-  {{end}}
-</ol>
+        <p id="reading-note-{{.ID}}" class="project-reading-note" data-reading-note role="status" aria-live="polite" hidden></p>
+      </article>
+    </li>
+    {{end}}
+  </ol>
+</section>
 {{else}}
-<div class="empty-state">
+<div class="empty-state library-empty">
   {{if and .Repositories.Filter.OnlyFocus (not .Repositories.Filter.Search) (not .Repositories.Filter.Tag) (not .Repositories.Filter.TopicSlug) (not .Repositories.Filter.Source)}}
   <h3>{{importText "empty_focus"}}</h3><p>{{importText "empty_focus_help"}}</p>
   {{else if .Repositories.Filter.OnlyNew}}
-  <h3>{{tf "daily.empty_title" (formatDate .Repositories.Filter.AsOf)}}</h3><p>{{t "daily.empty_help"}}</p><a class="button button-secondary" href="{{.AllProjectsURL}}">{{if .Repositories.Filter.Tag}}{{t "tags.browse_all_matching"}}{{else}}{{t "daily.browse_all"}}{{end}}</a>
+  <h3>{{tf "daily.empty_title" (formatDate .Repositories.Filter.AsOf)}}</h3><p>{{t "daily.empty_help"}}</p>
   {{else}}
-  <h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p><a class="button button-secondary" href="{{.AllProjectsURL}}">{{t "repositories.clear_filters"}}</a>
+  <h3>{{t "repositories.no_match"}}</h3><p>{{t "repositories.no_match_help"}}</p>
   {{end}}
+  <a class="button button-secondary" href="{{.AllProjectsURL}}">{{t "ui.browse_all_projects"}} →</a>
 </div>
 {{end}}
-<nav class="cursor-pagination" aria-label="{{t "pagination.label"}}"><p>{{tf "repositories.page_summary" (formatInt (len .Repositories.Items)) (formatInt .Repositories.Total)}}</p><div>{{if .Repositories.Filter.AfterID}}<a class="button button-secondary" href="{{.Repositories.FirstPageURL}}">{{t "ui.first_page"}}</a>{{end}}{{if .Repositories.NextCursor}}<a class="button button-secondary" href="{{.Repositories.NextCursor}}" rel="next">{{t "pagination.next"}} {{template "icon-arrow"}}</a>{{end}}</div></nav>
+
+{{template "repository-pagination" .Pagination}}
 <details class="method-note"><summary>{{t "ui.methodology"}}</summary><p>{{t "ui.methodology_help"}} <a class="text-link" href="/topics">{{t "ui.category_rules"}}</a></p><p>{{t "tags.method_note"}}</p><p>{{t "activity.age_help"}}</p><p>{{t "activity.incomplete"}}</p></details>
+{{end}}
+
+{{define "icon-filter"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{{end}}
+{{define "icon-reading"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 9h8m-8 5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{{end}}
+{{define "icon-compact"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.1M4 12h.1M4 18h.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{{end}}
+{{define "repository-pagination"}}
+<div class="library-pagination">
+  <span class="pagination-summary" role="status">{{if .LegacyCursor}}{{tf "repositories.page_summary" (formatInt .End) (formatInt .Total)}}{{else if gt .Total 0}}{{formatInt .Start}}–{{formatInt .End}} / {{formatInt .Total}} {{t "ui.projects_unit"}}{{else}}0 {{t "ui.projects_unit"}}{{end}}</span>
+  {{if .Sizes}}<label class="pagination-size">{{t "ui.per_page"}}<select data-page-size aria-label="{{t "ui.per_page"}}">{{range .Sizes}}<option value="{{.URL}}" {{if .Selected}}selected{{end}}>{{.Value}}</option>{{end}}</select></label>{{end}}
+  <nav class="pagination-pages" aria-label="{{t "pagination.label"}}">
+    {{if .PreviousURL}}<a href="{{.PreviousURL}}#project-list" rel="prev">{{t "pagination.previous"}}</a>{{else}}<span aria-disabled="true">{{t "pagination.previous"}}</span>{{end}}
+    {{range .Pages}}{{if .Ellipsis}}<span class="pagination-gap" aria-hidden="true">…</span>{{else}}<a href="{{.URL}}#project-list"{{if .Current}} aria-current="page"{{end}} aria-label="{{tf "ui.page_number" (formatInt .Number)}}">{{formatInt .Number}}</a>{{end}}{{end}}
+    {{if .NextURL}}<a href="{{.NextURL}}#project-list" rel="next">{{t "pagination.next"}}</a>{{else}}<span aria-disabled="true">{{t "pagination.next"}}</span>{{end}}
+  </nav>
+</div>
 {{end}}
