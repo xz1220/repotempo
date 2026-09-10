@@ -143,9 +143,14 @@ The observation date limits repository entry and Star history. Old `topic` and
   existing nonempty summaries in the current analysis table.
 - The current interpretation body is retained; prior bodies and interpretation
   CSV/JSON exports are not included in this iteration.
-- Browsing is public. Adding projects is an operator capability: direct local
-  access works on a loopback-bound server; public writes require HTTPS and a
-  separate configured operator token. There are no personal accounts.
+- Browsing remains public. Optional GitHub login restricts imports, collection
+  history, and watchlist queries to an explicit numeric GitHub-ID allowlist.
+  Enabled login replaces both the old operator token and loopback write bypass.
+  This is a shared administrator workspace, not open registration or isolated
+  user accounts. Anonymous pages hide operator notes and follow flags; reading
+  marks remain browser-local and are shown only after login when enabled.
+  Leaving all OAuth settings unset preserves legacy access; partial settings
+  reject startup. See [GitHub login](docs/github-login.md) for configuration.
 - Manual category decisions are preserved. Automated rules can leave a project
   unclassified when the evidence is insufficient.
 - Schema version 5 adds only `github_topics_json` and `research_tags_json` to

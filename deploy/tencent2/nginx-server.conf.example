@@ -5,6 +5,21 @@ server {
     listen [::]:80;
     server_name github-radar.example.com;
 
+    # OAuth callbacks contain code/state in the query string. Do not record
+    # raw authentication URIs; verify failures through the application's
+    # redacted responses instead of Nginx request/error logs.
+    location ^~ /auth/ {
+        access_log off;
+        error_log /dev/null crit;
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;

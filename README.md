@@ -81,6 +81,11 @@ deployment places business data and backups on a dedicated data disk.
 See [architecture](docs/architecture.md), [data model](docs/data-model.md), and
 [operations](docs/operations.md) for implementation and deployment details.
 
+Optional [GitHub administrator login](docs/github-login.md) protects imports,
+watchlist queries, and collection history while leaving project browsing public.
+It uses a GitHub-ID allowlist, not open registration or separate user workspaces.
+OAuth credentials must be configured before this login can be enabled.
+
 ## Requirements and build
 
 - Go 1.27 or newer.
