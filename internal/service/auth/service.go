@@ -47,12 +47,13 @@ type Options struct {
 }
 
 type Service struct {
-	store    Store
-	now      func() time.Time
-	origin   string
-	allowed  map[int64]struct{}
-	oauth    oauth2.Config
-	provider Provider
+	store        Store
+	now          func() time.Time
+	origin       string
+	allowed      map[int64]struct{}
+	publicSignup bool
+	oauth        oauth2.Config
+	provider     Provider
 }
 
 type LoginStart struct {
@@ -74,7 +75,7 @@ func New(config Configuration, store Store, options Options) (*Service, error) {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
-	service := &Service{store: store, now: options.Now, origin: origin, allowed: make(map[int64]struct{}, len(config.AllowedUserIDs))}
+	service := &Service{store: store, now: options.Now, origin: origin, allowed: make(map[int64]struct{}, len(config.AllowedUserIDs)), publicSignup: config.AllowPublicSignup}
 	for _, id := range config.AllowedUserIDs {
 		service.allowed[id] = struct{}{}
 	}
@@ -91,8 +92,9 @@ func New(config Configuration, store Store, options Options) (*Service, error) {
 	return service, nil
 }
 
-func (service *Service) PublicURL() string   { return service.origin }
-func (service *Service) SecureCookies() bool { return strings.HasPrefix(service.origin, "https://") }
+func (service *Service) PublicURL() string         { return service.origin }
+func (service *Service) SecureCookies() bool       { return strings.HasPrefix(service.origin, "https://") }
+func (service *Service) PublicSignupEnabled() bool { return service.publicSignup }
 
 func (service *Service) Begin(ctx context.Context, returnTo string) (LoginStart, error) {
 	returnPath, err := SafeReturnPath(returnTo)
@@ -144,7 +146,8 @@ func (service *Service) Complete(ctx context.Context, state, code, binding strin
 	if err != nil || requestContext.Err() != nil || identity.ID <= 0 || !validLogin.MatchString(identity.Login) {
 		return LoginResult{}, ErrProvider
 	}
-	if _, ok := service.allowed[identity.ID]; !ok {
+	_, admin := service.allowed[identity.ID]
+	if !admin && !service.publicSignup {
 		return LoginResult{}, ErrForbidden
 	}
 	token, err := randomSecret()
@@ -156,7 +159,7 @@ func (service *Service) Complete(ctx context.Context, state, code, binding strin
 		return LoginResult{}, ErrStorage
 	}
 	now = service.now().UTC()
-	session := domain.AuthSession{GitHubUserID: identity.ID, Login: identity.Login, CSRFToken: csrf, CreatedAt: now, ExpiresAt: now.Add(SessionLifetime)}
+	session := domain.AuthSession{GitHubUserID: identity.ID, Login: identity.Login, Admin: admin, CSRFToken: csrf, CreatedAt: now, ExpiresAt: now.Add(SessionLifetime)}
 	if err := service.store.PutAuthSession(ctx, secretHash(token), session); err != nil {
 		return LoginResult{}, ErrStorage
 	}
@@ -178,7 +181,8 @@ func (service *Service) Session(ctx context.Context, token string) (domain.AuthS
 	if session.CreatedAt.After(now) || !session.ExpiresAt.After(now) || session.ExpiresAt.Sub(session.CreatedAt) > SessionLifetime || !validSecret(session.CSRFToken) || !validLogin.MatchString(session.Login) {
 		return domain.AuthSession{}, ErrUnauthenticated
 	}
-	if _, ok := service.allowed[session.GitHubUserID]; !ok {
+	_, session.Admin = service.allowed[session.GitHubUserID]
+	if !session.Admin && !service.publicSignup {
 		_ = service.store.DeleteAuthSession(ctx, secretHash(token))
 		return domain.AuthSession{}, ErrForbidden
 	}

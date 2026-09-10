@@ -23,6 +23,7 @@ type OAuthLoginState struct {
 type AuthSession struct {
 	GitHubUserID int64     `json:"github_user_id"`
 	Login        string    `json:"login"`
+	Admin        bool      `json:"admin"`
 	CSRFToken    string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 	ExpiresAt    time.Time `json:"expires_at"`

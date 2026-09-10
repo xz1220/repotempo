@@ -15,6 +15,7 @@ var (
 	ErrFocusInvalid     = errors.New("focus: invalid request")
 	ErrFocusNotFound    = errors.New("focus: repository not found")
 	ErrFocusUnavailable = errors.New("focus: update unavailable")
+	ErrFocusLimit       = errors.New("focus: personal repository limit reached")
 )
 
 // FocusUpdater persists an explicit watchlist choice. It is optional so a
@@ -87,6 +88,8 @@ func (h *Handler) watchFocus(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	if err := h.focusUpdater.SetRepositoryFocus(ctx, repositoryID, focus); err != nil {
 		switch {
+		case errors.Is(err, ErrFocusLimit):
+			h.focusResponse(w, r, http.StatusUnprocessableEntity, "personal_limit")
 		case errors.Is(err, ErrFocusInvalid):
 			h.focusResponse(w, r, http.StatusBadRequest, "invalid")
 		case errors.Is(err, ErrFocusNotFound):
@@ -153,11 +156,12 @@ func focusText(locale, key string) string {
 }
 
 var focusMessages = map[string][2]string{
-	"invalid":     {"关注请求无效，请刷新项目库后重试。", "The watchlist request is invalid. Refresh the project library and try again."},
-	"unsupported": {"只接受项目库提交的表单。", "Only project-library form submissions are accepted."},
-	"too_large":   {"关注请求内容过长，请刷新项目库后重试。", "The watchlist request is too large. Refresh the project library and try again."},
-	"forbidden":   {"未能验证本次关注请求，请重新登录或刷新页面。", "We could not verify this watchlist request. Sign in again or refresh the page."},
-	"csrf":        {"表单已过期或已提交，请刷新项目库后重试。", "This form has expired or was already submitted. Refresh the project library and try again."},
-	"not_found":   {"这个项目已不存在，请刷新项目库。", "This repository no longer exists. Refresh the project library."},
-	"unavailable": {"暂时无法更新关注状态，请稍后重试。", "The watchlist could not be updated right now. Please try again later."},
+	"personal_limit": {"每个账号最多保存 5,000 个项目。请先移除部分关注与备注。", "Each account can save up to 5,000 projects. Remove some follows and notes first."},
+	"invalid":        {"关注请求无效，请刷新项目库后重试。", "The watchlist request is invalid. Refresh the project library and try again."},
+	"unsupported":    {"只接受项目库提交的表单。", "Only project-library form submissions are accepted."},
+	"too_large":      {"关注请求内容过长，请刷新项目库后重试。", "The watchlist request is too large. Refresh the project library and try again."},
+	"forbidden":      {"未能验证本次关注请求，请重新登录或刷新页面。", "We could not verify this watchlist request. Sign in again or refresh the page."},
+	"csrf":           {"表单已过期或已提交，请刷新项目库后重试。", "This form has expired or was already submitted. Refresh the project library and try again."},
+	"not_found":      {"这个项目已不存在，请刷新项目库。", "This repository no longer exists. Refresh the project library."},
+	"unavailable":    {"暂时无法更新关注状态，请稍后重试。", "The watchlist could not be updated right now. Please try again later."},
 }

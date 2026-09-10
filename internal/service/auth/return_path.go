@@ -33,7 +33,7 @@ func safeReturnPath(value string, nested bool) (string, error) {
 	}
 	allowed := false
 	switch parsed.Path {
-	case "/", "/repositories", "/watch", "/watch/new", "/runs", "/topics", "/discoveries":
+	case "/", "/repositories", "/watch", "/watch/new", "/runs", "/topics", "/discoveries", "/account/api":
 		allowed = true
 	default:
 		allowed = topicDetail.MatchString(parsed.Path) || importDetail.MatchString(parsed.Path)
@@ -50,6 +50,9 @@ func safeReturnPath(value string, nested bool) (string, error) {
 		return "", ErrInvalidReturn
 	}
 	for key, values := range query {
+		if parsed.Path == "/account/api" && key != "lang" {
+			return "", ErrInvalidReturn
+		}
 		if len(values) != 1 || strings.Contains(values[0], "\\") || strings.ContainsFunc(values[0], unicode.IsControl) {
 			return "", ErrInvalidReturn
 		}

@@ -6,12 +6,14 @@ import (
 )
 
 var (
-	ErrWatchInvalid     = errors.New("watch: invalid repository input")
-	ErrWatchPrivate     = errors.New("watch: repository is private or unavailable")
-	ErrWatchRateLimited = errors.New("watch: GitHub rate limited")
-	ErrWatchUnavailable = errors.New("watch: source unavailable")
-	ErrWatchTopic       = errors.New("watch: topic is unavailable")
-	ErrWatchIdentity    = errors.New("watch: repository identity conflict")
+	ErrWatchInvalid       = errors.New("watch: invalid repository input")
+	ErrWatchPrivate       = errors.New("watch: repository is private or unavailable")
+	ErrWatchRateLimited   = errors.New("watch: GitHub rate limited")
+	ErrWatchUnavailable   = errors.New("watch: source unavailable")
+	ErrWatchTopic         = errors.New("watch: topic is unavailable")
+	ErrWatchIdentity      = errors.New("watch: repository identity conflict")
+	ErrWatchAdminRequired = errors.New("watch: new project ingestion requires administrator")
+	ErrWatchLimit         = errors.New("watch: personal repository limit reached")
 )
 
 type WatchRequest struct {
@@ -32,6 +34,10 @@ type Watcher interface {
 	WatchTopics(context.Context) ([]TopicRef, error)
 }
 
+type WatchStateReader interface {
+	WatchState(context.Context, string) (WatchRequest, error)
+}
+
 type watchPageView struct {
 	pageView
 	Watch watchFormData
@@ -42,6 +48,7 @@ type watchFormData struct {
 	Topics        []TopicRef
 	CSRFToken     string
 	CanWrite      bool
+	PersonalOnly  bool
 	RequiresToken bool
 	Error         string
 }
@@ -58,6 +65,8 @@ func watchText(locale, key string) string {
 }
 
 var watchMessages = map[string][2]string{
+	"personal_limit":  {"每个账号最多保存 5,000 个项目。请先移除部分关注与备注后再添加。", "Each account can save up to 5,000 projects. Remove some follows and notes before adding another."},
+	"admin_required":  {"这个项目尚未收录。新增采集项目由管理员处理；你可以关注和备注项目库中的现有项目。", "This repository is not in the catalogue yet. Ask an administrator to import it; you can follow and annotate existing projects."},
 	"title":           {"导入 GitHub 项目", "Import a GitHub project"},
 	"description":     {"粘贴项目链接，后台任务会入库、读取 README 并解析项目资料。", "Paste a project URL. A background task will import it, read its README and process its metadata."},
 	"repository":      {"GitHub 项目", "GitHub repository"},

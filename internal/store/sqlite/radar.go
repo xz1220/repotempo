@@ -98,7 +98,7 @@ func (store *Store) RadarOverview(ctx context.Context, requested domain.Reposito
 		FallingBehind: []domain.RepositoryTrendMetric{}, NewRepositories: []domain.RepositoryTrendMetric{},
 		History: []domain.RadarHistoryPoint{},
 	}
-	scope, scopeArgs := trendScope(query)
+	scope, scopeArgs := trendScopeForContext(ctx, query)
 	arguments := append([]any{}, scopeArgs...)
 	arguments = append(arguments, query.AsOf, baseline, query.WindowDays, query.AsOf)
 	coverage := domain.RadarCoverage{ComparisonCoverage: domain.ComparisonCoverage{BaselineDate: baseline, AsOfDate: query.AsOf}}

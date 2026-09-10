@@ -255,6 +255,7 @@ func (store *Store) trendCoverage(
 	scopeArguments []any,
 ) (domain.ComparisonCoverage, trendPageCounts, error) {
 	filteredWhere, filteredArguments := trendFilteredWhere(query, "scored")
+	focusCondition, focusArguments := personalFocusPredicate(ctx, "registry")
 	statement := trendBaseCTE(scope) + `
 SELECT
     (SELECT COUNT(*) FROM scope),
@@ -266,11 +267,12 @@ SELECT
      WHERE date(registry.first_seen_at, '+8 hours') <= (SELECT as_of_date FROM comparison_dates)),
     (SELECT COUNT(*) FROM repositories registry
      WHERE date(registry.first_seen_at, '+8 hours') <= (SELECT as_of_date FROM comparison_dates)
-       AND registry.is_focus = 1)
+       AND ` + focusCondition + `)
 FROM observed scored`
 	arguments := append([]any{}, scopeArguments...)
 	arguments = append(arguments, query.AsOf, baseline, query.WindowDays, query.AsOf)
 	arguments = append(arguments, filteredArguments...)
+	arguments = append(arguments, focusArguments...)
 	coverage := domain.ComparisonCoverage{BaselineDate: baseline, AsOfDate: query.AsOf}
 	var counts trendPageCounts
 	if err := store.db.QueryRowContext(ctx, statement, arguments...).Scan(
@@ -336,7 +338,7 @@ func (store *Store) ListRepositoryTrends(ctx context.Context, requested domain.R
 	if err != nil {
 		return domain.RepositoryTrendPage{}, err
 	}
-	scope, scopeArguments := trendScope(query)
+	scope, scopeArguments := trendScopeForContext(ctx, query)
 	coverage, counts, err := store.trendCoverage(ctx, query, baseline, scope, scopeArguments)
 	if err != nil {
 		return domain.RepositoryTrendPage{}, err

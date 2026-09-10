@@ -14,7 +14,34 @@ import (
 
 var _ web.Watcher = (*Runtime)(nil)
 
+func (runtime *Runtime) WatchState(ctx context.Context, repositoryName string) (web.WatchRequest, error) {
+	principal, scoped := domain.PrincipalFromContext(ctx)
+	if !scoped || principal.UserID <= 0 {
+		return web.WatchRequest{}, web.ErrWatchAdminRequired
+	}
+	name, err := watch.NormalizeRepository(repositoryName)
+	if err != nil {
+		return web.WatchRequest{}, web.ErrWatchInvalid
+	}
+	repository, err := runtime.store.GetRepositoryByFullName(ctx, name)
+	if errors.Is(err, corestore.ErrNotFound) {
+		return web.WatchRequest{}, web.ErrWatchAdminRequired
+	}
+	if err != nil {
+		return web.WatchRequest{}, web.ErrWatchUnavailable
+	}
+	states, err := runtime.store.UserRepositoryStates(ctx, principal.UserID, []int64{repository.GitHubRepoID})
+	if err != nil {
+		return web.WatchRequest{}, web.ErrWatchUnavailable
+	}
+	state := states[repository.GitHubRepoID]
+	return web.WatchRequest{Repository: repository.FullName, Focus: state.IsFocus, Note: state.Note}, nil
+}
+
 func (runtime *Runtime) WatchTopics(ctx context.Context) ([]web.TopicRef, error) {
+	if principal, scoped := domain.PrincipalFromContext(ctx); scoped && !principal.Admin {
+		return []web.TopicRef{}, nil
+	}
 	topics, err := runtime.store.ListTopics(ctx, domain.TopicActive)
 	if err != nil {
 		return nil, err
@@ -23,8 +50,28 @@ func (runtime *Runtime) WatchTopics(ctx context.Context) ([]web.TopicRef, error)
 }
 
 func (runtime *Runtime) AddWatch(ctx context.Context, request web.WatchRequest) (web.WatchResult, error) {
-	if _, err := watch.NormalizeRepository(request.Repository); err != nil {
+	name, normalizeErr := watch.NormalizeRepository(request.Repository)
+	if normalizeErr != nil {
 		return web.WatchResult{}, web.ErrWatchInvalid
+	}
+	if principal, scoped := domain.PrincipalFromContext(ctx); scoped {
+		if principal.UserID <= 0 {
+			return web.WatchResult{}, web.ErrWatchAdminRequired
+		}
+		if !principal.Admin && request.TopicSlug != "" {
+			return web.WatchResult{}, web.ErrWatchAdminRequired
+		}
+		repository, err := runtime.store.GetRepositoryByFullName(ctx, name)
+		if errors.Is(err, corestore.ErrNotFound) {
+			return web.WatchResult{}, web.ErrWatchAdminRequired
+		}
+		if err != nil {
+			return web.WatchResult{}, web.ErrWatchUnavailable
+		}
+		if err := runtime.store.SetUserRepositoryState(ctx, principal.UserID, repository.GitHubRepoID, request.Focus, request.Note); err != nil {
+			return web.WatchResult{}, mapWatchError(err)
+		}
+		return web.WatchResult{ID: repository.GitHubRepoID, FullName: repository.FullName}, nil
 	}
 	_, client, _, err := runtime.dependencies()
 	if err != nil {
@@ -50,6 +97,8 @@ func (runtime *Runtime) AddWatch(ctx context.Context, request web.WatchRequest) 
 func mapWatchError(err error) error {
 	var apiError *github.APIError
 	switch {
+	case errors.Is(err, domain.ErrUserRepositoryLimit):
+		return web.ErrWatchLimit
 	case errors.Is(err, watch.ErrInvalidRepository):
 		return web.ErrWatchInvalid
 	case errors.Is(err, watch.ErrPrivateRepository):

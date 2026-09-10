@@ -18,10 +18,11 @@ const (
 )
 
 type RepositoryImportRequest struct {
-	Repository string `json:"repository"`
-	Note       string `json:"note,omitempty"`
-	TopicSlug  string `json:"topic_slug,omitempty"`
-	Focus      bool   `json:"focus"`
+	OwnerUserID int64  `json:"owner_user_id,omitempty"`
+	Repository  string `json:"repository"`
+	Note        string `json:"note,omitempty"`
+	TopicSlug   string `json:"topic_slug,omitempty"`
+	Focus       bool   `json:"focus"`
 }
 
 // RepositoryReadme is an original-source extract, never a generated analysis.

@@ -26,6 +26,10 @@ func (adapter WebAdapter) DashboardSummary(ctx context.Context, asOf time.Time) 
 		return web.DashboardSummary{}, mapWebError(err)
 	}
 	coverage := mapCoverage(value.Coverage)
+	fastest := mapRepositoryMetrics(value.Fastest)
+	if err := adapter.projectUserMetrics(ctx, fastest); err != nil {
+		return web.DashboardSummary{}, err
+	}
 	return web.DashboardSummary{
 		RepositoryTotal:       value.RepositoryCount,
 		ActiveRepositoryTotal: value.ActiveCount,
@@ -35,7 +39,7 @@ func (adapter WebAdapter) DashboardSummary(ctx context.Context, asOf time.Time) 
 		NewStars7D:            value.Growth.SevenDay,
 		NewStars30D:           value.Growth.ThirtyDay,
 		GrowthHistory:         mapGrowthHistory(value.GrowthHistory),
-		FastestRepositories:   mapRepositoryMetrics(value.Fastest),
+		FastestRepositories:   fastest,
 		RecentRuns:            mapJobRuns(value.RecentRuns),
 	}, nil
 }
@@ -60,8 +64,12 @@ func (adapter WebAdapter) ListRepositoryMetrics(ctx context.Context, query web.R
 	if err != nil {
 		return web.RepositoryPage{}, mapWebError(err)
 	}
+	items := mapRepositoryMetrics(values)
+	if err := adapter.projectUserMetrics(ctx, items); err != nil {
+		return web.RepositoryPage{}, err
+	}
 	return web.RepositoryPage{
-		Items:              mapRepositoryMetrics(values),
+		Items:              items,
 		Total:              total,
 		Filter:             query,
 		Topics:             mapTopicRefs(topics),
@@ -124,6 +132,9 @@ func (adapter WebAdapter) ListRepositoryTrends(ctx context.Context, query web.Re
 	}
 	if err := adapter.addImportReadmes(ctx, result.Items); err != nil {
 		return web.RepositoryPage{}, mapWebError(err)
+	}
+	if err := adapter.projectUserMetrics(ctx, result.Items); err != nil {
+		return web.RepositoryPage{}, err
 	}
 	return result, nil
 }
@@ -195,13 +206,16 @@ func (adapter WebAdapter) GetRepositoryDetail(ctx context.Context, id int64, asO
 	}
 	validFrom := datePointer(value.ValidFrom)
 	metrics := []web.RepositoryMetric{mapRepositoryMetric(value.Metric)}
+	if err := adapter.projectUserMetrics(ctx, metrics); err != nil {
+		return web.RepositoryDetail{}, err
+	}
 	if err := adapter.addImportReadmes(ctx, metrics); err != nil {
 		return web.RepositoryDetail{}, mapWebError(err)
 	}
 	return web.RepositoryDetail{
 		AsOf:          asOf,
 		Repository:    metrics[0],
-		Analysis:      mapRepositoryAnalysis(value.Analysis),
+		Analysis:      metrics[0].Analysis,
 		History:       history,
 		FailedDates:   failed,
 		PreviousNames: append([]string(nil), value.Metric.Repository.PreviousNames...),
@@ -255,10 +269,14 @@ func (adapter WebAdapter) GetTopicDetail(ctx context.Context, slug string, asOf 
 		percent := *value.Metric.Concentration * 100
 		concentrationPercent = &percent
 	}
+	items := mapRepositoryMetrics(value.Repositories)
+	if err := adapter.projectUserMetrics(ctx, items); err != nil {
+		return web.TopicDetail{}, err
+	}
 	return web.TopicDetail{
 		AsOf:                   asOf,
 		Topic:                  mapTopicMetric(value.Metric, parentNames),
-		Repositories:           mapRepositoryMetrics(value.Repositories),
+		Repositories:           items,
 		History:                history,
 		ConcentrationPercent:   concentrationPercent,
 		ExcludeLeader:          value.ExcludedLeader,
@@ -282,6 +300,9 @@ func (adapter WebAdapter) DiscoverySummary(ctx context.Context) (web.DiscoverySu
 }
 
 func (adapter WebAdapter) ListJobRuns(ctx context.Context, limit, offset int) (web.RunsPage, error) {
+	if principal, scoped := domain.PrincipalFromContext(ctx); scoped && !principal.Admin {
+		return web.RunsPage{}, web.ErrNotFound
+	}
 	all, err := adapter.Store.ListJobRuns(ctx, 0, 0)
 	if err != nil {
 		return web.RunsPage{}, mapWebError(err)

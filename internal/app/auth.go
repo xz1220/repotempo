@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strconv"
@@ -11,7 +12,7 @@ import (
 )
 
 func oauthConfigured(config auth.Configuration) bool {
-	return config.ClientID != "" || config.ClientSecret != "" || config.PublicURL != "" || len(config.AllowedUserIDs) > 0
+	return config.ClientID != "" || config.ClientSecret != "" || config.PublicURL != "" || len(config.AllowedUserIDs) > 0 || config.AllowPublicSignup
 }
 
 func loadGitHubOAuth() (auth.Configuration, error) {
@@ -19,6 +20,13 @@ func loadGitHubOAuth() (auth.Configuration, error) {
 		ClientID:     strings.TrimSpace(os.Getenv("GITHUB_RADAR_GITHUB_OAUTH_CLIENT_ID")),
 		ClientSecret: strings.TrimSpace(os.Getenv("GITHUB_RADAR_GITHUB_OAUTH_CLIENT_SECRET")),
 		PublicURL:    strings.TrimSpace(os.Getenv("GITHUB_RADAR_PUBLIC_URL")),
+	}
+	switch strings.TrimSpace(os.Getenv("GITHUB_RADAR_PUBLIC_SIGNUP")) {
+	case "", "0":
+	case "1":
+		config.AllowPublicSignup = true
+	default:
+		return auth.Configuration{}, errors.New("GITHUB_RADAR_PUBLIC_SIGNUP must be 0 or 1")
 	}
 	rawIDs := strings.TrimSpace(os.Getenv("GITHUB_RADAR_GITHUB_ADMIN_IDS"))
 	invalid := errors.New("GitHub login requires GITHUB_RADAR_GITHUB_OAUTH_CLIENT_ID, GITHUB_RADAR_GITHUB_OAUTH_CLIENT_SECRET, GITHUB_RADAR_PUBLIC_URL and positive numeric GITHUB_RADAR_GITHUB_ADMIN_IDS; configure all four or leave all unset")
@@ -47,6 +55,11 @@ func (runtime *Runtime) webAuthenticator() (web.Authenticator, error) {
 	service, err := auth.New(runtime.settings.GitHubOAuth, runtime.store, auth.Options{Now: runtime.now, HTTPClient: runtime.httpClient})
 	if err != nil {
 		return nil, errors.New("GitHub login configuration is invalid; management access was not started")
+	}
+	// The configured owner, never the first public sign-in, receives the legacy
+	// private workspace once. Existing data remains intact for CLI operations.
+	if err := runtime.store.AdoptLegacyWorkspace(context.Background(), runtime.settings.GitHubOAuth.AllowedUserIDs[0]); err != nil {
+		return nil, errors.New("GitHub account workspace setup failed")
 	}
 	return service, nil
 }

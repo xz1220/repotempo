@@ -53,6 +53,11 @@ func (adapter WebAdapter) RadarOverview(ctx context.Context, query web.Repositor
 			ObservedCount: point.ObservedCount, CohortCount: point.CohortCount,
 		})
 	}
+	for _, rows := range [][]web.RadarRepository{result.Fastest, result.Slowest, result.FallingBehind, result.NewRepositories} {
+		if err := adapter.projectUserRadar(ctx, rows); err != nil {
+			return web.RadarOverview{}, err
+		}
+	}
 	return result, nil
 }
 

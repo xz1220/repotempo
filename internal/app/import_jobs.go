@@ -15,6 +15,12 @@ import (
 )
 
 func (runtime *Runtime) EnqueueImport(ctx context.Context, request domain.RepositoryImportRequest) (domain.RepositoryImportJob, error) {
+	if principal, scoped := domain.PrincipalFromContext(ctx); scoped {
+		if !principal.Admin || principal.UserID <= 0 {
+			return domain.RepositoryImportJob{}, domain.ErrImportInvalid
+		}
+		request.OwnerUserID = principal.UserID
+	}
 	name, err := watch.NormalizeRepository(request.Repository)
 	if err != nil || !utf8.ValidString(request.Note) || utf8.RuneCountInString(request.Note) > 2000 || len(request.TopicSlug) > 100 {
 		return domain.RepositoryImportJob{}, domain.ErrImportInvalid
@@ -43,6 +49,9 @@ func (runtime *Runtime) EnqueueImport(ctx context.Context, request domain.Reposi
 }
 
 func (runtime *Runtime) GetImport(ctx context.Context, id string) (domain.RepositoryImportJob, error) {
+	if principal, scoped := domain.PrincipalFromContext(ctx); scoped && !principal.Admin {
+		return domain.RepositoryImportJob{}, corestore.ErrNotFound
+	}
 	return runtime.store.GetRepositoryImport(ctx, id)
 }
 
@@ -141,13 +150,30 @@ func (runtime *Runtime) processImport(parent context.Context, job domain.Reposit
 	var repository domain.Repository
 	if job.RepositoryID == 0 {
 		service := watch.Service{Store: runtime.store, Resolver: client, Now: runtime.now}
-		result, err := service.ImportTracked(ctx, job.Request.Repository, job.Request.Note, job.Request.TopicSlug, job.Request.Focus)
+		note, focus := job.Request.Note, job.Request.Focus
+		if job.Request.OwnerUserID > 0 {
+			note, focus = "", false
+		}
+		result, err := service.ImportTracked(ctx, job.Request.Repository, note, job.Request.TopicSlug, focus)
 		if err != nil {
 			code, retry, delay := importError(err, "metadata")
 			runtime.failImport(parent, job, token, code, retry, delay)
 			return
 		}
 		repository = result.Repository
+		if job.Request.OwnerUserID > 0 {
+			var personalErr error
+			if job.Request.Focus {
+				personalErr = runtime.store.SetUserRepositoryFocus(ctx, job.Request.OwnerUserID, repository.GitHubRepoID, true)
+			}
+			if personalErr == nil && job.Request.Note != "" {
+				personalErr = runtime.store.SetUserRepositoryNote(ctx, job.Request.OwnerUserID, repository.GitHubRepoID, job.Request.Note)
+			}
+			if personalErr != nil {
+				runtime.failImport(parent, job, token, "storage_unavailable", true, 0)
+				return
+			}
+		}
 		job.RepositoryID, job.FullName, job.Created = repository.GitHubRepoID, repository.FullName, result.Created
 		job.Stage = "reading"
 		if !checkpoint() {

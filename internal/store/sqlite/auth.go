@@ -166,6 +166,10 @@ func (store *Store) PutAuthSession(ctx context.Context, tokenHash string, sessio
 	}
 	tokenHash, session.CSRFToken = strings.ToLower(tokenHash), strings.ToLower(session.CSRFToken)
 	return store.authTransaction(ctx, func(connection *sql.Conn) error {
+		if _, err := connection.ExecContext(ctx, `INSERT INTO users(github_user_id,login,created_at,updated_at) VALUES (?,?,?,?)
+ON CONFLICT(github_user_id) DO UPDATE SET login=excluded.login, updated_at=excluded.updated_at`, session.GitHubUserID, session.Login, authTime(now), authTime(now)); err != nil {
+			return err
+		}
 		if _, err := connection.ExecContext(ctx, "DELETE FROM web_auth_sessions WHERE expires_at<=?", authTime(now)); err != nil {
 			return err
 		}

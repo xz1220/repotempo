@@ -1,4 +1,5 @@
-// Package auth implements restricted GitHub sign-in, separate from collection.
+// Package auth implements GitHub sign-in and explicit administrator access,
+// separate from collection credentials.
 package auth
 
 import (
@@ -22,10 +23,11 @@ var (
 )
 
 type Configuration struct {
-	ClientID       string
-	ClientSecret   string `json:"-"`
-	PublicURL      string
-	AllowedUserIDs []int64
+	ClientID          string
+	ClientSecret      string `json:"-"`
+	PublicURL         string
+	AllowedUserIDs    []int64
+	AllowPublicSignup bool
 }
 
 func (config Configuration) Validate() error {

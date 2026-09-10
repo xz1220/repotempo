@@ -29,7 +29,7 @@ var importName = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9
 
 func validImportRequest(request domain.RepositoryImportRequest) bool {
 	parts := strings.Split(request.Repository, "/")
-	return importName.MatchString(request.Repository) && !strings.Contains(parts[0], "--") && parts[1] != "." && parts[1] != ".." &&
+	return request.OwnerUserID >= 0 && importName.MatchString(request.Repository) && !strings.Contains(parts[0], "--") && parts[1] != "." && parts[1] != ".." &&
 		utf8.ValidString(request.Note) && utf8.RuneCountInString(request.Note) <= 2000 && len(request.TopicSlug) <= 100
 }
 

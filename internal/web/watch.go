@@ -25,6 +25,20 @@ func (h *Handler) watchForm(w http.ResponseWriter, r *http.Request) {
 	if len(input.Repository) > 300 {
 		input.Repository = ""
 	}
+	if reader, ok := h.watcher.(WatchStateReader); ok && h.isSignedIn(r) && input.Repository != "" {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		state, err := reader.WatchState(ctx, input.Repository)
+		cancel()
+		if err == nil {
+			if r.URL.Query().Has("focus") {
+				state.Focus = input.Focus
+			}
+			input = state
+		} else if !errors.Is(err, ErrWatchAdminRequired) && !errors.Is(err, ErrWatchInvalid) {
+			h.renderWatch(w, r, http.StatusServiceUnavailable, input, "unavailable")
+			return
+		}
+	}
 	h.renderWatch(w, r, http.StatusOK, input, "")
 }
 
@@ -76,7 +90,7 @@ func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
 	defer func() { h.watchMu.Lock(); h.watchBusy = false; h.watchMu.Unlock() }()
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	if importer, ok := h.watcher.(Importer); ok {
+	if importer, ok := h.watcher.(Importer); ok && (h.auth == nil || h.isAdmin(r)) {
 		job, err := importer.SubmitImport(ctx, input)
 		if err != nil {
 			status, key := watchError(err)
@@ -110,7 +124,7 @@ func (h *Handler) watchAccess(r *http.Request) (allowed, requiresToken bool) {
 		return false, false
 	}
 	if h.auth != nil {
-		return h.isAdmin(r), false
+		return h.isSignedIn(r), false
 	}
 	if h.allowLocalWrites && watchLoopbackRequest(r) {
 		return true, false
@@ -198,7 +212,7 @@ func (h *Handler) issueWatchNonce(w http.ResponseWriter, r *http.Request) (strin
 		}
 		delete(h.watchNonces, oldestKey)
 	}
-	h.watchNonces[token] = now.Add(30 * time.Minute)
+	h.watchNonces[h.watchNonceKey(r, token)] = now.Add(30 * time.Minute)
 	h.watchMu.Unlock()
 	http.SetCookie(w, &http.Cookie{Name: watchCookie, Value: token, Path: "/watch", MaxAge: 1800, HttpOnly: true, Secure: watchHTTPS(r), SameSite: http.SameSiteStrictMode})
 	return token, nil
@@ -217,16 +231,31 @@ func (h *Handler) consumeWatchNonce(r *http.Request, token string) bool {
 	}
 	h.watchMu.Lock()
 	defer h.watchMu.Unlock()
-	expiration, exists := h.watchNonces[token]
+	key := h.watchNonceKey(r, token)
+	expiration, exists := h.watchNonces[key]
 	if !exists || !expiration.After(h.now()) {
 		return false
 	}
-	delete(h.watchNonces, token)
+	delete(h.watchNonces, key)
 	return true
+}
+
+func (h *Handler) watchNonceKey(r *http.Request, token string) string {
+	if h.auth != nil {
+		if session := currentAuth(r).Session; session != nil {
+			return token + ":" + strconv.FormatInt(session.GitHubUserID, 10) + ":" + session.CSRFToken
+		}
+		return token + ":anonymous"
+	}
+	return token
 }
 
 func watchError(err error) (int, string) {
 	switch {
+	case errors.Is(err, ErrWatchLimit):
+		return http.StatusUnprocessableEntity, "personal_limit"
+	case errors.Is(err, ErrWatchAdminRequired):
+		return http.StatusForbidden, "admin_required"
 	case errors.Is(err, ErrImportQueueBusy):
 		return http.StatusTooManyRequests, "busy"
 	case errors.Is(err, ErrWatchInvalid):
@@ -251,6 +280,7 @@ func (h *Handler) renderWatch(w http.ResponseWriter, r *http.Request, status int
 	view := watchPageView{pageView: pageView{Meta: h.metaText(h.localizerFor(r), watchText(locale, "title"), watchText(locale, "description"), "watch", nil)}, Watch: watchFormData{Input: input, CanWrite: allowed, RequiresToken: requiresToken}}
 	view.Meta.Locale, view.Meta.EnglishURL, view.Meta.ChineseURL = locale, languageURL(r, localeEnglish), languageURL(r, localeChinese)
 	view.Meta.Auth = h.authInfo(r)
+	view.Watch.PersonalOnly = h.auth != nil && !h.isAdmin(r)
 	if errorKey != "" {
 		view.Watch.Error = watchText(locale, errorKey)
 	}
