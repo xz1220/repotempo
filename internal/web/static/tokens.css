@@ -2,33 +2,33 @@
 :root {
   color-scheme: light;
 
-  --color-paper: oklch(0.981 0.003 255);
+  --color-paper: oklch(0.978 0.004 265);
   --color-surface: oklch(1 0 0);
-  --color-surface-strong: oklch(0.962 0.004 255);
-  --color-ink: oklch(0.23 0.035 255);
-  --color-ink-strong: oklch(0.14 0.025 255);
-  --color-muted: oklch(0.44 0.03 255);
-  --color-faint: oklch(0.49 0.025 255);
-  --color-rule: oklch(0.875 0.012 255);
-  --color-rule-strong: oklch(0.77 0.025 255);
-  --color-accent: oklch(0.45 0.086 177);
-  --color-accent-hover: oklch(0.37 0.074 177);
-  --color-accent-soft: oklch(0.955 0.022 177);
-  --color-accent-ink: oklch(0.34 0.074 177);
-  --color-accent-rule: oklch(0.85 0.05 177);
-  --color-on-accent: oklch(0.995 0 0);
+  --color-surface-strong: color-mix(in oklch, var(--color-paper) 72%, var(--color-surface));
+  --color-ink: oklch(0.215 0.012 265);
+  --color-ink-strong: color-mix(in oklch, var(--color-ink) 92%, black);
+  --color-muted: oklch(0.485 0.016 265);
+  --color-faint: color-mix(in oklch, var(--color-muted) 82%, var(--color-surface));
+  --color-rule: oklch(0.91 0.006 265);
+  --color-rule-strong: color-mix(in oklch, var(--color-rule) 72%, var(--color-muted));
+  --color-accent: oklch(0.54 0.19 267);
+  --color-accent-hover: color-mix(in oklch, var(--color-accent) 86%, var(--color-ink));
+  --color-accent-soft: color-mix(in oklch, var(--color-accent) 14%, transparent);
+  --color-accent-ink: color-mix(in oklch, var(--color-accent) 78%, var(--color-ink));
+  --color-accent-rule: color-mix(in oklch, var(--color-accent) 28%, var(--color-rule));
+  --color-on-accent: var(--color-surface);
   --color-warning-rule: oklch(0.84 0.07 80);
-  --color-hover: oklch(0.99 0.004 177);
-  --color-shadow: oklch(0.2 0.01 255 / 0.1);
-  --color-data-neutral: oklch(0.76 0.018 255);
-  --sidebar-bg: oklch(0.215 0.021 260);
-  --sidebar-text: oklch(0.78 0.017 260);
-  --sidebar-strong: oklch(0.98 0.004 260);
-  --sidebar-muted: oklch(0.7 0.015 260);
-  --sidebar-hover: oklch(0.28 0.023 260);
-  --sidebar-selected: oklch(0.31 0.03 183);
-  --sidebar-accent: oklch(0.88 0.083 170);
-  --sidebar-rule: oklch(0.34 0.021 260);
+  --color-hover: color-mix(in oklch, var(--color-paper) 50%, var(--color-surface));
+  --color-shadow: color-mix(in oklch, var(--color-ink) 10%, transparent);
+  --color-data-neutral: color-mix(in oklch, var(--color-muted) 56%, var(--color-rule));
+  --sidebar-bg: var(--color-paper);
+  --sidebar-text: var(--color-muted);
+  --sidebar-strong: var(--color-ink);
+  --sidebar-muted: var(--color-muted);
+  --sidebar-hover: color-mix(in oklch, var(--color-ink) 6%, transparent);
+  --sidebar-selected: var(--color-surface);
+  --sidebar-accent: var(--color-ink);
+  --sidebar-rule: var(--color-rule);
   --color-positive: oklch(0.43 0.105 150);
   --color-positive-soft: oklch(0.95 0.025 150);
   --color-warning: oklch(0.49 0.13 75);
@@ -48,7 +48,7 @@
   --font-body:
     ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
-  --font-data: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-data: ui-monospace, "JetBrains Mono", "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --space-2xs: 0.25rem;
   --space-xs: 0.5rem;
@@ -62,9 +62,9 @@
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-md: 1rem;
-  --text-lg: 1.2rem;
-  --text-xl: 1.5rem;
-  --text-2xl: 2rem;
+  --text-lg: 1.143rem;
+  --text-xl: 1.429rem;
+  --text-2xl: 1.714rem;
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
@@ -75,8 +75,8 @@
   --rule-strong: 1px solid var(--color-rule-strong);
   --radius-control: 6px;
   --radius-surface: 8px;
-  --radius-large: 10px;
-  --content-width: 1440px;
+  --radius-large: 9px;
+  --content-width: 1320px;
   --z-sticky: 20;
 
   /* Compatibility aliases for existing production components. */
@@ -84,6 +84,7 @@
   --surface: var(--color-surface);
   --surface-strong: var(--color-surface-strong);
   --ink: var(--color-ink);
+  --fg: var(--color-ink);
   --ink-strong: var(--color-ink-strong);
   --muted: var(--color-muted);
   --faint: var(--color-faint);
@@ -92,6 +93,7 @@
   --accent: var(--color-accent);
   --accent-hover: var(--color-accent-hover);
   --accent-soft: var(--color-accent-soft);
+  --fg-soft: color-mix(in oklch, var(--color-ink) 6%, transparent);
   --accent-ink: var(--color-accent-ink);
   --success: var(--color-positive);
   --success-soft: var(--color-positive-soft);

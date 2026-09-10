@@ -17,36 +17,65 @@
   <script defer src="/static/reading-state.js"></script>
   <script defer src="/static/reading-position.js"></script>
 </head>
-<body{{if .Meta.Auth.Enabled}} data-auth-enabled="true" data-reading-enabled="{{.Meta.Auth.SignedIn}}"{{end}}>
+<body data-active-nav="{{.Meta.ActiveNav}}"{{if .Meta.Auth.Enabled}} data-auth-enabled="true" data-reading-enabled="{{.Meta.Auth.SignedIn}}"{{end}}>
+  {{$libraryIndex := ne .Repositories.Path ""}}
   <a class="skip-link" href="#main-content">{{t "nav.skip"}}</a>
-  <aside class="app-sidebar">
+  <aside class="app-sidebar" id="app-sidebar">
     <a class="brand" href="/" aria-label="{{.Meta.SiteName}}">
-      <span class="brand-mark">{{template "icon-chart"}}</span>
-      <span>{{.Meta.SiteName}}<small>{{t "ui.brand_note"}}</small></span>
+      <span>{{.Meta.SiteName}}</span>
     </a>
-    <span class="sidebar-label">{{t "ui.workspace"}}</span>
     <nav class="primary-nav" aria-label="{{t "nav.primary"}}">
       <a class="nav-link {{if eq .Meta.ActiveNav "dashboard"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "dashboard"}}aria-current="page"{{end}}>{{template "icon-chart"}}<span>{{t "nav.dashboard"}}</span></a>
       {{$inLibrary := or (eq .Meta.ActiveNav "repositories") (eq .Meta.ActiveNav "watch")}}
-      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="{{if .LibraryReturnURL}}{{.LibraryReturnURL}}{{else}}/repositories{{end}}"{{if .LibraryReturnURL}} data-library-return{{end}} {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span></a>
+      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="{{if .LibraryReturnURL}}{{.LibraryReturnURL}}{{else}}/repositories{{end}}"{{if .LibraryReturnURL}} data-library-return{{end}} {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span>{{if and $libraryIndex (gt .Repositories.Total 0)}}<small>{{formatInt .Repositories.Total}}</small>{{end}}</a>
     </nav>
     <div class="sidebar-bottom">
-      <a class="nav-link {{if eq .Meta.ActiveNav "runs"}}is-active{{end}}" href="/runs">{{template "icon-history"}}<span>{{t "nav.history"}}</span></a>
-      <p>{{t "ui.source_note"}}</p>
-      <a class="sidebar-source" href="https://github.com/xz1220/repotempo" target="_blank" rel="noopener noreferrer">{{.Meta.SiteName}} <span>↗</span></a>
+      <div class="sidebar-account" data-account-root>
+        {{if .Meta.Auth.Enabled}}
+          {{if .Meta.Auth.SignedIn}}
+          <button class="account-trigger" type="button" aria-expanded="false" aria-controls="account-menu" data-account-trigger>
+            <span class="account-avatar" aria-hidden="true">{{template "icon-user"}}</span>
+            <span class="account-copy"><strong translate="no">@{{.Meta.Auth.Login}}</strong><small>{{t "ui.github_account"}}</small></span>
+            {{template "icon-chevron"}}
+          </button>
+          <div class="account-menu" id="account-menu" hidden data-account-menu>
+            <a href="/runs">{{t "nav.history"}}</a>
+            <span class="account-menu-disabled" aria-disabled="true" title="{{t "ui.api_unavailable_help"}}">{{t "ui.api_access"}} <small>{{t "ui.unavailable"}}</small></span>
+            <form action="/auth/logout?lang={{.Meta.Locale}}" method="post"><input type="hidden" name="csrf_token" value="{{.Meta.Auth.CSRFToken}}"><button type="submit">{{authText "logout"}}</button></form>
+          </div>
+          {{else}}
+          <a class="account-trigger" href="{{.Meta.Auth.LoginURL}}">
+            <span class="account-avatar" aria-hidden="true">{{template "icon-user"}}</span>
+            <span class="account-copy"><strong>{{authText "login"}}</strong><small>{{t "ui.github_oauth"}}</small></span>
+            {{template "icon-chevron-right"}}
+          </a>
+          {{end}}
+        {{else}}
+          <button class="account-trigger" type="button" aria-expanded="false" aria-controls="account-menu" data-account-trigger>
+            <span class="account-avatar" aria-hidden="true">{{template "icon-user"}}</span>
+            <span class="account-copy"><strong>{{t "ui.local_workspace"}}</strong><small>{{t "ui.legacy_access"}}</small></span>
+            {{template "icon-chevron"}}
+          </button>
+          <div class="account-menu" id="account-menu" hidden data-account-menu>
+            <a href="/runs">{{t "nav.history"}}</a>
+            <span class="account-menu-disabled" aria-disabled="true" title="{{t "ui.api_unavailable_help"}}">{{t "ui.api_access"}} <small>{{t "ui.unavailable"}}</small></span>
+          </div>
+        {{end}}
+      </div>
+      <a class="sidebar-source" href="https://github.com/xz1220/repotempo" target="_blank" rel="noopener noreferrer"><span>Star on GitHub</span>{{template "icon-external"}}</a>
     </div>
   </aside>
   <div class="app-main">
     <header class="app-header">
-      <div class="header-context"><span class="status-dot" aria-hidden="true"></span><span>{{t "ui.observation_workspace"}}</span><span class="header-slash">/</span><span>{{.Meta.Title}}</span></div>
-      <div class="header-right">
-      {{if and .Meta.Auth.Enabled (or .Meta.Auth.SignedIn (ne .Meta.ActiveNav "auth"))}}
-      <div class="account-controls">
-        {{if .Meta.Auth.SignedIn}}<span class="account-name" translate="no">@{{.Meta.Auth.Login}}</span><form action="/auth/logout?lang={{.Meta.Locale}}" method="post"><input type="hidden" name="csrf_token" value="{{.Meta.Auth.CSRFToken}}"><button class="account-button" type="submit">{{authText "logout"}}</button></form>
-        {{else}}<a class="account-button" href="{{.Meta.Auth.LoginURL}}">{{authText "login"}}</a>{{end}}
+      <div class="header-leading">
+        <button class="sidebar-toggle" type="button" aria-label="{{t "ui.open_navigation"}}" aria-controls="app-sidebar" aria-expanded="false" data-sidebar-toggle>{{template "icon-menu"}}</button>
+        <div class="header-context"><span>{{t "ui.workspace"}}</span><span class="header-slash">/</span><strong>{{.Meta.Title}}</strong></div>
       </div>
+      <div class="header-right">
+      {{if $libraryIndex}}
+        <span class="button button-secondary header-export" aria-disabled="true" title="{{t "ui.web_export_unavailable"}}">{{template "icon-download"}}{{t "ui.export"}}</span>
+        <a class="button button-primary header-add" href="/watch/new">{{template "icon-plus"}}{{t "approved.add_project"}}</a>
       {{end}}
-      <a class="mobile-history" href="/runs" aria-label="{{t "nav.history"}}">{{template "icon-history"}}</a>
       <nav class="language-switch" aria-label="{{t "language.label"}}">
         <a href="{{.Meta.ChineseURL}}" lang="zh-CN" {{if eq .Meta.Locale "zh-CN"}}aria-current="true"{{end}}>中文</a>
         <a href="{{.Meta.EnglishURL}}" lang="en" {{if eq .Meta.Locale "en"}}aria-current="true"{{end}}>EN</a>
@@ -54,6 +83,7 @@
       </div>
     </header>
     <main id="main-content" class="page-shell">
+      {{if $libraryIndex}}<h1 class="sr-only">{{.Meta.Title}}</h1>{{else}}
       <header class="page-heading">
         <div class="page-heading-copy">
           {{block "page-meta" .}}{{end}}
@@ -64,6 +94,7 @@
           {{if and (ne .Meta.ActiveNav "watch") (ne .Meta.ActiveNav "auth")}}<span class="as-of">{{tf "ui.data_date" .Meta.AsOfLabel}}</span>{{end}}
         </div>
       </header>
+      {{end}}
       {{if .Meta.Stale}}<div class="notice notice-warning" role="status">{{template "icon-history"}}<p>{{tf "ui.stale_notice" .Meta.AsOfLabel}} <a href="/runs">{{t "ui.inspect_collection"}}</a></p></div>{{end}}
       {{range .Meta.Warnings}}<div class="notice notice-warning" role="status"><p>{{.}}</p></div>{{end}}
       {{template "content" .}}
@@ -84,6 +115,12 @@
 {{define "icon-history"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 10a9 9 0 1 1 1 7M3 4v6h6m3-3v6l4 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
 {{define "icon-arrow"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
 {{define "icon-search"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{{end}}
+{{define "icon-user"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{{end}}
+{{define "icon-chevron"}}<svg class="account-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 9 4-4 4 4m-8 6 4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-chevron-right"}}<svg class="account-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-external"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-download"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{{end}}
+{{define "icon-menu"}}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{{end}}
 {{define "chart"}}
   <section class="chart-panel" aria-labelledby="{{.ID}}">
     <div class="section-heading compact">
