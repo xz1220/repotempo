@@ -58,6 +58,10 @@ func TestPublicSignupAllowsOrdinaryUsersWithoutAdminPrivileges(t *testing.T) {
 }
 
 func TestAPIAccountReturnPathDoesNotAcceptOtherParameters(t *testing.T) {
+	list := "/repositories?view=all&size=6&page=2&tag=skills"
+	if path, err := SafeReturnPath(list); err != nil || path != list {
+		t.Fatalf("paginated login return=%q err=%v", path, err)
+	}
 	for _, raw := range []string{"/account/api?next=https://evil.example", "/account/api?repository=owner/repo", "/account/api/keys", "/account/api#project-1"} {
 		if _, err := SafeReturnPath(raw); !errors.Is(err, ErrInvalidReturn) {
 			t.Fatalf("unsafe account return accepted: %s", raw)

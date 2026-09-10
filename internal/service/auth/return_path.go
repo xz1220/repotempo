@@ -57,7 +57,7 @@ func safeReturnPath(value string, nested bool) (string, error) {
 			return "", ErrInvalidReturn
 		}
 		switch key {
-		case "date", "period", "sort", "tag", "topic", "source", "status", "q", "new", "focus", "view", "lang", "cursor", "page", "limit", "offset", "repository", "note":
+		case "date", "period", "sort", "tag", "topic", "source", "status", "q", "new", "focus", "view", "lang", "cursor", "page", "size", "limit", "offset", "repository", "note":
 		case "return_to":
 			if nested || !numericDetail.MatchString(parsed.Path) {
 				return "", ErrInvalidReturn
