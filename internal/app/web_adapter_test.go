@@ -65,6 +65,9 @@ func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if err := store.SetRepositoryFocus(ctx, 1, true); err != nil {
+		t.Fatal(err)
+	}
 	put := func(id, stars int64, date string) {
 		snapshotDate, _ := domain.ParseDate(date)
 		if _, err := store.PutDailySnapshot(ctx, domain.DailySnapshot{
@@ -105,6 +108,13 @@ func TestWebAdapterMapsStoreEvidenceWithoutLeakingInternalErrors(t *testing.T) {
 	repositories, err := adapter.ListRepositoryMetrics(ctx, structRepositoryQuery(now))
 	if err != nil || repositories.Total != 2 {
 		t.Fatalf("repositories = (%#v, %v)", repositories, err)
+	}
+	library, err := adapter.ListRepositoryTrends(ctx, web.RepositoryQuery{
+		AsOf: now, WindowDays: 1, Sort: "name", Limit: 1, Offset: 1,
+	})
+	if err != nil || len(library.Items) != 1 || library.Items[0].FullName != "owner/peer" ||
+		library.Total != 2 || library.RegistryTotal != 2 || library.FocusTotal != 1 {
+		t.Fatalf("offset library page = (%#v, %v)", library, err)
 	}
 	if _, err := adapter.GetRepositoryDetail(ctx, 1, now); err != nil {
 		t.Fatal(err)

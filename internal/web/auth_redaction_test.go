@@ -16,7 +16,7 @@ func TestStripOwnerFieldsCoversEveryRepositoryContainerWithoutMutatingQueryResul
 	sharedRows := []boardRow{{RadarRepository: sharedRadar[0], Rank: 1, BarWidth: "100"}}
 	input := pageView{
 		Dashboard:    DashboardSummary{FastestRepositories: sharedMetrics},
-		Repositories: RepositoryPage{Items: sharedMetrics, Total: 1},
+		Repositories: RepositoryPage{Items: sharedMetrics, Total: 1, RegistryTotal: 1, FocusTotal: 1},
 		Repository:   RepositoryDetail{Repository: metric, Analysis: analysis},
 		Topic:        TopicDetail{Repositories: sharedMetrics},
 		Radar:        RadarOverview{Fastest: sharedRadar, Slowest: sharedRadar, FallingBehind: sharedRadar, NewRepositories: sharedRadar},
@@ -43,6 +43,9 @@ func TestStripOwnerFieldsCoversEveryRepositoryContainerWithoutMutatingQueryResul
 	}
 	if public.Repository.Analysis != nil {
 		t.Fatal("detail's separate Analysis pointer leaked the copied note")
+	}
+	if public.Repositories.RegistryTotal != 1 || public.Repositories.FocusTotal != 0 {
+		t.Fatalf("anonymous summary counts = registry %d, focus %d", public.Repositories.RegistryTotal, public.Repositories.FocusTotal)
 	}
 	after, err := json.Marshal(input)
 	if err != nil {
