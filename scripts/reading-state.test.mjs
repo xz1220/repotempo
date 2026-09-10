@@ -63,7 +63,7 @@ function browser(ids, storage = new Storage(), options = {}) {
   } });
   const help = new Element();
   help.textContent = "仅保存在当前浏览器和站点，不跨设备同步";
-  const document = { querySelectorAll: () => cards, querySelector: () => help };
+  const document = { body: { dataset: { readingEnabled: options.readingEnabled } }, querySelectorAll: () => cards, querySelector: () => help };
   vm.runInNewContext(script, { window, document });
   return { cards, window, storage, help };
 }
@@ -82,6 +82,27 @@ function assertRead(card, read) {
   assert.equal(card.button.attributes.get("aria-pressed"), String(read));
   assert.equal(card.button.textContent, read ? "已读 · 标记未读" : "标记已读");
 }
+
+test("OAuth-anonymous pages neither read nor mutate browser-local reading marks", () => {
+  const storage = new Storage();
+  storage.values.set(key("101"), "read");
+  const page = browser(["101"], storage, { readingEnabled: "false", denied: true });
+  assert.equal(page.cards[0].button.hidden, true);
+  assert.equal(page.help.hidden, true);
+  assert.equal(page.cards[0].dataset.readingState, undefined);
+  page.cards[0].button.click();
+  assert.equal(storage.writes.length, 0);
+  assert.equal(storage.values.get(key("101")), "read");
+});
+
+test("signed-in pages keep their existing browser-local reading marks", () => {
+  const storage = new Storage();
+  storage.values.set(key("101"), "read");
+  const page = browser(["101"], storage, { readingEnabled: "true" });
+  assertRead(page.cards[0], true);
+  page.cards[0].button.click();
+  assertRead(page.cards[0], false);
+});
 
 test("only an explicit button click marks a project, and the action is reversible", () => {
   const page = browser(["101", "102"]);
