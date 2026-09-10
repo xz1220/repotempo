@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/xz1220/repotempo/internal/service/agentaccess"
 )
 
 //go:embed templates/*.gohtml static/*
@@ -29,6 +31,7 @@ type Options struct {
 	AllowLocalWrites bool
 	WriteToken       string
 	Auth             Authenticator
+	AgentAccess      *agentaccess.Service
 }
 
 type Handler struct {
@@ -49,6 +52,7 @@ type Handler struct {
 	watchNonces      map[string]time.Time
 	watchBusy        bool
 	auth             Authenticator
+	agentAccess      *agentaccess.Service
 	authStarts       authStartLimiter
 }
 
@@ -95,6 +99,7 @@ func New(queryer Queryer, options Options) (*Handler, error) {
 		writeToken:       options.WriteToken,
 		watchNonces:      make(map[string]time.Time),
 		auth:             options.Auth,
+		agentAccess:      options.AgentAccess,
 	}
 	if err := h.parseTemplates(); err != nil {
 		return nil, err
@@ -125,6 +130,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Cache-Control", "no-store")
 	}
+	if strings.HasPrefix(r.URL.Path, "/api/v1/") || r.URL.Path == "/mcp" {
+		h.mux.ServeHTTP(w, r)
+		return
+	}
 	r = h.authenticateRequest(w, r)
 	if !h.authorizeRequest(w, r) {
 		return
@@ -133,6 +142,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) routes() {
+	h.mux.HandleFunc("GET /integrations/repotempo-agent.zip", h.agentBundle)
+	h.mux.HandleFunc("GET /account/api", h.accountAPI)
+	h.mux.HandleFunc("POST /account/api/keys", h.accountAPIKeyCreate)
+	h.mux.HandleFunc("POST /account/api/keys/{id}/revoke", h.accountAPIKeyRevoke)
+	h.mux.HandleFunc("GET /api/v1/me", h.apiMe)
+	h.mux.HandleFunc("GET /api/v1/repositories", h.apiRepositories)
+	h.mux.HandleFunc("GET /api/v1/repositories/{id}", h.apiRepository)
+	h.mux.HandleFunc("POST /mcp", h.mcp)
+	h.mux.HandleFunc("GET /mcp", h.mcp)
+	h.mux.HandleFunc("GET /repositories/export", h.exportRepositories)
+	h.mux.HandleFunc("GET /static/agent-access.css", h.staticAsset("agent-access.css", "text/css; charset=utf-8"))
+	h.mux.HandleFunc("GET /static/agent-access.js", h.staticAsset("agent-access.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /auth/login", h.authLogin)
 	h.mux.HandleFunc("GET /auth/github/start", h.authStart)
 	h.mux.HandleFunc("GET /auth/github/callback", h.authCallback)
@@ -201,6 +222,7 @@ func (h *Handler) parseTemplates() error {
 			"projectGitHubURL": projectGitHubURL,
 			"repositoryOwner":  repositoryOwner,
 			"repositoryName":   repositoryName,
+			"libraryExportURL": libraryExportURL,
 			"aiAnalysis":       aiAnalysis,
 			"analysisSource":   analysisSource,
 			"tagOptionLabel":   func(tag string) string { return tagOptionLabel(tag, locale) },
@@ -219,7 +241,7 @@ func (h *Handler) parseTemplates() error {
 			},
 		}
 		h.templates[locale] = make(map[string]*template.Template)
-		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch", "import", "login"} {
+		for _, page := range []string{"home", "repositories", "repository", "topics", "topic", "runs", "error", "watch", "import", "login", "account_api"} {
 			tmpl, err := template.New("base.gohtml").Funcs(funcs).ParseFS(
 				assets,
 				"templates/base.gohtml",

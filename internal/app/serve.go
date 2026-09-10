@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/xz1220/repotempo/internal/domain"
+	"github.com/xz1220/repotempo/internal/service/agentaccess"
 	"github.com/xz1220/repotempo/internal/web"
 )
 
@@ -18,6 +19,10 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 		return err
 	}
 	authenticator, err := runtime.webAuthenticator()
+	if err != nil {
+		return err
+	}
+	agentService, err := agentaccess.New(runtime.store, agentaccess.Options{Now: runtime.now})
 	if err != nil {
 		return err
 	}
@@ -32,6 +37,7 @@ func (runtime *Runtime) Serve(ctx context.Context, address string) error {
 		AllowLocalWrites: isLoopbackListenAddress(address),
 		WriteToken:       runtime.settings.WebWriteToken,
 		Auth:             authenticator,
+		AgentAccess:      agentService,
 	})
 	if err != nil {
 		return err
