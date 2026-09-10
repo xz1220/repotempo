@@ -63,7 +63,7 @@ function browser(ids, storage = new Storage(), options = {}) {
   } });
   const help = new Element();
   help.textContent = "仅保存在当前浏览器和站点，不跨设备同步";
-  const document = { body: { dataset: { readingEnabled: options.readingEnabled } }, querySelectorAll: () => cards, querySelector: () => help };
+  const document = { body: { dataset: { readingEnabled: options.readingEnabled, readingUser: options.readingUser } }, querySelectorAll: () => cards, querySelector: () => help };
   vm.runInNewContext(script, { window, document });
   return { cards, window, storage, help };
 }
@@ -75,6 +75,17 @@ function storageEvent(window, storage, name, newValue = null) {
   });
   window.dispatchEvent(event);
 }
+
+test("signed-in accounts keep browser-local read marks separate", () => {
+  const storage = new Storage();
+  const alice = browser(["101"], storage, { readingEnabled: "true", readingUser: "42" });
+  alice.cards[0].button.click();
+  const bob = browser(["101"], storage, { readingEnabled: "true", readingUser: "43" });
+  assertRead(bob.cards[0], false);
+  const aliceAgain = browser(["101"], storage, { readingEnabled: "true", readingUser: "42" });
+  assertRead(aliceAgain.cards[0], true);
+  assert.equal(storage.getItem(key("101")), null);
+});
 
 function assertRead(card, read) {
   assert.equal(card.classes.has("is-read"), read);

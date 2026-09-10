@@ -119,7 +119,7 @@ type authHTTPFixture struct {
 	logs     bytes.Buffer
 }
 
-func newAuthHTTPFixture(t *testing.T) *authHTTPFixture {
+func newAuthHTTPFixture(t *testing.T, publicSignup ...bool) *authHTTPFixture {
 	t.Helper()
 	fixture := &authHTTPFixture{now: mustTime("2026-09-10T04:00:00Z"), provider: &authHTTPProvider{identity: loginauth.Identity{ID: 42, Login: "site-admin"}}, queryer: &authHTTPQueryer{fakeQueryer: populatedFake()}, watcher: &authHTTPWatcher{}}
 	store, err := sqlite.OpenWithConfig(context.Background(), sqlite.Config{Path: ":memory:", Now: func() time.Time { return fixture.now }})
@@ -131,7 +131,7 @@ func newAuthHTTPFixture(t *testing.T) *authHTTPFixture {
 			t.Error(err)
 		}
 	})
-	fixture.service, err = loginauth.New(loginauth.Configuration{ClientID: "fixture-client-id", ClientSecret: "fixture-secret", PublicURL: authHTTPOrigin, AllowedUserIDs: []int64{42}}, store, loginauth.Options{Now: func() time.Time { return fixture.now }, Provider: fixture.provider})
+	fixture.service, err = loginauth.New(loginauth.Configuration{ClientID: "fixture-client-id", ClientSecret: "fixture-secret", PublicURL: authHTTPOrigin, AllowedUserIDs: []int64{42}, AllowPublicSignup: len(publicSignup) > 0 && publicSignup[0]}, store, loginauth.Options{Now: func() time.Time { return fixture.now }, Provider: fixture.provider})
 	if err != nil {
 		t.Fatal(err)
 	}

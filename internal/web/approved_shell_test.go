@@ -26,8 +26,8 @@ func TestApprovedShellKeepsFrozenChromeWithoutDemoCapabilities(t *testing.T) {
 	if strings.Count(body, `href="/watch/new"`) != 1 || !strings.Contains(body, `class="button button-primary header-add"`) {
 		t.Fatal("project library must expose one real Add project action in the header")
 	}
-	if !strings.Contains(body, `class="button button-secondary header-export" aria-disabled="true"`) || !strings.Contains(body, `class="account-menu-disabled" aria-disabled="true"`) {
-		t.Fatal("unimplemented Web export and API access must be visibly unavailable")
+	if !strings.Contains(body, `class="button button-secondary header-export" href="/repositories/export?`) || !strings.Contains(body, `class="account-menu-disabled" aria-disabled="true"`) {
+		t.Fatal("Web export must use the server route; key access requires configured sign-in")
 	}
 	for _, forbidden := range []string{"type=\"password\"", "注册 RepoTempo", "ak_demo_", "sk_demo_", "/api/v1/"} {
 		if strings.Contains(body, forbidden) {

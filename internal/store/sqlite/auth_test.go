@@ -510,7 +510,7 @@ func TestAuthMigrationV6PreservesEveryBusinessTableAndHistoricalOrphan(t *testin
 	if err := applyMigrations(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationSettings(t, db, 7, 0)
+	assertMigrationSettings(t, db, 9, 0)
 	if !reflect.DeepEqual(before, migrationEvidence(t, db)) || !reflect.DeepEqual(repositories, migrationRows(t, db, "SELECT * FROM repositories ORDER BY github_repo_id")) {
 		t.Fatal("auth migration changed project/Star/analysis/activity/history data")
 	}

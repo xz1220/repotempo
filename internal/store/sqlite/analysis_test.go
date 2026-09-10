@@ -144,8 +144,8 @@ WHERE repository_id = 1`,
 	defer func() { _ = store.Close() }()
 
 	var version int
-	if err := store.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != 7 {
-		t.Fatalf("migration version = %d, err = %v, want 7", version, err)
+	if err := store.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != 9 {
+		t.Fatalf("migration version = %d, err = %v, want 9", version, err)
 	}
 	var analysisCount int
 	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM repository_analyses").Scan(&analysisCount); err != nil {

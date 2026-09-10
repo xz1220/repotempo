@@ -65,6 +65,23 @@ func TestOAuthAdminIDsMustBeExplicitAndPositive(t *testing.T) {
 	}
 }
 
+func TestPublicSignupConfigurationIsExplicitAndRequiresAdminOwner(t *testing.T) {
+	setOAuthEnv(t, []string{"fixture-client", "fixture-secret-not-real", "https://radar.example", "42"})
+	t.Setenv("GITHUB_RADAR_PUBLIC_SIGNUP", "1")
+	settings, err := LoadSettings()
+	if err != nil || !settings.GitHubOAuth.AllowPublicSignup {
+		t.Fatalf("public signup: %v", err)
+	}
+	t.Setenv("GITHUB_RADAR_GITHUB_ADMIN_IDS", "")
+	if _, err := LoadSettings(); err == nil {
+		t.Fatal("public signup accepted without explicitly configured legacy admin owner")
+	}
+	t.Setenv("GITHUB_RADAR_PUBLIC_SIGNUP", "true")
+	if _, err := LoadSettings(); err == nil {
+		t.Fatal("invalid signup value accepted")
+	}
+}
+
 func TestWebAuthenticatorNilIsReallyNilAndPartialConfigFailsClosed(t *testing.T) {
 	runtime, err := OpenRuntime(context.Background(), Settings{DatabasePath: t.TempDir() + "/auth.db"})
 	if err != nil {
