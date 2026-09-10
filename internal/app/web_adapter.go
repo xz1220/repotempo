@@ -149,8 +149,10 @@ func (adapter WebAdapter) repositoryTrendPage(ctx context.Context, query web.Rep
 	if result.HasMore && len(result.Items) > 0 {
 		result.NextCursor = strconv.FormatInt(result.Items[len(result.Items)-1].ID, 36)
 	}
-	if err := adapter.addImportReadmes(ctx, result.Items); err != nil {
-		return web.RepositoryPage{}, mapWebError(err)
+	if !exporting {
+		if err := adapter.addImportReadmes(ctx, result.Items); err != nil {
+			return web.RepositoryPage{}, mapWebError(err)
+		}
 	}
 	if err := adapter.projectUserMetrics(ctx, result.Items); err != nil {
 		return web.RepositoryPage{}, err
