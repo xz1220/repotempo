@@ -11,13 +11,15 @@
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/feed.css">
   <link rel="stylesheet" href="/static/imports.css">
+  <link rel="stylesheet" href="/static/agent-access.css">
+  <script defer src="/static/agent-access.js"></script>
   {{if or .Meta.Auth.Enabled (eq .Meta.ActiveNav "auth")}}<link rel="stylesheet" href="/static/auth.css">{{end}}
   {{if .Meta.Auth.Enabled}}<script defer src="/static/auth.js"></script>{{end}}
   <script defer src="/static/app.js"></script>
   <script defer src="/static/reading-state.js"></script>
   <script defer src="/static/reading-position.js"></script>
 </head>
-<body data-active-nav="{{.Meta.ActiveNav}}"{{if .Meta.Auth.Enabled}} data-auth-enabled="true" data-reading-enabled="{{.Meta.Auth.SignedIn}}"{{end}}>
+<body data-active-nav="{{.Meta.ActiveNav}}"{{if .Meta.Auth.Enabled}} data-auth-enabled="true" data-reading-enabled="{{.Meta.Auth.SignedIn}}"{{if .Meta.Auth.SignedIn}} data-reading-user="{{.Meta.Auth.UserID}}"{{end}}{{end}}>
   {{$libraryIndex := ne .Repositories.Path ""}}
   <a class="skip-link" href="#main-content">{{t "nav.skip"}}</a>
   <aside class="app-sidebar" id="app-sidebar">
@@ -27,7 +29,7 @@
     <nav class="primary-nav" aria-label="{{t "nav.primary"}}">
       <a class="nav-link {{if eq .Meta.ActiveNav "dashboard"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "dashboard"}}aria-current="page"{{end}}>{{template "icon-chart"}}<span>{{t "nav.dashboard"}}</span></a>
       {{$inLibrary := or (eq .Meta.ActiveNav "repositories") (eq .Meta.ActiveNav "watch")}}
-      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="{{if .LibraryReturnURL}}{{.LibraryReturnURL}}{{else}}/repositories{{end}}"{{if .LibraryReturnURL}} data-library-return{{end}} {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span>{{if and $libraryIndex (gt .Repositories.Total 0)}}<small>{{formatInt .Repositories.Total}}</small>{{end}}</a>
+      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="{{if .LibraryReturnURL}}{{.LibraryReturnURL}}{{else}}/repositories{{end}}"{{if .LibraryReturnURL}} data-library-return{{end}} {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span>{{if and $libraryIndex (gt .Repositories.RegistryTotal 0)}}<small>{{formatInt .Repositories.RegistryTotal}}</small>{{end}}</a>
     </nav>
     <div class="sidebar-bottom">
       <div class="sidebar-account" data-account-root>
@@ -39,8 +41,8 @@
             {{template "icon-chevron"}}
           </button>
           <div class="account-menu" id="account-menu" hidden data-account-menu>
-            <a href="/runs">{{t "nav.history"}}</a>
-            <span class="account-menu-disabled" aria-disabled="true" title="{{t "ui.api_unavailable_help"}}">{{t "ui.api_access"}} <small>{{t "ui.unavailable"}}</small></span>
+            {{if .Meta.Auth.Admin}}<a href="/runs">{{t "nav.history"}}</a>{{end}}
+            <a href="/account/api?lang={{.Meta.Locale}}" data-agent-access>{{t "ui.api_access"}}</a>
             <form action="/auth/logout?lang={{.Meta.Locale}}" method="post"><input type="hidden" name="csrf_token" value="{{.Meta.Auth.CSRFToken}}"><button type="submit">{{authText "logout"}}</button></form>
           </div>
           {{else}}
@@ -69,11 +71,11 @@
     <header class="app-header">
       <div class="header-leading">
         <button class="sidebar-toggle" type="button" aria-label="{{t "ui.open_navigation"}}" aria-controls="app-sidebar" aria-expanded="false" data-sidebar-toggle>{{template "icon-menu"}}</button>
-        <div class="header-context"><span>{{t "ui.workspace"}}</span><span class="header-slash">/</span><strong>{{.Meta.Title}}</strong></div>
+        <div class="header-context"><span>{{t "approved.workspace"}}</span><span class="header-slash">/</span><strong>{{if eq .Meta.ActiveNav "dashboard"}}{{t "nav.dashboard"}}{{else}}{{.Meta.Title}}{{end}}</strong></div>
       </div>
       <div class="header-right">
       {{if $libraryIndex}}
-        <span class="button button-secondary header-export" aria-disabled="true" title="{{t "ui.web_export_unavailable"}}">{{template "icon-download"}}{{t "ui.export"}}</span>
+        <a class="button button-secondary header-export" href="{{libraryExportURL .ListURL}}">{{t "ui.export"}} <span aria-hidden="true">↓</span></a>
         <a class="button button-primary header-add" href="/watch/new">{{template "icon-plus"}}{{t "approved.add_project"}}</a>
       {{end}}
       <nav class="language-switch" aria-label="{{t "language.label"}}">
@@ -83,7 +85,7 @@
       </div>
     </header>
     <main id="main-content" class="page-shell">
-      {{if $libraryIndex}}<h1 class="sr-only">{{.Meta.Title}}</h1>{{else}}
+      {{if or $libraryIndex (eq .Meta.ActiveNav "dashboard")}}<h1 class="sr-only">{{.Meta.Title}}</h1><p class="sr-only">{{tf "ui.data_date" .Meta.AsOfLabel}}</p>{{else}}
       <header class="page-heading">
         <div class="page-heading-copy">
           {{block "page-meta" .}}{{end}}

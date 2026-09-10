@@ -6,6 +6,7 @@
 
 {{define "content"}}
 <section class="watch-panel" aria-label="{{watchText "title"}}">
+  {{if .Watch.PersonalOnly}}<p class="personal-watch-help">{{t "account.personal_add_help"}}</p>{{end}}
   {{if .Watch.Error}}<div class="notice notice-warning" role="alert"><p>{{.Watch.Error}}</p></div>{{end}}
   {{if .Watch.CanWrite}}
   <form class="watch-form" action="/watch?lang={{.Meta.Locale}}" method="post">
@@ -18,11 +19,11 @@
       <label class="checkbox-label" for="import-focus"><input id="import-focus" type="checkbox" name="focus" value="1" {{if .Watch.Input.Focus}}checked{{end}} aria-describedby="import-focus-hint"> {{watchText "focus"}}</label>
       <p id="import-focus-hint" class="field-hint">{{watchText "focus_hint"}}</p>
     </div>
-    <div class="field"><label for="watch-topic">{{watchText "topic"}}</label>
+    {{if not .Watch.PersonalOnly}}<div class="field"><label for="watch-topic">{{watchText "topic"}}</label>
       <select id="watch-topic" name="topic"><option value="">{{watchText "topic_default"}}</option>
         {{range .Watch.Topics}}<option value="{{.Slug}}" {{if eq $.Watch.Input.TopicSlug .Slug}}selected{{end}}>{{if .ParentName}}{{topicName .ParentSlug .ParentName}} / {{end}}{{topicName .Slug .Name}}</option>{{end}}
       </select>
-    </div>
+    </div>{{end}}
     <div class="field"><label for="watch-note">{{watchText "note"}}</label>
       <textarea id="watch-note" name="note" rows="4" maxlength="2000" aria-describedby="watch-note-hint">{{.Watch.Input.Note}}</textarea>
       <p id="watch-note-hint" class="field-hint">{{watchText "note_hint"}}</p>
@@ -31,8 +32,8 @@
       <input id="watch-token" name="operator_token" type="password" required autocomplete="current-password" maxlength="512" aria-describedby="watch-token-hint">
       <p id="watch-token-hint" class="field-hint">{{watchText "token_hint"}}</p>
     </div>{{end}}
-    <p class="watch-expectation">{{watchText "expectation"}}</p>
-    <div class="form-actions"><button class="button button-primary" type="submit">{{watchText "submit"}}</button><a class="button button-secondary" href="/repositories?lang={{.Meta.Locale}}">{{watchText "cancel"}}</a></div>
+    <p class="watch-expectation">{{if .Watch.PersonalOnly}}{{t "account.personal_note_help"}}{{else}}{{watchText "expectation"}}{{end}}</p>
+    <div class="form-actions"><button class="button button-primary" type="submit">{{if .Watch.PersonalOnly}}{{t "account.save_watch"}}{{else}}{{watchText "submit"}}{{end}}</button><a class="button button-secondary" href="/repositories?lang={{.Meta.Locale}}">{{watchText "cancel"}}</a></div>
   </form>
   {{else}}<div class="empty-state"><p>{{watchText "read_only"}}</p><a class="button button-secondary" href="/repositories?lang={{.Meta.Locale}}">{{watchText "cancel"}}</a></div>{{end}}
 </section>

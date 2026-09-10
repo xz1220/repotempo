@@ -4,7 +4,10 @@
 
   // One key per immutable repository ID avoids overwriting another tab's marks
   // for other projects. These marks never leave this browser and origin.
-  const prefix = "repotempo:reading:v1:";
+  const user = document.body?.dataset.readingUser;
+  const prefix = /^[1-9][0-9]*$/.test(user || "")
+    ? `repotempo:reading:v2:user:${user}:`
+    : "repotempo:reading:v1:";
   const groups = new Map();
 
   function render(id, read) {

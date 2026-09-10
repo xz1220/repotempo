@@ -20,6 +20,7 @@ func repositoryName(fullName string) string {
 
 func init() {
 	pairs := map[string][2]string{
+		"approved.workspace":          {"工作空间", "Workspace"},
 		"ui.github_account":           {"GitHub 账户", "GitHub account"},
 		"ui.github_oauth":             {"GitHub OAuth", "GitHub OAuth"},
 		"ui.local_workspace":          {"本地工作区", "Local workspace"},
