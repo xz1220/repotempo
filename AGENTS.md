@@ -3,6 +3,8 @@
 
 前端开发开始前必须读取以下基准；不得自行重新设计或修改冻结稿。
 
+2026-09-11 用户已批准的增量调整：先读 `.design/repotempo-approved-v2/APPROVED-CHANGES.md`。Agent 访问单页、动态 Skill 安装指令和移除已读功能以该文件为准；其他外观继续使用 v1，不修改 v1 冻结文件。
+
 - 外观与交互：`.design/repotempo-approved-v1/repotempo-approved.html`
 - 设计约束：`.design/repotempo-approved-v1/DESIGN-LOCK.md`
 - 实施说明：`.design/repotempo-approved-v1/IMPLEMENTATION.md`

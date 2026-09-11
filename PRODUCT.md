@@ -10,10 +10,16 @@ Star history and saved research remain shared; follows and notes are keyed by
 immutable GitHub user ID. The first explicitly configured administrator receives
 the legacy private workspace once, independent of who signs in first.
 
-Agent access is available through a signed JSON API, a signed HTTP MCP endpoint,
-and a downloadable local stdio MCP / Skill / Codex Plugin bundle. Keys have
-read scopes, expiry and revocation. They never authorize administrator actions.
-Browser-local reading marks are namespaced by user when signed in. Web CSV
+Agent access is available through a signed JSON API and a signed HTTP MCP endpoint.
+The September 11 approved flow is one Agent access page: generate AK/SK, copy
+a personalized installation command, then use the installed Skill. The Skill
+requires sh, curl, OpenSSL and tar, not Node or Python (macOS/Linux/WSL).
+Commands and agent instructions include the newly created credentials only in
+the one-time response. The installer stores them in a private local file; the
+Skill signs API requests using that file. The optional Node MCP/Plugin bundle
+remains available for existing integrations, outside the primary setup flow.
+Keys have read scopes, expiry and revocation; they never authorize administrator
+actions. Read/unread marks were removed by user request. Web CSV
 export reads the real selected scope, omits private notes, and limits one export
 to 10,000 projects. These account rules supersede the earlier shared-admin
 workspace description below; the approved visual baseline remains unchanged.
@@ -88,15 +94,11 @@ Cards preview eight deduplicated tags and expose every remaining tag through
 an expandable control. Card and detail tags open the corresponding library
 filter without changing the selected date.
 
-## Personal reading marks
+## Personal following
 
-The user explicitly toggles a project between read and unread. Marks are keyed
-by its permanent repository ID in localStorage for this browser profile and
-origin; they are not synchronized across devices, browsers, or site origins.
-
-Opening a page, scrolling, or receiving a saved brief does not mark a project
-read. Reading marks are separate from whether a research brief exists, and
-they do not provide a server-side unread filter over the full library.
+Follow/unfollow and private notes belong to the signed-in GitHub account.
+There is no read/unread tracking or filter. Saved research briefs and the
+detail-to-list return position are independent features and remain available.
 
 ## Data collection
 

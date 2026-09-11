@@ -2,9 +2,11 @@
 
 GitHub accounts, private watchlists and Agent access are now available. See
 [account setup](docs/github-login.md) and the
-[MCP / Skill / Plugin bundle](integrations/repotempo-agent/README.md).
-After signing in, open API access from the sidebar account menu to create
-a read-only credential and download the integration bundle.
+[portable Skill](integrations/README.md).
+After signing in, open Agent access from the sidebar account menu to create
+a read-only AK/SK pair and copy your personalized Skill installation command.
+The default Skill needs no Node or Python; an optional MCP/Plugin compatibility
+bundle remains available.
 
 RepoTempo is an independent, self-hosted workspace for discovering trending GitHub
 projects and following what happens after discovery. It stores daily Star
@@ -194,13 +196,9 @@ ranks, clickable tags, entry date, and detail/GitHub actions. Missing explanatio
 as not reviewed. Existing briefs are loaded in one database batch per page;
 browsing does not request a new model-generated summary.
 
-The read/unread button saves one localStorage value per permanent repository
-ID. It changes only after an explicit click. Page opening, scrolling, and
-brief availability do not automatically mark a project read.
-
-Reading marks belong to the current browser profile and origin (scheme, host,
-and port). They do not cross devices or site addresses, and they are not a
-server-side filter for finding every unread project in the database.
+Signed-in users can follow projects in their personal watchlist. Project cards
+do not track read/unread status. Returning from a detail page still restores
+the previous library position and expanded tags within the same browser tab.
 
 The default direct loopback server supports the Add project form locally.
 For public writes, configure `GITHUB_RADAR_WEB_WRITE_TOKEN` with a separate
@@ -508,8 +506,8 @@ dependencies. Override the executable with `make test-js NODE=/path/to/node`
 when needed. Production serving and collection still use the Go binary only.
 
 Current acceptance should cover the Top 10/six-row dashboard, slowdown across
-three exact dates, true empty-today views, 20-card pagination, explicit local
-read marks, saved-brief source/date and missing states, atomic fill-only batch
+three exact dates, true empty-today views, 20-card pagination, personal
+watchlists, saved-brief source/date and missing states, atomic fill-only batch
 imports, exact tag filtering and complete tag expansion, preserved research
 labels, 200/304 tag refresh behavior, individual history charts, manual addition, and Chinese/English
 desktop and mobile layouts. Mock-API tests and live collection

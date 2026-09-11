@@ -1,12 +1,14 @@
 # RepoTempo design system
 
-The September 10 multi-user implementation keeps the approved v1 layout while
-activating its account and API-access surfaces. GitHub OAuth replaces the
-prototype's email/password form. The account menu exposes API access to signed-in
-users and collection history to administrators. The API panel follows the
-frozen dialog, creation, one-time secret, revocation and Agent-instruction
-states. Personal notes and follows belong to the signed-in account; browser
-read marks are additionally namespaced by that account.
+The September 11 approved amendment is recorded in
+`.design/repotempo-approved-v2/APPROVED-CHANGES.md`. The account entry is
+“Agent 访问” / “Agent access”, with one sequential page and no access/connection
+tabs: generate AK/SK, then install the Skill with a credential-bearing command
+or agent instruction. Permissions and existing-key management are progressive
+details, not separate pages. The existing light dialog and visual tokens remain.
+Read/unread controls are removed. Personal notes and follows remain account-scoped.
+GitHub OAuth replaces the prototype's email/password form; collection history
+remains administrator-only. All other approved v1 layout constraints remain.
 
 The prototype's signature draft is superseded by the implemented protocol in
 `integrations/repotempo-agent/README.md`. The frozen files are not edited.
@@ -149,18 +151,11 @@ Old `topic` and `source` URLs remain supported. Show their active filters with
 individual clear actions and preserve them as hidden form fields until cleared.
 Compatibility does not restore the removed dropdown controls.
 
-## Reading marks
+## Following and reading
 
-Provide an explicit read/unread toggle per repository ID. Persist it only in
-localStorage for the current browser profile and origin. The interface must
-state that another browser, device, domain, scheme, or port has separate marks.
-
-Do not mark read on opening, scrolling, or viewing an AI brief. A read mark is
-independent of the saved-analysis state and must not hide projects or imply
-that the server can filter the whole library by unread status.
-
-Keep the last known state and explain a storage failure. The saved mark may
-be reflected across tabs on the same browser origin; it is not account sync.
+Only following remains as a personal row action. There are no read/unread
+controls or state. Keep saved research briefs, detailed/compact views, and the
+detail-to-list return position; these do not imply that a project is marked read.
 
 ## Add project
 
@@ -297,6 +292,8 @@ assert that screenshots, a fixed audit score, or a release have passed.
 ## 已确认的 RepoTempo 界面
 
 以下版本是用户已确认的界面基准。本文件中旧的视觉描述与其冲突时，以此基准为准。
+
+2026-09-11 用户已批准的增量调整以 `.design/repotempo-approved-v2/APPROVED-CHANGES.md` 为准；仅覆盖 Agent 访问与已读功能，其余仍遵循下列 v1 冻结稿。
 
 - 外观与交互：`.design/repotempo-approved-v1/repotempo-approved.html`
 - 设计约束：`.design/repotempo-approved-v1/DESIGN-LOCK.md`
