@@ -1,4 +1,9 @@
-# RepoTempo agent integration
+# RepoTempo optional MCP / plugin integration
+
+The recommended setup is now the [portable RepoTempo Skill](../README.md): open
+**Agent 访问**, generate an AK/SK and run its install command. That path does not
+need Node, Python or MCP configuration. This compatibility bundle is only for
+users who specifically want a local MCP server or Codex plugin.
 
 This bundle connects local AI agents to a RepoTempo account. It supplies a
 dependency-free Node.js CLI, a stdio MCP server, a research Skill and a Codex plugin.
@@ -7,7 +12,7 @@ credential owner’s watchlist. It does not select or invoke a language model.
 
 ## Configure your account
 
-Use Node.js 20 or newer. Sign in to RepoTempo with GitHub, open API / Agent in the
+Use Node.js 20 or newer. Sign in to RepoTempo with GitHub, open Agent 访问 in the
 account menu (`/account/api`), and create a key with the read scopes needed for your work. Save its SK
 when first displayed; it cannot be recovered later. Revoke that key if exposed.
 
