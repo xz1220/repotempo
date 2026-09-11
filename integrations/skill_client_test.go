@@ -8,12 +8,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -30,7 +32,7 @@ func portablePath(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	// No Node, Python, jq or package manager exists in the install/client PATH.
-	for _, name := range strings.Fields("sh curl openssl tar gzip mktemp chmod mkdir mv rm rmdir od awk grep date wc tr cat ls id dirname") {
+	for _, name := range strings.Fields("sh curl openssl tar gzip mktemp chmod mkdir mv rm rmdir od awk grep date wc tr cat ls id dirname uname") {
 		path, err := exec.LookPath(name)
 		if err != nil {
 			t.Skipf("portable Skill requires system utility %s", name)
@@ -107,6 +109,17 @@ func TestPortableSkillInstallsWithoutNodeAndUsesRealGoAPI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	target := filepath.Join(t.TempDir(), "space in path", "repotempo")
+	if runtime.GOOS == "darwin" {
+		// Real inherited ACLs must not follow the private staging directory or
+		// credential into the installation; the user's parent ACL stays intact.
+		if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
+			t.Fatal(err)
+		}
+		command := exec.Command(filepath.Join(path, "chmod"), "+a", "everyone allow read,execute,file_inherit,directory_inherit", filepath.Dir(target))
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("cannot prepare isolated inherited ACL fixture: %v: %s", err, output)
+		}
+	}
 	installer, _ := filepath.Abs("install-skill.sh")
 	install := func() ([]byte, error) {
 		command := exec.Command(filepath.Join(path, "sh"), installer)
@@ -119,6 +132,12 @@ func TestPortableSkillInstallsWithoutNodeAndUsesRealGoAPI(t *testing.T) {
 	}
 	if strings.Contains(string(output), key.Secret) || downloads.Load() != 1 {
 		t.Fatal("installer exposed a secret or failed to fetch one public bundle")
+	}
+	if runtime.GOOS == "darwin" {
+		command := exec.Command(filepath.Join(path, "ls"), "-lde", filepath.Dir(target))
+		if output, err := command.CombinedOutput(); err != nil || !bytes.Contains(output, []byte("everyone")) {
+			t.Fatal("installer altered the unrelated parent directory ACL")
+		}
 	}
 	credentials, err := os.ReadFile(filepath.Join(target, ".credentials"))
 	if err != nil || string(credentials) != server.URL+"\n"+key.Key.ID+"\n"+key.Secret+"\n" {
@@ -319,5 +338,68 @@ func TestPortableSkillArchiveContainsOnlyRuntimeIndependentFiles(t *testing.T) {
 	installer, err := integrations.SkillInstaller()
 	if err != nil || !bytes.HasPrefix(installer, []byte("#!/bin/sh\n")) {
 		t.Fatal("public installer missing")
+	}
+}
+
+func TestPortableSkillCredentialMetadataIndicators(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"user":{}}`))
+	}))
+	defer server.Close()
+	for _, indicator := range []string{"", "@", ".", "+", "?", "hidden_acl"} {
+		t.Run("suffix_"+indicator, func(t *testing.T) {
+			path := portablePath(t)
+			target := filepath.Join(t.TempDir(), "repotempo")
+			if err := os.MkdirAll(filepath.Join(target, "scripts"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"lib.sh", "repotempo.sh"} {
+				data, err := os.ReadFile(filepath.Join("repotempo-skill", "scripts", name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(target, "scripts", name), data, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			credentials := server.URL + "\nrt_ak_" + strings.Repeat("a", 32) + "\nrt_sk_" + strings.Repeat("b", 64) + "\n"
+			if err := os.WriteFile(filepath.Join(target, ".credentials"), []byte(credentials), 0600); err != nil {
+				t.Fatal(err)
+			}
+			// Simulate BSD xattrs, GNU security context, ACL and unknown metadata
+			// independently of the filesystem used by the test runner.
+			if err := os.Remove(filepath.Join(path, "ls")); err != nil {
+				t.Fatal(err)
+			}
+			suffix := indicator
+			if indicator == "hidden_acl" {
+				suffix = "@"
+			}
+			wrapper := "#!/bin/sh\nprintf '%s\\n' '-rw-------" + suffix + " 1 " + fmt.Sprint(os.Getuid()) + " 20 100 Sep 11 00:00 .credentials'\n"
+			if indicator == "hidden_acl" {
+				wrapper += "[ \"$1\" != -nde ] || printf '%s\\n' ' 0: group:everyone allow read'\n"
+			}
+			if err := os.WriteFile(filepath.Join(path, "ls"), []byte(wrapper), 0700); err != nil {
+				t.Fatal(err)
+			}
+			// Exercise the Darwin-only detailed ACL check on every host.
+			if err := os.Remove(filepath.Join(path, "uname")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(path, "uname"), []byte("#!/bin/sh\nprintf 'Darwin\\n'\n"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			command := exec.Command(filepath.Join(path, "sh"), filepath.Join(target, "scripts", "repotempo.sh"), "account")
+			command.Env = portableEnv(path)
+			output, err := command.CombinedOutput()
+			if indicator == "+" || indicator == "?" || indicator == "hidden_acl" {
+				if err == nil || !(bytes.Contains(output, []byte("permission 600")) || bytes.Contains(output, []byte("extended ACL"))) {
+					t.Fatal("client did not reject ACL or unknown access metadata")
+				}
+			} else if err != nil {
+				t.Fatalf("client rejected safe platform metadata %q: %v: %s", indicator, err, output)
+			}
+		})
 	}
 }

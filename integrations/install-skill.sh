@@ -3,7 +3,7 @@ set +x
 set -eu
 umask 077
 fail() { printf '%s\n' "RepoTempo: $*" >&2; exit 1; }
-for dependency in curl openssl tar gzip mktemp chmod mkdir mv rm rmdir od awk grep date wc tr cat ls id dirname; do
+for dependency in curl openssl tar gzip mktemp chmod mkdir mv rm rmdir od awk grep date wc tr cat ls id dirname uname; do
   command -v "$dependency" >/dev/null 2>&1 || fail "Install the missing system utility: $dependency."
 done
 install_url=${REPOTEMPO_URL-}; install_ak=${REPOTEMPO_AK-}; install_sk=${REPOTEMPO_SK-}
@@ -19,6 +19,7 @@ case "$install_target" in */../*|*/./*|*//*) fail 'Install path must not contain
 install_parent=${install_target%/*}
 mkdir -p "$install_parent"
 install_stage=$(mktemp -d "$install_parent/.repotempo-install.XXXXXXXX") || fail 'Cannot create a private install directory.'
+install_platform=$(uname -s)
 cleanup() {
   rm -f "$install_stage/archive.tar.gz" "$install_stage/SKILL.md" "$install_stage/repotempo.sh" "$install_stage/lib.sh" "$install_stage/.credentials" "$install_stage/.repotempo-skill"
   rmdir "$install_stage" 2>/dev/null || :
@@ -26,6 +27,9 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
+# Clear inherited macOS ACLs before any credential is written. Only this newly
+# created private staging directory is changed here, never the user's parent.
+if [ "$install_platform" = Darwin ]; then chmod -N "$install_stage"; fi
 install_status=$(curl -q --silent --show-error --proto '=https,http' --connect-timeout 10 --max-time 30 --max-filesize 1048576 --output "$install_stage/archive.tar.gz" --write-out '%{http_code}' "$install_url/integrations/repotempo-skill.tar.gz") || fail 'Skill download failed; check the network.'
 [ "$install_status" = 200 ] || fail 'Skill download failed or redirected. Use the final HTTPS origin.'
 [ "$(wc -c < "$install_stage/archive.tar.gz")" -le 1048576 ] || fail 'Skill download is unexpectedly large.'
@@ -55,6 +59,9 @@ else
   mkdir "$install_target"
 fi
 mkdir -p "$install_target/scripts"
+if [ "$install_platform" = Darwin ]; then
+  chmod -N "$install_target" "$install_target/scripts" "$install_stage/.credentials"
+fi
 chmod 700 "$install_target" "$install_target/scripts"
 mv "$install_stage/SKILL.md" "$install_target/SKILL.md"
 mv "$install_stage/repotempo.sh" "$install_target/scripts/repotempo.sh"

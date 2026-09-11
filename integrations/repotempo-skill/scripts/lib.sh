@@ -2,7 +2,7 @@
 # Shared by the installed client. Never source the credential file as shell code.
 rt_fail() { printf '%s\n' "RepoTempo: $*" >&2; exit 1; }
 rt_dependencies() {
-  for rt_dependency in curl openssl od awk grep mktemp date wc tr cat ls id rm rmdir dirname; do
+  for rt_dependency in curl openssl od awk grep mktemp date wc tr cat ls id rm rmdir dirname uname; do
     command -v "$rt_dependency" >/dev/null 2>&1 || rt_fail "Install the missing system utility: $rt_dependency."
   done
 }
@@ -19,7 +19,11 @@ rt_load_config() {
   else
     rt_credentials="$rt_skill_dir/.credentials"
     [ -f "$rt_credentials" ] && [ ! -L "$rt_credentials" ] || rt_fail 'No local credentials. Run the install instruction from Agent 访问.'
-    [ "$(LC_ALL=C ls -nd "$rt_credentials" | awk '{mode=$1; sub(/@$/, "", mode); print mode ":" $3}')" = "-rw-------:$(id -u)" ] || rt_fail 'Credential file must be owned by you with permission 600 and no extended ACL.'
+    [ "$(LC_ALL=C ls -nd "$rt_credentials" | awk '{mode=$1; sub(/[@.]$/, "", mode); print mode ":" $3}')" = "-rw-------:$(id -u)" ] || rt_fail 'Credential file must be owned by you with permission 600 and no extended ACL.'
+    if [ "$(uname -s)" = Darwin ]; then
+      # BSD ls prioritizes @ over + when both xattrs and an ACL exist.
+      [ "$(LC_ALL=C ls -nde "$rt_credentials" | wc -l)" -eq 1 ] || rt_fail 'Credential file has an extended ACL. Reinstall from Agent 访问.'
+    fi
     { IFS= read -r rt_url && IFS= read -r rt_ak && IFS= read -r rt_sk && { ! IFS= read -r rt_extra && [ -z "$rt_extra" ]; }; } < "$rt_credentials" || rt_fail 'Invalid local credential file. Reinstall from Agent 访问.'
   fi
   unset REPOTEMPO_URL REPOTEMPO_AK REPOTEMPO_SK
