@@ -48,8 +48,8 @@ rt_request() {
   for rt_pad in inner outer; do
     if [ "$rt_pad" = inner ]; then rt_pad_byte=54; else rt_pad_byte=92; fi
     od -An -tu1 -v "$rt_tmp/key" | LC_ALL=C awk -v pad="$rt_pad_byte" '
-      function xor(a,b, value,p) {value=0; p=1; while(a>0 || b>0) {if(a%2 != b%2) value+=p; a=int(a/2); b=int(b/2); p*=2} return value}
-      {for(i=1;i<=NF;i++) {printf "%c", xor($i,pad); count++}}
+      function rt_xor(a,b, value,p) {value=0; p=1; while(a>0 || b>0) {if(a%2 != b%2) value+=p; a=int(a/2); b=int(b/2); p*=2} return value}
+      {for(i=1;i<=NF;i++) {printf "%c", rt_xor($i,pad); count++}}
       END {for(i=count;i<64;i++) printf "%c", pad}' > "$rt_tmp/$rt_pad"
   done
   rt_timestamp=$(date +%s)
