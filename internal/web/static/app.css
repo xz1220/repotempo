@@ -2255,7 +2255,7 @@ h2 { font-size: 20px; line-height: 1.35; font-weight: 650; }
 .primary-nav { display: flex; flex-direction: column; gap: 0; }
 .nav-link {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
+  grid-template-columns: 32px minmax(0, 1fr);
   align-items: center;
   column-gap: 10px;
   width: 100%;
@@ -2271,7 +2271,6 @@ h2 { font-size: 20px; line-height: 1.35; font-weight: 650; }
 }
 .nav-link > svg { width: 16px; height: 16px; justify-self: center; }
 .nav-link > span { min-width: 0; overflow-wrap: anywhere; }
-.nav-link > small { justify-self: end; min-width: 14px; font-family: var(--font-data); font-size: 11px; text-align: right; }
 .nav-link:hover { background: var(--sidebar-hover); color: var(--ink); text-decoration: none; }
 .nav-link.is-active { background: var(--surface); border-color: var(--border); color: var(--ink); font-weight: 550; }
 .sidebar-bottom { position: relative; display: block; margin-top: auto; padding: 12px 10px 0; }

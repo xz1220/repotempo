@@ -28,7 +28,7 @@
     <nav class="primary-nav" aria-label="{{t "nav.primary"}}">
       <a class="nav-link {{if eq .Meta.ActiveNav "dashboard"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "dashboard"}}aria-current="page"{{end}}>{{template "icon-chart"}}<span>{{t "nav.dashboard"}}</span></a>
       {{$inLibrary := or (eq .Meta.ActiveNav "repositories") (eq .Meta.ActiveNav "watch")}}
-      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="{{if .LibraryReturnURL}}{{.LibraryReturnURL}}{{else}}/repositories{{end}}"{{if .LibraryReturnURL}} data-library-return{{end}} {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span>{{if and $libraryIndex (gt .Repositories.RegistryTotal 0)}}<small>{{formatInt .Repositories.RegistryTotal}}</small>{{end}}</a>
+      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="{{if .LibraryReturnURL}}{{.LibraryReturnURL}}{{else}}/repositories{{end}}"{{if .LibraryReturnURL}} data-library-return{{end}} {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span></a>
     </nav>
     <div class="sidebar-bottom">
       <div class="sidebar-account" data-account-root>

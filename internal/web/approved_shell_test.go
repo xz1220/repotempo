@@ -36,6 +36,33 @@ func TestApprovedShellKeepsFrozenChromeWithoutDemoCapabilities(t *testing.T) {
 	}
 }
 
+func TestGitHubProjectsNavigationOmitsCountButLibraryKeepsTotals(t *testing.T) {
+	queryer := populatedFake()
+	queryer.repositories.RegistryTotal = 1_250
+	queryer.repositories.Total = 1_250
+	handler := newTestHandlerWithLocale(t, queryer, localeChinese)
+	response := request(t, handler, "/repositories?view=all&new=0&lang=zh-CN")
+	if response.Code != http.StatusOK {
+		t.Fatalf("project library returned %d", response.Code)
+	}
+	body := html.UnescapeString(response.Body.String())
+	primary := regexp.MustCompile(`(?s)<nav class="primary-nav".*?</nav>`).FindString(body)
+	link := regexp.MustCompile(`(?s)<a\b[^>]*href="/repositories[^"]*"[^>]*>(.*?)</a>`).FindStringSubmatch(primary)
+	if len(link) != 2 || !strings.Contains(link[1], "<svg") || !strings.Contains(link[1], "<span>GitHub 项目</span>") {
+		t.Fatalf("project navigation must retain its icon and label: %s", primary)
+	}
+	label := strings.TrimSpace(regexp.MustCompile(`<[^>]*>`).ReplaceAllString(link[1], ""))
+	if label != "GitHub 项目" {
+		t.Fatalf("project navigation must not include a numeric badge: %s", link[0])
+	}
+	summary := regexp.MustCompile(`(?s)<section class="library-summary".*?</section>`).FindString(body)
+	views := regexp.MustCompile(`(?s)<nav class="library-views".*?</nav>`).FindString(body)
+	results := regexp.MustCompile(`(?s)<div class="library-result-meta".*?</div>`).FindString(body)
+	if !strings.Contains(summary, "<dd>1,250</dd>") || !strings.Contains(views, "<span>1,250</span>") || !strings.Contains(results, "1,250 个项目") {
+		t.Fatal("removing the navigation badge must preserve library summary, tab, and result totals")
+	}
+}
+
 func TestApprovedAccountEntryUsesRealOAuthAndLogoutCSRF(t *testing.T) {
 	fixture := newAuthHTTPFixture(t)
 	public := html.UnescapeString(fixture.send(fixture.request(http.MethodGet, "/repositories?view=all&new=0&lang=en", nil)).Body.String())
