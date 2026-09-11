@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/xz1220/repotempo/internal/domain"
@@ -18,11 +19,13 @@ import (
 
 type agentAccessPageView struct {
 	pageView
-	Keys      []domain.AgentKey
-	Created   *agentaccess.CreatedKey
-	CSRFToken string
-	Endpoint  string
-	Error     string
+	Keys           []domain.AgentKey
+	Created        *agentaccess.CreatedKey
+	CSRFToken      string
+	Endpoint       string
+	InstallCommand string
+	AgentPrompt    string
+	Error          string
 }
 
 func (h *Handler) agentAccountSession(w http.ResponseWriter, r *http.Request) *domain.AuthSession {
@@ -172,11 +175,16 @@ func (h *Handler) renderAgentAccount(w http.ResponseWriter, r *http.Request, ses
 		return
 	}
 	view := agentAccessPageView{Keys: keys, Created: created, CSRFToken: nonce, Endpoint: h.auth.PublicURL(), Error: h.agentAccountMessage(r, message)}
-	view.Meta = h.metaText(h.localizerFor(r), "API / Agent", "Connect your agents to RepoTempo", "account", nil)
+	localizer := h.localizerFor(r)
+	view.Meta = h.metaText(localizer, localizer.Text("ui.api_access"), localizer.Text("agent.lead"), "account", nil)
 	view.Meta.Locale = h.localeFor(r)
 	view.Meta.Auth = h.authInfo(r)
 	view.Meta.ChineseURL = "/account/api?lang=zh-CN"
 	view.Meta.EnglishURL = "/account/api?lang=en"
+	if created != nil {
+		view.InstallCommand = agentInstallCommand(view.Endpoint, created.Key.ID, created.Secret)
+		view.AgentPrompt = localizer.Text("agent.prompt_before") + "\n\n" + view.InstallCommand + "\n\n" + localizer.Text("agent.prompt_after")
+	}
 	var output bytes.Buffer
 	tmpl := h.templates[view.Meta.Locale]["account_api"]
 	if tmpl == nil {
@@ -193,6 +201,17 @@ func (h *Handler) renderAgentAccount(w http.ResponseWriter, r *http.Request, ses
 	_, _ = output.WriteTo(w)
 }
 
+// Credentials are included only in the one-time creation response, never in
+// download URLs. Download fully before executing so interrupted transfers fail
+// without running a partial installer. Quote every interpolated shell value.
+func agentInstallCommand(endpoint, ak, sk string) string {
+	quote := func(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
+	return "(\n  set +x; set -eu\n  rt_installer=$(mktemp)\n  trap 'rm -f \"$rt_installer\"' EXIT\n" +
+		"  rt_status=$(curl -q --fail --silent --show-error --proto '=https,http' --connect-timeout 10 --max-time 30 --max-filesize 65536 " + quote(strings.TrimRight(endpoint, "/")+"/integrations/install-skill.sh") + " -o \"$rt_installer\" -w '%{http_code}')\n" +
+		"  [ \"$rt_status\" = 200 ] || exit 1\n" +
+		"  REPOTEMPO_URL=" + quote(endpoint) + " REPOTEMPO_AK=" + quote(ak) + " REPOTEMPO_SK=" + quote(sk) + " sh \"$rt_installer\"\n)"
+}
+
 func (h *Handler) agentAccountError(w http.ResponseWriter, r *http.Request, message string, status int) {
 	http.Error(w, h.agentAccountMessage(r, message), status)
 }
@@ -201,7 +220,7 @@ func (h *Handler) agentAccountMessage(r *http.Request, message string) string {
 		return message
 	}
 	translations := map[string]string{
-		"Agent access is unavailable": "Agent 接入暂时不可用，请稍后重试。",
+		"Agent access is unavailable": "Agent 访问暂时不可用，请稍后重试。",
 		"Sign in first":               "请先登录。",
 		"Invalid origin":              "未能验证请求来源，请刷新账户页面后重试。",
 		"Expected a form":             "请使用账户页面中的表单。",

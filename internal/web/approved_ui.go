@@ -25,7 +25,7 @@ func init() {
 		"ui.github_oauth":             {"GitHub OAuth", "GitHub OAuth"},
 		"ui.local_workspace":          {"本地工作区", "Local workspace"},
 		"ui.legacy_access":            {"本机管理模式", "Local management"},
-		"ui.api_access":               {"API 访问", "API access"},
+		"ui.api_access":               {"Agent 访问", "Agent access"},
 		"ui.unavailable":              {"未开放", "Unavailable"},
 		"ui.api_unavailable_help":     {"AK/SK 与 JSON API 尚未接入真实后端。", "AK/SK and the JSON API do not have a production backend yet."},
 		"ui.open_navigation":          {"展开导航", "Open navigation"},

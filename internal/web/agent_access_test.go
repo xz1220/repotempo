@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"html"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -67,6 +68,12 @@ func TestAgentAccountPublicSignupCreatesSecretOnceWithOneTimeCSRF(t *testing.T) 
 	if len(secret) != 2 || !strings.HasPrefix(secret[1], "rt_sk_") {
 		t.Fatal("one-time secret missing")
 	}
+	for _, id := range []string{"api-install-command", "api-agent-prompt"} {
+		field := regexp.MustCompile(`(?s)id="` + id + `"[^>]*data-secret[^>]*>(.*?)</textarea>`).FindStringSubmatch(w.Body.String())
+		if len(field) != 2 || !strings.Contains(html.UnescapeString(field[1]), secret[1]) || !strings.Contains(html.UnescapeString(field[1]), authHTTPOrigin+"/integrations/install-skill.sh") {
+			t.Fatalf("%s lacks the one-time, personalized Skill instruction", id)
+		}
+	}
 	if w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatal("secret response cache/referrer headers unsafe")
 	}
@@ -89,6 +96,39 @@ func TestAgentAccountPublicSignupCreatesSecretOnceWithOneTimeCSRF(t *testing.T) 
 	form.Del("scope")
 	if denied := f.send(f.request("POST", "/account/api/keys?lang=zh-CN", form, cookie)); denied.Code != 400 || !strings.Contains(denied.Body.String(), "至少选择") {
 		t.Fatal("no scopes silently gained permissions or untranslated error")
+	}
+}
+
+func TestAgentAccountSinglePageInBothLanguages(t *testing.T) {
+	f := newAgentAccountFixture(t)
+	cookie := f.login(t)
+	for locale, title := range map[string]string{"zh-CN": "Agent 访问", "en": "Agent access"} {
+		page := f.send(f.request("GET", "/account/api?lang="+locale, nil, cookie))
+		body := page.Body.String()
+		if page.Code != 200 || !strings.Contains(body, title) || !strings.Contains(body, "data-key-create") {
+			t.Fatalf("missing single-page account setup for %s", locale)
+		}
+		for _, removed := range []string{"data-api-tab", "data-api-panel", "node /absolute/path", "rt_sk_", "api-install-command"} {
+			if strings.Contains(body, removed) {
+				t.Fatalf("initial account setup includes obsolete or unusable content: %s", removed)
+			}
+		}
+	}
+}
+
+func TestSkillDownloadsArePublicAndCredentialFree(t *testing.T) {
+	f := newAgentAccountFixture(t)
+	for path, contentType := range map[string]string{
+		"/integrations/install-skill.sh":       "text/plain; charset=utf-8",
+		"/integrations/repotempo-skill.tar.gz": "application/gzip",
+	} {
+		w := f.send(f.request("GET", path, nil))
+		if w.Code != 200 || w.Header().Get("Content-Type") != contentType || w.Body.Len() == 0 {
+			t.Fatalf("public Skill download unavailable: %s (%d)", path, w.Code)
+		}
+		if len(w.Result().Cookies()) != 0 {
+			t.Fatal("public download created a session")
+		}
 	}
 }
 

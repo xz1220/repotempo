@@ -143,6 +143,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /integrations/repotempo-agent.zip", h.agentBundle)
+	h.mux.HandleFunc("GET /integrations/repotempo-skill.tar.gz", h.agentSkillBundle)
+	h.mux.HandleFunc("GET /integrations/install-skill.sh", h.agentSkillInstaller)
 	h.mux.HandleFunc("GET /account/api", h.accountAPI)
 	h.mux.HandleFunc("POST /account/api/keys", h.accountAPIKeyCreate)
 	h.mux.HandleFunc("POST /account/api/keys/{id}/revoke", h.accountAPIKeyRevoke)
@@ -177,7 +179,6 @@ func (h *Handler) routes() {
 	h.mux.HandleFunc("GET /static/app.css", h.staticAsset("app.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/feed.css", h.staticAsset("feed.css", "text/css; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/app.js", h.staticAsset("app.js", "text/javascript; charset=utf-8"))
-	h.mux.HandleFunc("GET /static/reading-state.js", h.staticAsset("reading-state.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/reading-position.js", h.staticAsset("reading-position.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/imports.js", h.staticAsset("imports.js", "text/javascript; charset=utf-8"))
 	h.mux.HandleFunc("GET /static/imports.css", h.staticAsset("imports.css", "text/css; charset=utf-8"))

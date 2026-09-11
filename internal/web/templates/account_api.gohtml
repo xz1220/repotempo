@@ -1,38 +1,43 @@
 {{define "content"}}
 <section id="agent-access" class="agent-access" data-agent-access-panel>
-  <div class="api-header"><div><span class="api-kicker">{{t "agent.account_settings"}}</span><h2 id="api-access-title">{{t "ui.api_access"}}</h2><p class="api-lead">{{t "agent.lead"}}</p></div><button class="api-dialog-close" type="button" data-close-agent aria-label="{{t "agent.close"}}">×</button></div>
+  <div class="api-header"><div><h2 id="api-access-title">{{t "ui.api_access"}}</h2><p class="api-lead">{{t "agent.lead"}}</p></div><button class="api-dialog-close" type="button" data-close-agent aria-label="{{t "agent.close"}}">×</button></div>
   {{if .Error}}<p class="api-status api-error" role="alert">{{.Error}}</p>{{end}}
-  <div class="api-tabs" role="group" aria-label="{{t "ui.api_access"}}"><button type="button" data-api-tab="keys" aria-pressed="true">{{t "agent.keys"}}</button><button type="button" data-api-tab="connect" aria-pressed="false">{{t "agent.connect"}}</button></div>
-  <div data-api-panel="keys">
+  <section class="api-guide-step"><span class="api-step-number" aria-hidden="true">1</span><div>
+    <h3>{{if .Created}}{{t "agent.created"}}{{else}}{{t "agent.generate"}}{{end}}</h3>
     {{if .Created}}
-    <section class="api-secret" data-new-secret><h3>{{t "agent.created"}}</h3><p>{{t "agent.secret_once"}}</p>
-      <div class="field"><label for="api-new-ak">Access Key（AK）</label><div class="api-copy-row"><input id="api-new-ak" value="{{.Created.Key.ID}}" readonly autocomplete="off"><button class="button button-secondary" type="button" data-copy-target="api-new-ak">{{t "agent.copy_ak"}}</button></div></div>
-      <div class="field"><label for="api-new-sk">Secret Key（SK）</label><div class="api-copy-row"><input id="api-new-sk" type="password" value="{{.Created.Secret}}" readonly autocomplete="off" data-secret><button class="button button-secondary" type="button" data-reveal-secret aria-pressed="false">{{t "agent.show"}}</button><button class="button button-secondary" type="button" data-copy-target="api-new-sk">{{t "agent.copy_sk"}}</button></div></div>
-      <div class="api-actions"><button class="button button-primary" type="button" data-secret-saved>{{t "agent.saved"}} →</button></div>
-    </section>
+    <div data-new-secret><p class="api-help">{{t "agent.secret_once"}}</p>
+      <details class="api-credentials"><summary>{{t "agent.view_keys"}}</summary>
+        <div class="field"><label for="api-new-ak">Access Key（AK）</label><div class="api-copy-row"><input id="api-new-ak" value="{{.Created.Key.ID}}" readonly autocomplete="off"><button class="button button-secondary" type="button" data-copy-target="api-new-ak">{{t "agent.copy_ak"}}</button></div></div>
+        <div class="field"><label for="api-new-sk">Secret Key（SK）</label><div class="api-copy-row"><input id="api-new-sk" type="password" value="{{.Created.Secret}}" readonly autocomplete="off" data-secret><button class="button button-secondary" type="button" data-reveal-secret aria-pressed="false">{{t "agent.show"}}</button><button class="button button-secondary" type="button" data-copy-target="api-new-sk">{{t "agent.copy_sk"}}</button></div></div>
+      </details>
+    </div>
     {{else}}
-    <div class="api-title-row"><h3>{{t "agent.my_keys"}} <span class="api-count">{{len .Keys}}</span></h3><button class="button button-primary" type="button" data-create-key>＋ {{t "agent.create"}}</button></div>
     <form class="api-create" data-key-create action="/account/api/keys?lang={{.Meta.Locale}}" method="post">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-      <div class="api-form-grid"><div class="field"><label for="api-key-name">{{t "agent.name"}}</label><input id="api-key-name" name="name" required maxlength="40" autocomplete="off" placeholder="{{t "agent.name_hint"}}"></div><div class="field"><label for="api-key-expiry">{{t "agent.expiry"}}</label><select id="api-key-expiry" name="expires_days"><option value="30">30 {{t "agent.days"}}</option><option value="90" selected>90 {{t "agent.days"}}</option><option value="365">365 {{t "agent.days"}}</option></select></div></div>
-      <fieldset class="api-scopes"><legend>{{t "agent.permissions"}}</legend><label><input type="checkbox" name="scope" value="repositories:read" checked> {{t "agent.public_read"}}</label><label><input type="checkbox" name="scope" value="watchlist:read" checked> {{t "agent.watch_read"}}</label></fieldset>
-      <p class="api-help">{{t "agent.readonly"}}</p><div class="api-actions"><button class="button button-secondary" type="button" data-cancel-create>{{t "agent.cancel"}}</button><button class="button button-primary" type="submit">{{t "agent.generate"}}</button></div>
+      <div class="api-form-grid"><div class="field"><label for="api-key-name">{{t "agent.name"}}</label><input id="api-key-name" name="name" required maxlength="40" autocomplete="off" value="{{t "agent.default_name"}}"></div><button class="button button-primary" type="submit">{{t "agent.generate"}}</button></div>
+      <details class="api-options"><summary>{{t "agent.options"}}</summary>
+        <div class="field"><label for="api-key-expiry">{{t "agent.expiry"}}</label><select id="api-key-expiry" name="expires_days"><option value="30">30 {{t "agent.days"}}</option><option value="90" selected>90 {{t "agent.days"}}</option><option value="365">365 {{t "agent.days"}}</option></select></div>
+        <fieldset class="api-scopes"><legend>{{t "agent.permissions"}}</legend><label><input type="checkbox" name="scope" value="repositories:read" checked> {{t "agent.public_read"}}</label><label><input type="checkbox" name="scope" value="watchlist:read" checked> {{t "agent.watch_read"}}</label></fieldset>
+      </details><p class="api-help">{{t "agent.readonly"}}</p>
     </form>
     {{end}}
-    <div class="api-key-list">{{range .Keys}}
-      <article class="api-key"><div class="api-key-head"><strong>{{.Name}}</strong><span class="api-badge">{{if .RevokedAt}}{{t "agent.revoked"}}{{else}}{{t "agent.expires"}} {{formatDate .ExpiresAt}}{{end}}</span></div><code class="api-ak">{{.ID}}</code><p class="api-key-meta">{{t "agent.created_on"}} {{formatDate .CreatedAt}} · {{join .Scopes " · "}}</p>
-      {{if not .RevokedAt}}<form method="post" action="/account/api/keys/{{.ID}}/revoke?lang={{$.Meta.Locale}}" class="api-revoke"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><details><summary>{{t "agent.revoke"}}</summary><p>{{t "agent.revoke_help"}}</p><button class="button button-secondary" type="submit">{{t "agent.revoke_confirm"}}</button></details></form>{{end}}</article>
-    {{else}}<div class="api-empty"><h3>{{t "agent.empty"}}</h3><p>{{t "agent.empty_help"}}</p></div>{{end}}</div>
-  </div>
-  <div data-api-panel="connect">
-    <div class="api-guide-step"><span class="api-step-number">1</span><div><h3>{{t "agent.download"}}</h3><p>{{t "agent.download_help"}}</p><a class="button button-secondary" href="/integrations/repotempo-agent.zip">{{t "agent.download_bundle"}} ↓</a></div></div>
-    <div class="api-guide-step"><span class="api-step-number">2</span><div><h3>{{t "agent.configure"}}</h3><p>{{t "agent.configure_help"}}</p><pre class="api-env">REPOTEMPO_URL={{.Endpoint}}
-REPOTEMPO_AK={{t "agent.your_ak"}}
-REPOTEMPO_SK={{t "agent.your_sk"}}</pre><p>{{t "agent.env_help"}}</p></div></div>
-    <div class="api-guide-step"><span class="api-step-number">3</span><div><h3>{{t "agent.install"}}</h3><p>{{t "agent.install_help"}}</p><pre class="api-env">node /absolute/path/repotempo-agent/scripts/mcp.mjs</pre><p>{{t "agent.skill_plugin_help"}}</p></div></div>
-    <label for="api-agent-prompt" class="api-prompt-label">{{t "agent.prompt"}}</label><textarea id="api-agent-prompt" readonly rows="5">{{t "agent.prompt_text"}}</textarea><div class="api-actions"><button class="button button-primary" type="button" data-copy-target="api-agent-prompt">{{t "agent.copy_prompt"}}</button></div>
-    <details class="api-protocol"><summary>{{t "agent.protocol"}}</summary><p>{{t "agent.protocol_help"}}</p><code>GET /api/v1/me · GET /api/v1/repositories · GET /api/v1/repositories/{id} · POST /mcp</code></details>
-  </div>
+  </div></section>
+  <section class="api-guide-step"><span class="api-step-number" aria-hidden="true">2</span><div>
+    <h3>{{t "agent.install"}}</h3><p>{{t "agent.install_help"}}</p>
+    {{if .Created}}
+    <div data-new-secret>
+      <label for="api-install-command" class="api-prompt-label">{{t "agent.terminal_command"}}</label><textarea id="api-install-command" class="api-command" readonly rows="7" spellcheck="false" autocomplete="off" data-secret>{{.InstallCommand}}</textarea>
+      <div class="api-actions"><button class="button button-primary" type="button" data-copy-target="api-install-command">{{t "agent.copy_install"}}</button></div>
+      <p class="api-help">{{t "agent.sensitive_command"}}</p>
+      <details class="api-prompt"><summary>{{t "agent.prompt"}}</summary><p>{{t "agent.prompt_help"}}</p><textarea id="api-agent-prompt" readonly rows="7" spellcheck="false" autocomplete="off" data-secret>{{.AgentPrompt}}</textarea><div class="api-actions"><button class="button button-secondary" type="button" data-copy-target="api-agent-prompt">{{t "agent.copy_prompt"}}</button></div></details>
+      <p class="api-help">{{t "agent.after_install"}}</p><a class="api-finish" href="/account/api?lang={{.Meta.Locale}}">{{t "agent.finish"}} →</a>
+    </div>
+    {{else}}<p class="api-waiting">{{t "agent.generate_first"}}</p>{{end}}
+  </div></section>
+  {{if .Keys}}<details class="api-key-management"><summary>{{t "agent.my_keys"}} <span class="api-count">{{len .Keys}}</span></summary><p class="api-help">{{t "agent.existing_help"}}</p><div class="api-key-list">{{range .Keys}}
+    <article class="api-key"><div class="api-key-head"><strong>{{.Name}}</strong><span class="api-badge">{{if .RevokedAt}}{{t "agent.revoked"}}{{else}}{{t "agent.expires"}} {{formatDate .ExpiresAt}}{{end}}</span></div><code class="api-ak">{{.ID}}</code><p class="api-key-meta">{{t "agent.created_on"}} {{formatDate .CreatedAt}} · {{join .Scopes " · "}}</p>
+    {{if not .RevokedAt}}<form method="post" action="/account/api/keys/{{.ID}}/revoke?lang={{$.Meta.Locale}}" class="api-revoke"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><details><summary>{{t "agent.revoke"}}</summary><p>{{t "agent.revoke_help"}}</p><button class="button button-secondary" type="submit">{{t "agent.revoke_confirm"}}</button></details></form>{{end}}</article>
+  {{end}}</div></details>{{end}}
   <p class="api-status" data-api-status role="status" data-copy-success="{{t "agent.copied"}}" data-copy-failed="{{t "agent.copy_failed"}}" data-request-failed="{{t "agent.request_failed"}}"></p>
 </section>
 {{end}}

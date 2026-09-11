@@ -4,14 +4,9 @@
   let pending = false;
   let active = true;
   let controller;
-  const panel = () => modal?.open ? modal.querySelector("[data-agent-access-panel]") : document.querySelector("main [data-agent-access-panel]");
   function forgetSecret(root) {
-    root?.querySelectorAll("[data-secret]").forEach(input => { input.value = ""; input.removeAttribute("value"); });
+    root?.querySelectorAll("[data-secret]").forEach(input => { input.value = ""; input.textContent = ""; input.removeAttribute("value"); });
     root?.querySelectorAll("[data-new-secret]").forEach(section => section.remove());
-  }
-  function tab(root, name) {
-    root.querySelectorAll("[data-api-panel]").forEach(section => { section.hidden = section.dataset.apiPanel !== name; section.classList.toggle("is-visible", !section.hidden); });
-    root.querySelectorAll("[data-api-tab]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.apiTab === name)));
   }
   async function load(url, options) {
     const target = new URL(url, location.href);
@@ -49,12 +44,8 @@
     if (!root) return;
     const action = event.target.closest("button"); if (!action) return;
     if (action.hasAttribute("data-close-agent") && !pending) { forgetSecret(root); modal?.close(); }
-    if (action.dataset.apiTab) tab(root, action.dataset.apiTab);
-    if (action.hasAttribute("data-create-key")) { root.querySelector("[data-key-create]")?.classList.add("is-visible"); root.querySelector("#api-key-name")?.focus(); }
-    if (action.hasAttribute("data-cancel-create")) root.querySelector("[data-key-create]")?.classList.remove("is-visible");
-    if (action.hasAttribute("data-secret-saved")) { forgetSecret(root); tab(root, "connect"); }
     if (action.hasAttribute("data-reveal-secret")) {
-      const input = root.querySelector("[data-secret]"); if (input) { input.type = input.type === "password" ? "text" : "password"; action.setAttribute("aria-pressed", String(input.type === "text")); }
+      const input = root.querySelector("#api-new-sk"); if (input) { input.type = input.type === "password" ? "text" : "password"; action.setAttribute("aria-pressed", String(input.type === "text")); }
     }
     if (action.dataset.copyTarget) {
       const input = root.querySelector(`#${CSS.escape(action.dataset.copyTarget)}`); const status = root.querySelector("[data-api-status]");
@@ -70,7 +61,11 @@
     try {
       const body = new URLSearchParams(new FormData(form));
       const replacement = await load(form.action, {method:"POST", body});
-      if (replacement && active && root.isConnected) { forgetSecret(root); root.replaceWith(replacement); }
+      if (replacement && active && root.isConnected) {
+        forgetSecret(root); root.replaceWith(replacement);
+        const next = replacement.querySelector("[role=alert], #api-install-command, #api-key-name");
+        if (next) { if (next.getAttribute("role") === "alert") next.setAttribute("tabindex", "-1"); next.focus(); }
+      }
     } catch { status.textContent = status.dataset.requestFailed; }
     finally { pending = false; }
   });

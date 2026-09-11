@@ -1,56 +1,56 @@
 .agent-access { max-width: 704px; margin-inline: auto; color: var(--fg); }
 .personal-watch-help { margin-bottom: 20px; color: var(--muted); font-size: 13px; line-height: 1.7; }
-.api-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.api-header h2 { margin: 6px 0 8px; font-size: 22px; line-height: 1.35; }
-.api-kicker, .api-key-meta { color: var(--muted); font-size: 11px; }
-.api-lead, .api-help, .api-secret p, .api-guide-step p, .api-empty p, .api-revoke p, .api-protocol p { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 8px 0 16px; }
+.api-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+.api-header h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.35; }
+.api-lead, .api-help, .api-guide-step p, .api-revoke p { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 8px 0 16px; }
 .api-lead { font-size: 13px; margin: 0; }
 .api-dialog-close { display: none; border: 0; background: transparent; color: var(--muted); font-size: 24px; width: 32px; min-height: 32px; }
 .api-dialog { width: min(760px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 28px; border: var(--rule); border-radius: 10px; background: var(--surface); color: var(--fg); overflow-y: auto; }
 .api-dialog::backdrop { background: color-mix(in oklch, var(--fg) 35%, transparent); }
 .api-dialog .api-dialog-close { display: block; }
-.api-tabs { display: flex; gap: 4px; margin: 18px 0 22px; border-bottom: var(--rule); }
-.api-tabs button { min-height: 40px; padding: 8px 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font-size: 13px; border-radius: 0; }
-.api-tabs [aria-pressed="true"] { color: var(--fg); border-bottom-color: var(--fg); font-weight: 600; }
-.api-title-row, .api-key-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.agent-access h3 { font-size: 15px; line-height: 1.5; }
-.api-count { font: 11px var(--font-mono); color: var(--muted); margin-left: 8px; }
-.api-create, .api-secret { padding: 18px; border: var(--rule); border-radius: 7px; margin-bottom: 18px; background: var(--bg); }
-.api-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 16px; }
-.agent-access .field { min-width: 0; margin-bottom: 14px; }
+.agent-access h3 { margin: 0; font-size: 15px; line-height: 1.5; }
+.api-guide-step { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; margin-bottom: 28px; }
+.api-step-number { display: grid; place-items: center; width: 22px; height: 22px; border: var(--rule); border-radius: 50%; font: 11px var(--font-mono); color: var(--muted); }
+.api-create { margin-top: 16px; }
+.api-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+.api-form-grid .field { margin-bottom: 0; }
+.api-form-grid > button { margin-bottom: 1px; }
+.agent-access .field { min-width: 0; }
+.api-options, .api-credentials { margin-top: 12px; }
+.api-options summary, .api-credentials summary, .api-prompt summary { width: fit-content; min-height: 32px; padding-block: 6px; color: var(--muted); font-size: 12px; }
+.api-options .field { max-width: 180px; margin-block: 10px; }
+.api-credentials .field { margin-block: 12px; }
 .api-scopes { padding: 0; border: 0; margin: 0 0 14px; font-size: 12px; }
 .api-scopes legend { margin-bottom: 6px; color: var(--muted); }
 .api-scopes label { display: flex; align-items: center; gap: 6px; min-height: 28px; }
 .api-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-.api-key { margin-top: 10px; padding: 16px; border: var(--rule); border-radius: 7px; }
-.api-key-head { margin-bottom: 0; }
-.api-key-head strong { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
-.api-badge { flex-shrink: 0; background: var(--bg); border: var(--rule); padding: 2px 6px; font-size: 10px; color: var(--muted); border-radius: 4px; }
-.api-ak { display: block; margin: 9px 0; font: 12px var(--font-mono); overflow-wrap: anywhere; }
-.api-key-meta { line-height: 1.7; }
-.api-revoke { margin-top: 10px; }
-.api-revoke summary { width: fit-content; min-height: 28px; padding-block: 4px; color: var(--muted); font-size: 11px; }
-.api-revoke p { margin-bottom: 8px; }
-.api-empty { padding: 32px 16px; border: 1px dashed var(--border); border-radius: 7px; text-align: center; }
-.api-empty p { max-width: 44ch; margin: 8px auto 0; }
 .api-copy-row { display: flex; align-items: center; gap: 8px; }
 .api-copy-row input { min-width: 0; flex: 1; font-family: var(--font-mono); font-size: 12px; }
 .api-copy-row button { flex-shrink: 0; }
+.api-command, #api-agent-prompt { display: block; width: 100%; padding: 12px; border: var(--rule); border-radius: 5px; background: var(--bg); color: var(--fg); font: 11px/1.8 var(--font-mono); overflow-wrap: anywhere; white-space: pre-wrap; resize: vertical; margin-block: 8px 12px; }
+.api-command { min-height: 174px; }
+#api-agent-prompt { min-height: 200px; }
+.api-prompt-label { font-size: 12px; }
+.api-waiting { padding: 16px; border: 1px dashed var(--border); border-radius: 7px; }
+.api-prompt { padding-top: 8px; border-top: var(--rule); }
+.api-finish { font-size: 12px; }
+.api-key-management { border-top: var(--rule); padding-top: 12px; }
+.api-key-management > summary { padding-block: 8px; min-height: 36px; font-size: 12px; }
+.api-count { font: 11px var(--font-mono); color: var(--muted); margin-left: 8px; }
+.api-key { margin-top: 10px; padding: 16px; border: var(--rule); border-radius: 7px; }
+.api-key-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.api-key-head strong { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.api-badge { flex-shrink: 0; background: var(--bg); border: var(--rule); padding: 2px 6px; font-size: 10px; color: var(--muted); border-radius: 4px; }
+.api-ak { display: block; margin: 9px 0; font: 12px var(--font-mono); overflow-wrap: anywhere; }
+.api-key-meta { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.api-revoke { margin-top: 10px; }
+.api-revoke summary { width: fit-content; min-height: 28px; padding-block: 4px; color: var(--muted); font-size: 11px; }
+.api-revoke p { margin-bottom: 8px; }
 .api-status { font-size: 12px; line-height: 1.7; margin-top: 14px; }
 .api-status:empty { display: none; }
 .api-error { color: var(--danger); }
-.api-guide-step { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; margin-bottom: 18px; }
-.api-step-number { display: grid; place-items: center; width: 22px; height: 22px; border: var(--rule); border-radius: 50%; font: 11px var(--font-mono); color: var(--muted); }
-.api-env, #api-agent-prompt { width: 100%; padding: 12px; border: var(--rule); border-radius: 5px; background: var(--bg); font: 11px/1.8 var(--font-mono); overflow-wrap: anywhere; white-space: pre-wrap; }
-#api-agent-prompt { min-height: 190px; resize: vertical; font-size: 12px; margin-block: 8px; }
-.api-prompt-label { font-size: 12px; }
-.api-protocol { margin-top: 20px; padding-top: 10px; border-top: var(--rule); }
-.api-protocol summary { min-height: 36px; padding: 8px 0; color: var(--muted); font-size: 12px; }
-.api-protocol code { font-size: 11px; overflow-wrap: anywhere; }
-html.js .agent-access [data-api-panel="connect"], html.js .agent-access .api-create { display: none; }
-html.js .agent-access [data-api-panel="connect"].is-visible, html.js .agent-access .api-create.is-visible { display: block; }
 .agent-access [hidden] { display: none !important; }
 body[data-active-nav="account"] .page-heading { display: none; }
 body[data-active-nav="account"] .page-shell { padding-top: 28px; }
-@media (max-width:600px) { .api-dialog { padding: 20px; } .api-form-grid { grid-template-columns: minmax(0,1fr); } .api-copy-row { flex-wrap: wrap; } .api-copy-row input { flex-basis: 100%; } .api-key-head { flex-wrap: wrap; } }
-@media(pointer:coarse) { .agent-access button, .agent-access input:not([type="checkbox"]), .agent-access select, .api-revoke summary { min-height:44px; } }
+@media (max-width:600px) { .api-dialog { padding: 20px; } .api-form-grid { grid-template-columns: minmax(0,1fr); } .api-form-grid > button { justify-self: start; } .api-copy-row { flex-wrap: wrap; } .api-copy-row input { flex-basis: 100%; } .api-key-head { flex-wrap: wrap; } }
+@media(pointer:coarse) { .agent-access button, .agent-access input:not([type="checkbox"]), .agent-access select, .agent-access summary { min-height:44px; } }
