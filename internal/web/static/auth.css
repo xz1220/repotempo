@@ -8,5 +8,4 @@
 .login-panel .notice { margin-bottom:24px; }
 .login-help { margin:20px 0; font-size:13px; line-height:1.75; color:var(--muted); }
 .github-sign-in { min-height:42px; }
-body[data-reading-enabled="false"] [data-reading-toggle],body[data-reading-enabled="false"] [data-reading-help],body[data-reading-enabled="false"] [data-reading-note] { display:none; }
 @media(max-width:600px) { .header-right { flex-wrap:wrap; row-gap:8px; } .account-name { max-width:85px; } .account-controls { gap:6px; } .account-button { padding:5px 8px; } }

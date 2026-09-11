@@ -246,7 +246,7 @@ func TestAuthHTTPGitHubFlowUsesIndependentCookiesPKCEAndFixedCallback(t *testing
 		t.Fatal("callback exchange did not use the matching PKCE verifier")
 	}
 	page := fixture.send(fixture.request(http.MethodGet, "/repositories?new=0", nil, cookie))
-	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "@site-admin") || !strings.Contains(page.Body.String(), `action="/auth/logout`) || !strings.Contains(page.Body.String(), `data-reading-enabled="true"`) {
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "@site-admin") || !strings.Contains(page.Body.String(), `action="/auth/logout`) || !strings.Contains(page.Body.String(), `data-auth-enabled="true"`) {
 		t.Fatal("successful local identity did not produce an authenticated header")
 	}
 }
@@ -468,7 +468,7 @@ func TestAuthHTTPAnonymousProjectionAndOwnerRenderingAreIsolated(t *testing.T) {
 	for _, path := range []string{"/repositories?new=0", "/repositories/101"} {
 		public := fixture.send(fixture.request(http.MethodGet, path, nil))
 		body := html.UnescapeString(public.Body.String())
-		if public.Code != http.StatusOK || strings.Contains(body, privateNote) || strings.Contains(body, `<span class="new-badge">My watchlist</span>`) || strings.Contains(body, `data-focus-form`) || strings.Contains(body, `class="project-focus-state"`) || !strings.Contains(body, `data-reading-enabled="false"`) {
+		if public.Code != http.StatusOK || strings.Contains(body, privateNote) || strings.Contains(body, `<span class="new-badge">My watchlist</span>`) || strings.Contains(body, `data-focus-form`) || strings.Contains(body, `class="project-focus-state"`) || strings.Contains(body, `action="/auth/logout`) {
 			t.Fatalf("public page leaks owner state: %s", path)
 		}
 	}

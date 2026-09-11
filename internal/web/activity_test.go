@@ -130,7 +130,7 @@ func TestActivityCardsStructureExistingBriefsAndKeepNavigation(t *testing.T) {
 			body := request(t, newTestHandlerWithLocale(t, queryer, locale), "/repositories?date=2026-08-30&cursor=az&lang="+locale).Body.String()
 			card := html.UnescapeString(feedCards(t, body)[0])
 			l := newLocalizer(locale)
-			for _, want := range []string{item.Analysis.SummaryZH, l.Textf("activity.counts", 6, 3), l.Text("activity.card_window"), l.Text("activity.source"), "4.0", "data-repository-detail", "return_to=", "data-reading-repository", "data-reading-toggle"} {
+			for _, want := range []string{item.Analysis.SummaryZH, l.Textf("activity.counts", 6, 3), l.Text("activity.card_window"), l.Text("activity.source"), "4.0", "data-repository-detail", "return_to=", "data-repository-id"} {
 				if !strings.Contains(card, want) {
 					t.Errorf("card missing %q", want)
 				}

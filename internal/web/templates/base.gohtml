@@ -16,10 +16,9 @@
   {{if or .Meta.Auth.Enabled (eq .Meta.ActiveNav "auth")}}<link rel="stylesheet" href="/static/auth.css">{{end}}
   {{if .Meta.Auth.Enabled}}<script defer src="/static/auth.js"></script>{{end}}
   <script defer src="/static/app.js"></script>
-  <script defer src="/static/reading-state.js"></script>
   <script defer src="/static/reading-position.js"></script>
 </head>
-<body data-active-nav="{{.Meta.ActiveNav}}"{{if .Meta.Auth.Enabled}} data-auth-enabled="true" data-reading-enabled="{{.Meta.Auth.SignedIn}}"{{if .Meta.Auth.SignedIn}} data-reading-user="{{.Meta.Auth.UserID}}"{{end}}{{end}}>
+<body data-active-nav="{{.Meta.ActiveNav}}"{{if .Meta.Auth.Enabled}} data-auth-enabled="true"{{end}}>
   {{$libraryIndex := ne .Repositories.Path ""}}
   <a class="skip-link" href="#main-content">{{t "nav.skip"}}</a>
   <aside class="app-sidebar" id="app-sidebar">

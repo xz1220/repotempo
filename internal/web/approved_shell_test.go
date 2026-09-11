@@ -39,7 +39,7 @@ func TestApprovedShellKeepsFrozenChromeWithoutDemoCapabilities(t *testing.T) {
 func TestApprovedAccountEntryUsesRealOAuthAndLogoutCSRF(t *testing.T) {
 	fixture := newAuthHTTPFixture(t)
 	public := html.UnescapeString(fixture.send(fixture.request(http.MethodGet, "/repositories?view=all&new=0&lang=en", nil)).Body.String())
-	if !strings.Contains(public, `data-reading-enabled="false"`) || !strings.Contains(public, `/auth/login?`) || !strings.Contains(public, authText(localeEnglish, "login")) {
+	if !strings.Contains(public, `data-auth-enabled="true"`) || !strings.Contains(public, `/auth/login?`) || !strings.Contains(public, authText(localeEnglish, "login")) {
 		t.Fatal("anonymous account entry is not wired to real OAuth")
 	}
 	for _, private := range []string{`action="/auth/logout`, `data-focus-form`, "@site-admin"} {

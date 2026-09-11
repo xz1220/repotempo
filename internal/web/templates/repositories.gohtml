@@ -63,13 +63,12 @@
 </div>
 
 {{if .Repositories.Items}}
-<p id="reading-local-note" class="reading-local-note" data-reading-help hidden>{{t "feed.reading_local_note"}}</p>
 <section class="project-table" aria-label="{{t "feed.list_label"}}">
   <div class="project-columns" aria-hidden="true"><span>{{t "repositories.repository"}}</span><span>{{t "metric.current_stars"}}</span><span>{{t "ui.period_gain"}}</span><span>{{t "ui.actions"}}</span></div>
   <ol class="repository-feed" id="project-list" tabindex="-1" data-list-url="{{.ListURL}}" data-library-list>
     {{range .Repositories.Items}}
     <li>
-      <article class="project-card" aria-labelledby="project-{{.ID}}" data-reading-repository="{{.ID}}">
+      <article class="project-card" aria-labelledby="project-{{.ID}}" data-repository-id="{{.ID}}">
         <div class="project-main">
           <div class="project-identity">
             <div class="project-title-row">
@@ -105,9 +104,7 @@
           {{if $.CanManageFocus}}
           <form action="/watch/focus" method="post" data-focus-form><input type="hidden" name="csrf_token" value="{{$.FocusCSRFToken}}"><input type="hidden" name="repository_id" value="{{.ID}}"><input type="hidden" name="focus" value="{{if .IsFocus}}0{{else}}1{{end}}"><input type="hidden" name="return_to" value="{{$.ListURL}}#project-{{.ID}}"><button class="button button-secondary project-focus-toggle" type="submit" aria-pressed="{{.IsFocus}}">{{if .IsFocus}}{{t "ui.watched"}}{{else}}{{t "ui.watch"}}{{end}}</button></form>
           {{else if .IsFocus}}<span class="project-focus-state">{{t "ui.watched"}}</span>{{end}}
-          <button type="button" class="project-read-toggle" data-reading-toggle data-reading-mark-read="{{t "feed.mark_read"}}" data-reading-mark-unread="{{t "feed.mark_unread"}}" data-reading-load-error="{{t "feed.reading_load_error"}}" data-reading-save-error="{{t "feed.reading_save_error"}}" aria-pressed="false" aria-describedby="reading-local-note reading-note-{{.ID}}" hidden>{{t "feed.mark_read"}}</button>
         </div>
-        <p id="reading-note-{{.ID}}" class="project-reading-note" data-reading-note role="status" aria-live="polite" hidden></p>
       </article>
     </li>
     {{end}}

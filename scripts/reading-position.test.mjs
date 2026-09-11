@@ -86,7 +86,7 @@ function browser(options = {}) {
   window.requestAnimationFrame = callback => { frames.push(callback); return frames.length; };
   const details = (options.tagIDs || ["101", projectID, "303"]).map(id => ({
     open: (options.expanded || []).includes(id),
-    closest: () => ({ dataset: { readingRepository: id } }),
+    closest: selector => selector === "[data-repository-id]" ? { dataset: { repositoryId: id } } : null,
   }));
   const anchors = new Map((options.anchorIDs || [projectID]).map(id => [
     `project-${id}`,

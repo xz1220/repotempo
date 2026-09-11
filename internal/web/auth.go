@@ -373,7 +373,7 @@ var authMessages = map[string][2]string{
 	"login":          {"GitHub 登录", "Sign in with GitHub"},
 	"logout":         {"退出登录", "Sign out"},
 	"scope":          {"仅验证 GitHub 身份，不申请私有仓库、邮箱或代码读写权限。", "We verify your GitHub identity only; no private repository, email or code-write scopes are requested."},
-	"workspace":      {"关注与备注归当前 GitHub 账号所有，其他用户不可见。已读标记仍保存在本浏览器。", "Your watchlist and notes belong to your GitHub account and are private. Reading marks remain in this browser."},
+	"workspace":      {"关注与备注归当前 GitHub 账号所有，其他用户不可见。", "Your watchlist and notes belong to your GitHub account and are private."},
 	"required":       {"请先使用 GitHub 账号登录。", "Sign in with GitHub first."},
 	"admin_required": {"此操作仅对站点管理员开放。", "This operation is restricted to site administrators."},
 	"invalid":        {"登录请求已失效、被取消或未通过验证，请重新登录。", "The sign-in request expired, was cancelled or could not be verified. Please sign in again."},

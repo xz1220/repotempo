@@ -14,7 +14,7 @@ function page(dataset) {
       listeners.set(type, [...(listeners.get(type) || []), listener]);
     },
   };
-  Object.defineProperty(window, "localStorage", { get() { throw new Error("authentication must not migrate or clear reading marks"); } });
+  Object.defineProperty(window, "localStorage", { get() { throw new Error("authentication must not change local preferences"); } });
   vm.runInNewContext(script, { document: { body: { dataset } }, window });
   return {
     get reloads() { return reloads; },
@@ -23,18 +23,16 @@ function page(dataset) {
   };
 }
 
-test("OAuth pages revalidate only bfcache restores, whether the cached page was signed in or anonymous", () => {
-  for (const readingEnabled of ["true", "false"]) {
-    const current = page({ authEnabled: "true", readingEnabled });
-    assert.equal(current.listenerCount, 1);
-    current.show(false);
-    assert.equal(current.reloads, 0, "ordinary page load must not loop");
-    current.show(true);
-    assert.equal(current.reloads, 1, "cached page must consult server session state again");
-  }
+test("OAuth pages revalidate only bfcache restores without client-side account state", () => {
+  const current = page({ authEnabled: "true" });
+  assert.equal(current.listenerCount, 1);
+  current.show(false);
+  assert.equal(current.reloads, 0, "ordinary page load must not loop");
+  current.show(true);
+  assert.equal(current.reloads, 1, "cached page must consult server session state again");
 });
 
-test("disabled OAuth and legacy pages do not alter browser navigation or local reading marks", () => {
+test("disabled OAuth and legacy pages do not alter browser navigation or local preferences", () => {
   for (const dataset of [{}, { authEnabled: "false" }]) {
     const current = page(dataset);
     current.show(false);

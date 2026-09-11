@@ -52,7 +52,7 @@
     const offset = anchor.getBoundingClientRect().top;
     if (!Number.isFinite(offset) || Math.abs(offset) > 1e7) return;
     const expanded = [...document.querySelectorAll(".project-more-tags[open]")]
-      .map(detail => detail.closest("[data-reading-repository]")?.dataset.readingRepository)
+      .map(detail => detail.closest("[data-repository-id]")?.dataset.repositoryId)
       .filter(id => /^[1-9][0-9]{0,18}$/.test(id || "")).slice(0, 100);
     const state = readState();
     state.records = state.records.filter(record => record.key !== target.key);
@@ -100,7 +100,7 @@
       inputs.forEach(type => window.removeEventListener(type, interrupt));
       if (interrupted) return;
       for (const detail of document.querySelectorAll(".project-more-tags")) {
-        const id = detail.closest("[data-reading-repository]")?.dataset.readingRepository;
+        const id = detail.closest("[data-repository-id]")?.dataset.repositoryId;
         detail.open = record.expanded.includes(id);
       }
       const anchor = document.getElementById(record.anchor);
