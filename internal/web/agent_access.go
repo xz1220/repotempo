@@ -26,6 +26,15 @@ type agentAccessPageView struct {
 	InstallCommand string
 	AgentPrompt    string
 	Error          string
+	Form           agentKeyFormView
+}
+
+type agentKeyFormView struct {
+	Name             string
+	ExpiresDays      string
+	RepositoriesRead bool
+	WatchlistRead    bool
+	OptionsOpen      bool
 }
 
 func (h *Handler) agentAccountSession(w http.ResponseWriter, r *http.Request) *domain.AuthSession {
@@ -176,6 +185,26 @@ func (h *Handler) renderAgentAccount(w http.ResponseWriter, r *http.Request, ses
 	}
 	view := agentAccessPageView{Keys: keys, Created: created, CSRFToken: nonce, Endpoint: h.auth.PublicURL(), Error: h.agentAccountMessage(r, message)}
 	localizer := h.localizerFor(r)
+	view.Form = agentKeyFormView{Name: localizer.Text("agent.default_name"), ExpiresDays: "90", RepositoriesRead: true, WatchlistRead: true}
+	if r.Method == http.MethodPost && r.URL.Path == "/account/api/keys" && message != "" {
+		// A failed creation is still the user's form. Never replace unchecked
+		// scopes or a shorter expiry with the fresh-page defaults.
+		view.Form = agentKeyFormView{Name: r.PostForm.Get("name"), OptionsOpen: true}
+		if len(r.PostForm["expires_days"]) == 1 {
+			switch days := r.PostForm.Get("expires_days"); days {
+			case "30", "90", "365":
+				view.Form.ExpiresDays = days
+			}
+		}
+		for _, scope := range r.PostForm["scope"] {
+			switch scope {
+			case agentaccess.RepositoriesRead:
+				view.Form.RepositoriesRead = true
+			case agentaccess.WatchlistRead:
+				view.Form.WatchlistRead = true
+			}
+		}
+	}
 	view.Meta = h.metaText(localizer, localizer.Text("ui.api_access"), localizer.Text("agent.lead"), "account", nil)
 	view.Meta.Locale = h.localeFor(r)
 	view.Meta.Auth = h.authInfo(r)

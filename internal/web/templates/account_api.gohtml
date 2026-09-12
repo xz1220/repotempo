@@ -14,10 +14,10 @@
     {{else}}
     <form class="api-create" data-key-create action="/account/api/keys?lang={{.Meta.Locale}}" method="post">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-      <div class="api-form-grid"><div class="field"><label for="api-key-name">{{t "agent.name"}}</label><input id="api-key-name" name="name" required maxlength="40" autocomplete="off" value="{{t "agent.default_name"}}"></div><button class="button button-primary" type="submit">{{t "agent.generate"}}</button></div>
-      <details class="api-options"><summary>{{t "agent.options"}}</summary>
-        <div class="field"><label for="api-key-expiry">{{t "agent.expiry"}}</label><select id="api-key-expiry" name="expires_days"><option value="30">30 {{t "agent.days"}}</option><option value="90" selected>90 {{t "agent.days"}}</option><option value="365">365 {{t "agent.days"}}</option></select></div>
-        <fieldset class="api-scopes"><legend>{{t "agent.permissions"}}</legend><label><input type="checkbox" name="scope" value="repositories:read" checked> {{t "agent.public_read"}}</label><label><input type="checkbox" name="scope" value="watchlist:read" checked> {{t "agent.watch_read"}}</label></fieldset>
+      <div class="api-form-grid"><div class="field"><label for="api-key-name">{{t "agent.name"}}</label><input id="api-key-name" name="name" required maxlength="40" autocomplete="off" value="{{.Form.Name}}"></div><button class="button button-primary" type="submit">{{t "agent.generate"}}</button></div>
+      <details class="api-options"{{if .Form.OptionsOpen}} open{{end}}><summary>{{t "agent.options"}}</summary>
+        <div class="field"><label for="api-key-expiry">{{t "agent.expiry"}}</label><select id="api-key-expiry" name="expires_days" required>{{if not .Form.ExpiresDays}}<option value="" selected disabled>{{t "agent.select_expiry"}}</option>{{end}}<option value="30"{{if eq .Form.ExpiresDays "30"}} selected{{end}}>30 {{t "agent.days"}}</option><option value="90"{{if eq .Form.ExpiresDays "90"}} selected{{end}}>90 {{t "agent.days"}}</option><option value="365"{{if eq .Form.ExpiresDays "365"}} selected{{end}}>365 {{t "agent.days"}}</option></select></div>
+        <fieldset class="api-scopes"><legend>{{t "agent.permissions"}}</legend><label><input type="checkbox" name="scope" value="repositories:read"{{if .Form.RepositoriesRead}} checked{{end}}> {{t "agent.public_read"}}</label><label><input type="checkbox" name="scope" value="watchlist:read"{{if .Form.WatchlistRead}} checked{{end}}> {{t "agent.watch_read"}}</label></fieldset>
       </details><p class="api-help">{{t "agent.readonly"}}</p>
     </form>
     {{end}}
