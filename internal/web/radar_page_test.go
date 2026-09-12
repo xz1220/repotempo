@@ -96,10 +96,10 @@ func TestRadarNewUserStatesKeepAddingInTheProjectLibrary(t *testing.T) {
 		if path == "/repositories" {
 			wantAddCount = 1
 		}
-		if count := strings.Count(body, `href="/watch/new"`); count != wantAddCount {
+		if count := strings.Count(body, `href="/watch/new?lang=en"`); count != wantAddCount {
 			t.Fatalf("%s has %d add entries, want %d", path, count, wantAddCount)
 		}
-		if !strings.Contains(body, `href="/repositories"`) || strings.Contains(body, `href="/discoveries"`) {
+		if !strings.Contains(body, `href="/repositories?lang=en"`) || strings.Contains(body, `href="/discoveries"`) {
 			t.Fatalf("%s should direct browsing through the project library", path)
 		}
 		if strings.Contains(body, `class="chart-line"`) || strings.Contains(body, `class="leaderboard-list"`) {

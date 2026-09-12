@@ -9,7 +9,7 @@ import (
 
 func TestGitHubProjectsNavigationLabelKeepsItsRouteAndLibraryHeading(t *testing.T) {
 	primaryNavigation := regexp.MustCompile(`(?s)<nav class="primary-nav"[^>]*>(.*?)</nav>`)
-	libraryLink := regexp.MustCompile(`(?s)<a\b[^>]*href="/repositories"[^>]*>.*?</a>`)
+	libraryLink := regexp.MustCompile(`(?s)<a\b[^>]*href="/repositories\?lang=(?:en|zh-CN)"[^>]*>.*?</a>`)
 	heading := regexp.MustCompile(`(?s)<h1\b[^>]*>(.*?)</h1>`)
 	for _, language := range []struct{ locale, label, title string }{
 		{localeChinese, "GitHub 项目", "项目库"},

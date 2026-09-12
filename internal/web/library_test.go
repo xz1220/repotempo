@@ -49,7 +49,7 @@ func TestLibraryHasThreeTabsAndOneAddEntryInBothLanguages(t *testing.T) {
 					}
 				}
 				entry := regexp.MustCompile(`<a\b[^>]*class="[^"]*header-add[^"]*"[^>]*>.*?</a>`).FindAllString(body, -1)
-				if len(entry) != 1 || !strings.Contains(entry[0], `href="/watch/new"`) || !strings.Contains(entry[0], l.Text("approved.add_project")) {
+				if len(entry) != 1 || !strings.Contains(entry[0], `href="/watch/new?lang=`+locale+`"`) || !strings.Contains(entry[0], l.Text("approved.add_project")) {
 					t.Fatalf("missing unique Add project entry: %v", entry)
 				}
 				canonical, _ := url.Parse(navigationAttribute(t, body, `data-list-url="([^"]+)"`))

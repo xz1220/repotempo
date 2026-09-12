@@ -242,7 +242,7 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 		`>GitHub projects<`,
 		`>Trends<`,
 		`>History<`,
-		`href="/runs"`,
+		`href="/runs?lang=en"`,
 	} {
 		if !strings.Contains(home, want) {
 			t.Errorf("home does not contain %q: %s", want, home)
@@ -261,7 +261,7 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 			t.Errorf("primary navigation unexpectedly contains %s", path)
 		}
 	}
-	if strings.Contains(home, `href="/watch/new"`) || strings.Contains(home, `href="/repositories?focus=1"`) {
+	if strings.Contains(home, `href="/watch/new?lang=en"`) || strings.Contains(home, `href="/repositories?focus=1"`) {
 		t.Error("global add/watchlist shortcuts should not remain on the dashboard")
 	}
 
@@ -276,7 +276,7 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 			t.Errorf("projects does not contain %q: %s", want, projects)
 		}
 	}
-	if count := strings.Count(projects, `href="/watch/new"`); count != 1 {
+	if count := strings.Count(projects, `href="/watch/new?lang=en"`); count != 1 {
 		t.Errorf("project library add entry count = %d, want exactly one", count)
 	}
 
@@ -296,7 +296,7 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 	}
 	for _, path := range []string{"/topics", "/topics/ai-agent"} {
 		body := request(t, handler, path).Body.String()
-		if !strings.Contains(body, `class="nav-link is-active" href="/repositories" aria-current="page"`) {
+		if !strings.Contains(body, `class="nav-link is-active" href="/repositories?lang=en" aria-current="page"`) {
 			t.Errorf("%s should keep Projects active", path)
 		}
 	}

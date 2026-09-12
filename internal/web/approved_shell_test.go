@@ -23,7 +23,7 @@ func TestApprovedShellKeepsFrozenChromeWithoutDemoCapabilities(t *testing.T) {
 	if !strings.Contains(sidebar, `href="https://github.com/xz1220/repotempo" target="_blank" rel="noopener noreferrer"`) || !strings.Contains(sidebar, ">Star on GitHub<") {
 		t.Fatal("safe plain-text source repository link is missing")
 	}
-	if strings.Count(body, `href="/watch/new"`) != 1 || !strings.Contains(body, `class="button button-primary header-add"`) {
+	if strings.Count(body, `href="/watch/new?lang=zh-CN"`) != 1 || !strings.Contains(body, `class="button button-primary header-add"`) {
 		t.Fatal("project library must expose one real Add project action in the header")
 	}
 	if !strings.Contains(body, `class="button button-secondary header-export" href="/repositories/export?`) || !strings.Contains(body, `class="account-menu-disabled" aria-disabled="true"`) {

@@ -27,9 +27,11 @@ class Element extends EventTarget {
   children = new Set();
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
+  removeAttribute(name) { this.attributes.delete(name); }
   querySelector() { return null; }
   querySelectorAll() { return []; }
   contains(target) { return target === this || this.children.has(target); }
+  getClientRects() { return this.hidden ? [] : [{}]; }
   focus() { this.focused = true; }
   click() { this.dispatchEvent(new Event("click")); }
 }
@@ -113,6 +115,7 @@ function page() {
   })[selector] ?? [];
 
   const window = new EventTarget();
+  window.matchMedia = () => Object.assign(new EventTarget(), { matches: true });
   const storage = new Storage();
   window.localStorage = storage;
   window.location = { assign() {} };
