@@ -105,8 +105,11 @@ func init() {
 		"tags.clear":               {"清除筛选", "Clear filter"},
 		"tags.browse_all_matching": {"查看全库匹配项目", "Find matching projects in the full library"},
 		"tags.active":              {"标签：%s", "Tag: %s"},
+		"tags.search_active":       {"搜索：%s", "Search: %s"},
+		"tags.search_within":       {"在当前标签中搜索项目", "Search projects within this tag"},
 		"tags.legacy_topic":        {"分类：%s", "Category: %s"},
 		"tags.legacy_source":       {"旧链接来源筛选：%s", "Source filter from this link: %s"},
+		"tags.legacy_status":       {"监测状态：%s", "Monitoring status: %s"},
 		"tags.invalid":             {"标签格式不正确", "Invalid tag"},
 		"tags.invalid_help":        {"标签不能超过 80 个字符，也不能包含控制字符。", "Use a tag of up to 80 characters without control characters."},
 	} {

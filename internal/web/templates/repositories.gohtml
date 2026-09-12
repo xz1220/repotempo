@@ -26,24 +26,25 @@
     <input type="hidden" name="view" value="{{if .Repositories.Filter.OnlyFocus}}focus{{else if .Repositories.Filter.OnlyNew}}daily{{else}}all{{end}}">
     <input type="hidden" name="new" value="{{if .Repositories.Filter.OnlyNew}}1{{else}}0{{end}}">
     {{if .Repositories.Filter.OnlyFocus}}<input type="hidden" name="focus" value="1">{{end}}
+    {{if .Repositories.Filter.Tag}}<input type="hidden" name="tag" value="{{.Repositories.Filter.Tag}}">{{end}}
     {{if .Repositories.Filter.TopicSlug}}<input type="hidden" name="topic" value="{{.Repositories.Filter.TopicSlug}}">{{end}}
     {{if .Repositories.Filter.Source}}<input type="hidden" name="source" value="{{.Repositories.Filter.Source}}">{{end}}
     {{if .Repositories.Filter.MonitoringStatus}}<input type="hidden" name="status" value="{{.Repositories.Filter.MonitoringStatus}}">{{end}}
     <input type="hidden" name="size" value="{{.Repositories.Filter.Limit}}">
     <div class="field field-search">
-      <label for="repository-search">{{t "ui.search_repository_or_tag"}}</label>
-      <div class="search-control">{{template "icon-search"}}<input id="repository-search" name="{{if .Repositories.Filter.Tag}}tag{{else}}q{{end}}" type="search" list="repository-tags" value="{{if .Repositories.Filter.Tag}}{{.Repositories.Filter.Tag}}{{else}}{{.Repositories.Filter.Search}}{{end}}" placeholder="{{t "ui.search_hint"}}" autocomplete="off" maxlength="120" data-library-search></div>
+      <label for="repository-search">{{if .Repositories.Filter.Tag}}{{t "tags.search_within"}}{{else}}{{t "ui.search_repository_or_tag"}}{{end}}</label>
+      <div class="search-control">{{template "icon-search"}}<input id="repository-search" name="q" type="search" {{if not .Repositories.Filter.Tag}}list="repository-tags"{{end}} value="{{.Repositories.Filter.Search}}" placeholder="{{if .Repositories.Filter.Tag}}{{t "tags.search_within"}}{{else}}{{t "ui.search_hint"}}{{end}}" autocomplete="off" maxlength="120" data-library-search></div>
       <datalist id="repository-tags">{{range .Repositories.Tags}}<option value="{{.Name}}">{{tagOptionLabel .Name}}</option>{{end}}</datalist>
     </div>
     <div class="field"><label for="as-of-date">{{t "repositories.as_of_date"}}</label><input id="as-of-date" name="date" type="date" value="{{formatDate .Repositories.Filter.AsOf}}" data-submit-on-change></div>
     <div class="field"><label for="period-filter">{{t "tags.period"}}</label><select id="period-filter" name="period" aria-describedby="growth-period-help" data-submit-on-change><option value="1d" {{if eq .Repositories.Filter.WindowDays 1}}selected{{end}}>{{t "tags.1d"}}</option><option value="7d" {{if eq .Repositories.Filter.WindowDays 7}}selected{{end}}>{{t "tags.7d"}}</option><option value="30d" {{if eq .Repositories.Filter.WindowDays 30}}selected{{end}}>{{t "tags.30d"}}</option></select></div>
     <div class="field"><label for="sort-filter">{{t "repositories.sort_label"}}</label><select id="sort-filter" name="sort" data-submit-on-change>
-      {{if eq .Repositories.Filter.Sort "velocity"}}<option value="velocity" selected>{{t "ui.fastest"}}</option>{{end}}
-      {{if eq .Repositories.Filter.Sort "delta"}}<option value="delta" selected>{{t "ui.period_gain"}}</option>{{end}}
-      {{if eq .Repositories.Filter.Sort "growth_rate"}}<option value="growth_rate" selected>{{t "repositories.sort_growth_rate"}}</option>{{end}}
-      {{if eq .Repositories.Filter.Sort "low_growth"}}<option value="low_growth" selected>{{t "ui.slowest"}}</option>{{end}}
-      {{if eq .Repositories.Filter.Sort "slowdown"}}<option value="slowdown" selected>{{t "ui.slowdown"}}</option>{{end}}
-      {{if eq .Repositories.Filter.Sort "rank_change"}}<option value="rank_change" selected>{{t "repositories.sort_rank_change"}}</option>{{end}}
+      <option value="velocity" {{if eq .Repositories.Filter.Sort "velocity"}}selected{{end}}>{{t "ui.fastest"}}</option>
+      <option value="delta" {{if eq .Repositories.Filter.Sort "delta"}}selected{{end}}>{{t "ui.period_gain"}}</option>
+      <option value="growth_rate" {{if eq .Repositories.Filter.Sort "growth_rate"}}selected{{end}}>{{t "repositories.sort_growth_rate"}}</option>
+      <option value="low_growth" {{if eq .Repositories.Filter.Sort "low_growth"}}selected{{end}}>{{t "ui.slowest"}}</option>
+      <option value="slowdown" {{if eq .Repositories.Filter.Sort "slowdown"}}selected{{end}}>{{t "ui.slowdown"}}</option>
+      <option value="rank_change" {{if eq .Repositories.Filter.Sort "rank_change"}}selected{{end}}>{{t "repositories.sort_rank_change"}}</option>
       <option value="stars" {{if eq .Repositories.Filter.Sort "stars"}}selected{{end}}>{{t "repositories.sort_stars"}}</option>
       <option value="name" {{if eq .Repositories.Filter.Sort "name"}}selected{{end}}>{{t "ui.repository_name_az"}}</option>
       <option value="newest" {{if eq .Repositories.Filter.Sort "newest"}}selected{{end}}>{{t "repositories.sort_newest"}}</option>
@@ -58,7 +59,7 @@
 
 <div class="library-result-meta">
   <span>{{tf "repositories.count" (formatInt .Repositories.Total)}}</span>
-  <a class="clear-filters" href="{{.AllProjectsURL}}"{{if not .ActiveFilters}}{{if and (not .Repositories.Filter.Search) (eq .Repositories.Filter.Sort "stars") (eq .Repositories.Filter.WindowDays 1)}} hidden{{end}}{{end}}>{{t "repositories.clear_filters"}} <span aria-hidden="true">×</span></a>
+  <a class="clear-filters" href="{{.ClearFiltersURL}}"{{if not .ActiveFilters}}{{if and (not .Repositories.Filter.Search) (eq .Repositories.Filter.Sort "stars") (eq .Repositories.Filter.WindowDays 1)}} hidden{{end}}{{end}}>{{t "repositories.clear_filters"}} <span aria-hidden="true">×</span></a>
   <span>{{tf "tags.comparison" (formatDate .Repositories.Coverage.BaselineDate) (formatDate .Repositories.Coverage.AsOfDate)}}</span>
 </div>
 

@@ -53,6 +53,7 @@ type pageView struct {
 	TrendSorts        []viewOption
 	LibraryViews      []viewOption
 	AllProjectsURL    string
+	ClearFiltersURL   string
 	NewProjectsURL    string
 	Pagination        pagination
 	ErrorStatus       int
@@ -221,13 +222,28 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 	if !data.Coverage.AsOfDate.IsZero() {
 		allProjectValues.Set("date", data.Coverage.AsOfDate.Format("2006-01-02"))
 	}
+	// Clearing filters restores the selected tab's defaults. Broadening an
+	// empty daily result to the full library remains a separate action below.
+	clearFilterValues := cloneValues(allProjectValues)
+	clearFilterValues.Set("period", "1d")
+	clearFilterValues.Set("sort", "stars")
+	clearFilterValues.Set("view", firstPageValues.Get("view"))
+	if filter.OnlyFocus {
+		clearFilterValues.Set("focus", "1")
+	} else if filter.OnlyNew {
+		clearFilterValues.Set("new", "1")
+	}
+	if firstPageValues.Has("size") {
+		clearFilterValues.Set("size", firstPageValues.Get("size"))
+	}
 	view := pageView{
-		Meta:           h.meta(localized, "meta.repositories.title", "meta.repositories.description", "repositories", data.Warnings),
-		Repositories:   data,
-		TrendPeriods:   repositoryPeriodOptions(path, firstPageValues, filter.WindowDays, localized),
-		TrendSorts:     repositorySortOptions(path, firstPageValues, filter.Sort, localized),
-		LibraryViews:   h.libraryViewOptions(path, firstPageValues, data.Filter, localized),
-		AllProjectsURL: queryPath(path, allProjectValues),
+		Meta:            h.meta(localized, "meta.repositories.title", "meta.repositories.description", "repositories", data.Warnings),
+		Repositories:    data,
+		TrendPeriods:    repositoryPeriodOptions(path, firstPageValues, filter.WindowDays, localized),
+		TrendSorts:      repositorySortOptions(path, firstPageValues, filter.Sort, localized),
+		LibraryViews:    h.libraryViewOptions(path, firstPageValues, data.Filter, localized),
+		AllProjectsURL:  queryPath(path, allProjectValues),
+		ClearFiltersURL: queryPath(path, clearFilterValues),
 	}
 	if afterID == nil {
 		view.Pagination = repositoryPagination(path, firstPageValues, pageNumber, pageSize, data.Total)
@@ -266,6 +282,8 @@ func (h *Handler) repositoryIndex(w http.ResponseWriter, r *http.Request, path s
 		{"tag", filter.Tag, localized.Textf("tags.active", filter.Tag)},
 		{"topic", filter.TopicSlug, localized.Textf("tags.legacy_topic", localized.TopicName(filter.TopicSlug, filter.TopicSlug))},
 		{"source", filter.Source, localized.Textf("tags.legacy_source", localized.SourceLabel(filter.Source))},
+		{"q", filter.Search, localized.Textf("tags.search_active", filter.Search)},
+		{"status", filter.MonitoringStatus, localized.Textf("tags.legacy_status", localized.StatusLabel(filter.MonitoringStatus))},
 	} {
 		if active.value != "" {
 			values := cloneValues(firstPageValues)
