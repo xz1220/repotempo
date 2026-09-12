@@ -51,7 +51,7 @@ func TestWebFocusTogglePersistsInSQLite(t *testing.T) {
 		}
 		var nonce *http.Cookie
 		for _, cookie := range formResponse.Result().Cookies() {
-			if cookie.Name == "github_radar_watch_csrf" {
+			if cookie.Name == "repotempo_watch_binding" {
 				nonce = cookie
 			}
 		}

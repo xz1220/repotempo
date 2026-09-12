@@ -91,7 +91,7 @@ func TestWebImportEndToEndQueuesThenReadsWithoutImplicitFocus(t *testing.T) {
 	handler.ServeHTTP(form, request)
 	var cookie *http.Cookie
 	for _, candidate := range form.Result().Cookies() {
-		if candidate.Name == "github_radar_watch_csrf" {
+		if candidate.Name == "repotempo_watch_binding" {
 			cookie = candidate
 		}
 	}

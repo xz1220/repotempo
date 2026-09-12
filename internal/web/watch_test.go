@@ -205,7 +205,7 @@ func TestWatchRejectsOversizedRequestAndExpiredForm(t *testing.T) {
 		t.Fatal("oversized body accepted")
 	}
 	h.watchMu.Lock()
-	h.watchNonces[cookie.Value] = time.Now().Add(-time.Hour)
+	h.watchNonces[cookie.Value+":"+cookie.Value] = time.Now().Add(-time.Hour)
 	h.watchMu.Unlock()
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, watchPOST(base, cookie, ""))
