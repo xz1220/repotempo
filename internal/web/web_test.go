@@ -283,7 +283,7 @@ func TestWorkspaceNavigationAndDetailOrientationRender(t *testing.T) {
 	repository := request(t, handler, "/repositories/101").Body.String()
 	if !strings.Contains(repository, `class="breadcrumb"`) ||
 		!strings.Contains(repository, `aria-label="Breadcrumb"`) ||
-		!strings.Contains(repository, `href="/repositories"`) ||
+		!strings.Contains(repository, `class="breadcrumb-link" href="/repositories?lang=en"`) ||
 		!strings.Contains(repository, `class="entity-title-repository" translate="no"`) {
 		t.Fatalf("repository breadcrumb is missing: %s", repository)
 	}

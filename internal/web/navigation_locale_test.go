@@ -62,3 +62,30 @@ func TestLocalizedLibraryReturnKeepsScopeAndRejectsExternalLinks(t *testing.T) {
 		}
 	}
 }
+
+func TestLibraryBreadcrumbsKeepSelectedLocale(t *testing.T) {
+	for _, locale := range []string{localeChinese, localeEnglish} {
+		defaultLocale := localeChinese
+		if locale == localeChinese {
+			defaultLocale = localeEnglish
+		}
+		handler := newTestHandlerWithLocale(t, populatedFake(), defaultLocale)
+		for _, path := range []string{"/watch/new", "/repositories/101"} {
+			t.Run(locale+path, func(t *testing.T) {
+				page := request(t, handler, path+"?lang="+locale)
+				if page.Code != http.StatusOK {
+					t.Fatalf("page returned %d", page.Code)
+				}
+				link := navigationAttribute(t, page.Body.String(), `<a class="breadcrumb-link" href="([^"]+)"`)
+				destination, err := url.Parse(link)
+				if err != nil || destination.Path != "/repositories" || destination.Query().Get("lang") != locale {
+					t.Fatalf("breadcrumb lost selected language: %s", link)
+				}
+				response := request(t, handler, link)
+				if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `<html lang="`+locale+`">`) {
+					t.Fatalf("breadcrumb destination changed language: %s", link)
+				}
+			})
+		}
+	}
+}
