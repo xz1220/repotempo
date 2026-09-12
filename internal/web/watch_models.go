@@ -18,9 +18,12 @@ var (
 
 type WatchRequest struct {
 	Repository string
-	TopicSlug  string
-	Note       string
-	Focus      bool
+	// EditRepository identifies the prefilled personal-state form. Empty means
+	// additive import, which must preserve existing follows and notes.
+	EditRepository string
+	TopicSlug      string
+	Note           string
+	Focus          bool
 }
 
 type WatchResult struct {
@@ -65,6 +68,9 @@ func watchText(locale, key string) string {
 }
 
 var watchMessages = map[string][2]string{
+	"edit_note":       {"编辑我的备注", "Edit my note"},
+	"edit_focus_hint": {"取消勾选会取消你对这个项目的关注。", "Unchecking removes this project from your watchlist."},
+	"edit_note_hint":  {"最多 2,000 字；留空会清除你对这个项目的备注。", "Up to 2,000 characters. Leaving this blank clears your note for this project."},
 	"personal_limit":  {"每个账号最多保存 5,000 个项目。请先移除部分关注与备注后再添加。", "Each account can save up to 5,000 projects. Remove some follows and notes before adding another."},
 	"admin_required":  {"这个项目尚未收录。新增采集项目由管理员处理；你可以关注和备注项目库中的现有项目。", "This repository is not in the catalogue yet. Ask an administrator to import it; you can follow and annotate existing projects."},
 	"title":           {"导入 GitHub 项目", "Import a GitHub project"},

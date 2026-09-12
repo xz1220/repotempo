@@ -11,13 +11,14 @@
   {{if .Watch.CanWrite}}
   <form class="watch-form" action="/watch?lang={{.Meta.Locale}}" method="post">
     <input type="hidden" name="csrf_token" value="{{.Watch.CSRFToken}}">
+    {{if .Watch.Input.EditRepository}}<input type="hidden" name="edit_repository" value="{{.Watch.Input.EditRepository}}">{{end}}
     <div class="field"><label for="watch-repository">{{watchText "repository"}}</label>
       <input id="watch-repository" name="repository" value="{{.Watch.Input.Repository}}" placeholder="https://github.com/owner/repository" required maxlength="300" autocapitalize="none" spellcheck="false" aria-describedby="watch-repository-hint">
       <p id="watch-repository-hint" class="field-hint">{{watchText "repository_hint"}}</p>
     </div>
     <div class="field">
       <label class="checkbox-label" for="import-focus"><input id="import-focus" type="checkbox" name="focus" value="1" {{if .Watch.Input.Focus}}checked{{end}} aria-describedby="import-focus-hint"> {{watchText "focus"}}</label>
-      <p id="import-focus-hint" class="field-hint">{{watchText "focus_hint"}}</p>
+      <p id="import-focus-hint" class="field-hint">{{if .Watch.Input.EditRepository}}{{watchText "edit_focus_hint"}}{{else}}{{watchText "focus_hint"}}{{end}}</p>
     </div>
     {{if not .Watch.PersonalOnly}}<div class="field"><label for="watch-topic">{{watchText "topic"}}</label>
       <select id="watch-topic" name="topic"><option value="">{{watchText "topic_default"}}</option>
@@ -26,7 +27,7 @@
     </div>{{end}}
     <div class="field"><label for="watch-note">{{watchText "note"}}</label>
       <textarea id="watch-note" name="note" rows="4" maxlength="2000" aria-describedby="watch-note-hint">{{.Watch.Input.Note}}</textarea>
-      <p id="watch-note-hint" class="field-hint">{{watchText "note_hint"}}</p>
+      <p id="watch-note-hint" class="field-hint">{{if .Watch.Input.EditRepository}}{{watchText "edit_note_hint"}}{{else}}{{watchText "note_hint"}}{{end}}</p>
     </div>
     {{if .Watch.RequiresToken}}<div class="field"><label for="watch-token">{{watchText "token"}}</label>
       <input id="watch-token" name="operator_token" type="password" required autocomplete="current-password" maxlength="512" aria-describedby="watch-token-hint">

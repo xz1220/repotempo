@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/xz1220/repotempo/internal/domain"
 	"github.com/xz1220/repotempo/internal/service/classification"
@@ -35,7 +36,7 @@ func (runtime *Runtime) WatchState(ctx context.Context, repositoryName string) (
 		return web.WatchRequest{}, web.ErrWatchUnavailable
 	}
 	state := states[repository.GitHubRepoID]
-	return web.WatchRequest{Repository: repository.FullName, Focus: state.IsFocus, Note: state.Note}, nil
+	return web.WatchRequest{Repository: repository.FullName, EditRepository: repository.FullName, Focus: state.IsFocus, Note: state.Note}, nil
 }
 
 func (runtime *Runtime) WatchTopics(ctx context.Context) ([]web.TopicRef, error) {
@@ -68,7 +69,16 @@ func (runtime *Runtime) AddWatch(ctx context.Context, request web.WatchRequest) 
 		if err != nil {
 			return web.WatchResult{}, web.ErrWatchUnavailable
 		}
-		if err := runtime.store.SetUserRepositoryState(ctx, principal.UserID, repository.GitHubRepoID, request.Focus, request.Note); err != nil {
+		if request.EditRepository != "" {
+			target, targetErr := watch.NormalizeRepository(request.EditRepository)
+			if targetErr != nil || !strings.EqualFold(target, name) {
+				return web.WatchResult{}, web.ErrWatchInvalid
+			}
+			err = runtime.store.SetUserRepositoryState(ctx, principal.UserID, repository.GitHubRepoID, request.Focus, request.Note)
+		} else {
+			err = runtime.store.MergeUserRepositoryState(ctx, principal.UserID, repository.GitHubRepoID, request.Focus, request.Note)
+		}
+		if err != nil {
 			return web.WatchResult{}, mapWatchError(err)
 		}
 		return web.WatchResult{ID: repository.GitHubRepoID, FullName: repository.FullName}, nil

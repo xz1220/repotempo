@@ -161,14 +161,8 @@ func (runtime *Runtime) processImport(parent context.Context, job domain.Reposit
 			return
 		}
 		repository = result.Repository
-		if job.Request.OwnerUserID > 0 {
-			var personalErr error
-			if job.Request.Focus {
-				personalErr = runtime.store.SetUserRepositoryFocus(ctx, job.Request.OwnerUserID, repository.GitHubRepoID, true)
-			}
-			if personalErr == nil && job.Request.Note != "" {
-				personalErr = runtime.store.SetUserRepositoryNote(ctx, job.Request.OwnerUserID, repository.GitHubRepoID, job.Request.Note)
-			}
+		if job.Request.OwnerUserID > 0 && (job.Request.Focus || job.Request.Note != "") {
+			personalErr := runtime.store.MergeUserRepositoryState(ctx, job.Request.OwnerUserID, repository.GitHubRepoID, job.Request.Focus, job.Request.Note)
 			if personalErr != nil {
 				runtime.failImport(parent, job, token, "storage_unavailable", true, 0)
 				return

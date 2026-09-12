@@ -109,6 +109,7 @@ func (h *Handler) importPresentation(status ImportStatus, locale string) importP
 		view.Message = importText(locale, "unavailable")
 	}
 	values.Set("repository", status.Repository)
+	values.Set("import", "1")
 	if status.Focus {
 		values.Set("focus", "1")
 	}

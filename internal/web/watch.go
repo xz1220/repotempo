@@ -18,7 +18,7 @@ import (
 	"unicode/utf8"
 )
 
-const watchCookie = "github_radar_watch_csrf"
+const watchCookie = "repotempo_watch_binding"
 
 func (h *Handler) watchForm(w http.ResponseWriter, r *http.Request) {
 	input := WatchRequest{Repository: r.URL.Query().Get("repository"), Focus: r.URL.Query().Get("focus") == "1"}
@@ -30,6 +30,9 @@ func (h *Handler) watchForm(w http.ResponseWriter, r *http.Request) {
 		state, err := reader.WatchState(ctx, input.Repository)
 		cancel()
 		if err == nil {
+			if h.isAdmin(r) && r.URL.Query().Get("import") == "1" {
+				state.EditRepository = ""
+			}
 			if r.URL.Query().Has("focus") {
 				state.Focus = input.Focus
 			}
@@ -62,12 +65,16 @@ func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
 		h.renderWatch(w, r, http.StatusRequestEntityTooLarge, WatchRequest{}, "too_large")
 		return
 	}
-	input := WatchRequest{Repository: strings.TrimSpace(r.PostForm.Get("repository")), TopicSlug: strings.TrimSpace(r.PostForm.Get("topic")), Note: strings.TrimSpace(r.PostForm.Get("note")), Focus: r.PostForm.Get("focus") == "1"}
+	input := WatchRequest{Repository: strings.TrimSpace(r.PostForm.Get("repository")), EditRepository: strings.TrimSpace(r.PostForm.Get("edit_repository")), TopicSlug: strings.TrimSpace(r.PostForm.Get("topic")), Note: strings.TrimSpace(r.PostForm.Get("note")), Focus: r.PostForm.Get("focus") == "1"}
+	if len(r.PostForm["edit_repository"]) > 1 {
+		h.renderWatch(w, r, http.StatusBadRequest, input, "invalid")
+		return
+	}
 	if values := r.PostForm["focus"]; len(values) > 1 || (len(values) == 1 && values[0] != "0" && values[0] != "1") {
 		h.renderWatch(w, r, http.StatusBadRequest, input, "invalid")
 		return
 	}
-	if len(input.Repository) > 300 || len(input.TopicSlug) > 100 || utf8.RuneCountInString(input.Note) > 2000 {
+	if len(input.Repository) > 300 || len(input.EditRepository) > 300 || len(input.TopicSlug) > 100 || utf8.RuneCountInString(input.Note) > 2000 {
 		h.renderWatch(w, r, http.StatusBadRequest, WatchRequest{}, "invalid")
 		return
 	}
@@ -75,7 +82,7 @@ func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
 		h.renderWatch(w, r, http.StatusForbidden, input, "forbidden")
 		return
 	}
-	if !h.consumeWatchNonce(r, r.PostForm.Get("csrf_token")) {
+	if len(r.PostForm["csrf_token"]) != 1 || !h.consumeWatchNonce(r, r.PostForm.Get("csrf_token")) {
 		h.renderWatch(w, r, http.StatusConflict, input, "csrf")
 		return
 	}
@@ -90,7 +97,7 @@ func (h *Handler) watchAdd(w http.ResponseWriter, r *http.Request) {
 	defer func() { h.watchMu.Lock(); h.watchBusy = false; h.watchMu.Unlock() }()
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	if importer, ok := h.watcher.(Importer); ok && (h.auth == nil || h.isAdmin(r)) {
+	if importer, ok := h.watcher.(Importer); ok && input.EditRepository == "" && (h.auth == nil || h.isAdmin(r)) {
 		job, err := importer.SubmitImport(ctx, input)
 		if err != nil {
 			status, key := watchError(err)
@@ -194,6 +201,12 @@ func (h *Handler) issueWatchNonce(w http.ResponseWriter, r *http.Request) (strin
 		return "", err
 	}
 	token := hex.EncodeToString(random[:])
+	// A stable browser binding is visible on library GETs as well as /watch.
+	// The form nonce remains unique and independently consumable for each page.
+	binding, validBinding := watchBrowserBinding(r)
+	if !validBinding {
+		binding = token
+	}
 	h.watchMu.Lock()
 	now := h.now()
 	for key, expiration := range h.watchNonces {
@@ -212,13 +225,14 @@ func (h *Handler) issueWatchNonce(w http.ResponseWriter, r *http.Request) (strin
 		}
 		delete(h.watchNonces, oldestKey)
 	}
-	h.watchNonces[h.watchNonceKey(r, token)] = now.Add(30 * time.Minute)
+	h.watchNonces[h.watchNonceKey(r, token, binding)] = now.Add(30 * time.Minute)
 	h.watchMu.Unlock()
-	http.SetCookie(w, &http.Cookie{Name: watchCookie, Value: token, Path: "/watch", MaxAge: 1800, HttpOnly: true, Secure: watchHTTPS(r), SameSite: http.SameSiteStrictMode})
+	// Use a new name so a legacy /watch cookie cannot shadow this root binding.
+	http.SetCookie(w, &http.Cookie{Name: watchCookie, Value: binding, Path: "/", MaxAge: 1800, HttpOnly: true, Secure: watchHTTPS(r), SameSite: http.SameSiteStrictMode})
 	return token, nil
 }
 
-func (h *Handler) consumeWatchNonce(r *http.Request, token string) bool {
+func watchBrowserBinding(r *http.Request) (string, bool) {
 	cookieValue, cookieCount := "", 0
 	for _, cookie := range r.Cookies() {
 		if cookie.Name == watchCookie {
@@ -226,12 +240,32 @@ func (h *Handler) consumeWatchNonce(r *http.Request, token string) bool {
 			cookieCount++
 		}
 	}
-	if cookieCount != 1 || len(token) != 64 || !watchTokenEqual(cookieValue, token) {
+	if cookieCount != 1 || len(cookieValue) != 64 {
+		return "", false
+	}
+	if _, err := hex.DecodeString(cookieValue); err != nil {
+		return "", false
+	}
+	return cookieValue, true
+}
+
+func (h *Handler) consumeWatchNonce(r *http.Request, token string) bool {
+	if len(token) != 64 {
+		return false
+	}
+	binding, validBinding := watchBrowserBinding(r)
+	if h.auth != nil {
+		// Authenticated CSRF uses a synchronizer token bound below to the
+		// exact login session. Another page's cookie cannot invalidate it.
+		if currentAuth(r).Session == nil {
+			return false
+		}
+	} else if !validBinding {
 		return false
 	}
 	h.watchMu.Lock()
 	defer h.watchMu.Unlock()
-	key := h.watchNonceKey(r, token)
+	key := h.watchNonceKey(r, token, binding)
 	expiration, exists := h.watchNonces[key]
 	if !exists || !expiration.After(h.now()) {
 		return false
@@ -240,14 +274,14 @@ func (h *Handler) consumeWatchNonce(r *http.Request, token string) bool {
 	return true
 }
 
-func (h *Handler) watchNonceKey(r *http.Request, token string) string {
+func (h *Handler) watchNonceKey(r *http.Request, token, binding string) string {
 	if h.auth != nil {
 		if session := currentAuth(r).Session; session != nil {
 			return token + ":" + strconv.FormatInt(session.GitHubUserID, 10) + ":" + session.CSRFToken
 		}
 		return token + ":anonymous"
 	}
-	return token
+	return token + ":" + binding
 }
 
 func watchError(err error) (int, string) {
@@ -280,7 +314,7 @@ func (h *Handler) renderWatch(w http.ResponseWriter, r *http.Request, status int
 	view := watchPageView{pageView: pageView{Meta: h.metaText(h.localizerFor(r), watchText(locale, "title"), watchText(locale, "description"), "watch", nil)}, Watch: watchFormData{Input: input, CanWrite: allowed, RequiresToken: requiresToken}}
 	view.Meta.Locale, view.Meta.EnglishURL, view.Meta.ChineseURL = locale, languageURL(r, localeEnglish), languageURL(r, localeChinese)
 	view.Meta.Auth = h.authInfo(r)
-	view.Watch.PersonalOnly = h.auth != nil && !h.isAdmin(r)
+	view.Watch.PersonalOnly = h.auth != nil && (!h.isAdmin(r) || input.EditRepository != "")
 	if errorKey != "" {
 		view.Watch.Error = watchText(locale, errorKey)
 	}

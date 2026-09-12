@@ -80,7 +80,17 @@ func (store *Store) SetUserRepositoryState(ctx context.Context, userID, reposito
 	return store.setUserRepository(ctx, userID, repositoryID, &focus, &note)
 }
 
+// MergeUserRepositoryState is the additive import path: following is monotonic
+// and an existing nonempty note wins. Explicit edits use SetUserRepositoryState.
+func (store *Store) MergeUserRepositoryState(ctx context.Context, userID, repositoryID int64, focus bool, note string) error {
+	return store.writeUserRepository(ctx, userID, repositoryID, &focus, &note, true)
+}
+
 func (store *Store) setUserRepository(ctx context.Context, userID, repositoryID int64, focus *bool, note *string) error {
+	return store.writeUserRepository(ctx, userID, repositoryID, focus, note, false)
+}
+
+func (store *Store) writeUserRepository(ctx context.Context, userID, repositoryID int64, focus *bool, note *string, merge bool) error {
 	if userID <= 0 || repositoryID <= 0 || note != nil && (!utf8.ValidString(*note) || utf8.RuneCountInString(*note) > 2000) {
 		return corestore.ErrInvalid
 	}
@@ -112,12 +122,20 @@ func (store *Store) setUserRepository(ctx context.Context, userID, repositoryID 
 			return err
 		}
 		if focus != nil {
-			if _, err := conn.ExecContext(ctx, `UPDATE user_repositories SET is_focus=?,updated_at=? WHERE user_id=? AND repository_id=?`, *focus, now, userID, repositoryID); err != nil {
+			query := `UPDATE user_repositories SET is_focus=?,updated_at=? WHERE user_id=? AND repository_id=?`
+			if merge {
+				query += ` AND is_focus=0`
+			}
+			if _, err := conn.ExecContext(ctx, query, *focus, now, userID, repositoryID); err != nil {
 				return err
 			}
 		}
 		if note != nil {
-			if _, err := conn.ExecContext(ctx, `UPDATE user_repositories SET note=?,updated_at=? WHERE user_id=? AND repository_id=?`, strings.TrimSpace(*note), now, userID, repositoryID); err != nil {
+			query := `UPDATE user_repositories SET note=?,updated_at=? WHERE user_id=? AND repository_id=?`
+			if merge {
+				query += ` AND note=''`
+			}
+			if _, err := conn.ExecContext(ctx, query, strings.TrimSpace(*note), now, userID, repositoryID); err != nil {
 				return err
 			}
 		}
