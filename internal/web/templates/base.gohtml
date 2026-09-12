@@ -22,13 +22,13 @@
   {{$libraryIndex := ne .Repositories.Path ""}}
   <a class="skip-link" href="#main-content">{{t "nav.skip"}}</a>
   <aside class="app-sidebar" id="app-sidebar">
-    <a class="brand" href="/" aria-label="{{.Meta.SiteName}}">
+    <a class="brand" href="/?lang={{.Meta.Locale}}" aria-label="{{.Meta.SiteName}}">
       <span>{{.Meta.SiteName}}</span>
     </a>
     <nav class="primary-nav" aria-label="{{t "nav.primary"}}">
-      <a class="nav-link {{if eq .Meta.ActiveNav "dashboard"}}is-active{{end}}" href="/" {{if eq .Meta.ActiveNav "dashboard"}}aria-current="page"{{end}}>{{template "icon-chart"}}<span>{{t "nav.dashboard"}}</span></a>
+      <a class="nav-link {{if eq .Meta.ActiveNav "dashboard"}}is-active{{end}}" href="/?lang={{.Meta.Locale}}" {{if eq .Meta.ActiveNav "dashboard"}}aria-current="page"{{end}}>{{template "icon-chart"}}<span>{{t "nav.dashboard"}}</span></a>
       {{$inLibrary := or (eq .Meta.ActiveNav "repositories") (eq .Meta.ActiveNav "watch")}}
-      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="{{if .LibraryReturnURL}}{{.LibraryReturnURL}}{{else}}/repositories{{end}}"{{if .LibraryReturnURL}} data-library-return{{end}} {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span></a>
+      <a class="nav-link {{if $inLibrary}}is-active{{end}}" href="{{libraryLocaleURL .LibraryReturnURL .Meta.Locale}}"{{if .LibraryReturnURL}} data-library-return{{end}} {{if $inLibrary}}aria-current="page"{{end}}>{{template "icon-grid"}}<span>{{t "nav.repositories"}}</span></a>
     </nav>
     <div class="sidebar-bottom">
       <div class="sidebar-account" data-account-root>
@@ -40,7 +40,7 @@
             {{template "icon-chevron"}}
           </button>
           <div class="account-menu" id="account-menu" hidden data-account-menu>
-            {{if .Meta.Auth.Admin}}<a href="/runs">{{t "nav.history"}}</a>{{end}}
+            {{if .Meta.Auth.Admin}}<a href="/runs?lang={{.Meta.Locale}}">{{t "nav.history"}}</a>{{end}}
             <a href="/account/api?lang={{.Meta.Locale}}" data-agent-access>{{t "ui.api_access"}}</a>
             <form action="/auth/logout?lang={{.Meta.Locale}}" method="post"><input type="hidden" name="csrf_token" value="{{.Meta.Auth.CSRFToken}}"><button type="submit">{{authText "logout"}}</button></form>
           </div>
@@ -58,7 +58,7 @@
             {{template "icon-chevron"}}
           </button>
           <div class="account-menu" id="account-menu" hidden data-account-menu>
-            <a href="/runs">{{t "nav.history"}}</a>
+            <a href="/runs?lang={{.Meta.Locale}}">{{t "nav.history"}}</a>
             <span class="account-menu-disabled" aria-disabled="true" title="{{t "ui.api_unavailable_help"}}">{{t "ui.api_access"}} <small>{{t "ui.unavailable"}}</small></span>
           </div>
         {{end}}
@@ -75,7 +75,7 @@
       <div class="header-right">
       {{if $libraryIndex}}
         <a class="button button-secondary header-export" href="{{libraryExportURL .ListURL}}">{{t "ui.export"}} <span aria-hidden="true">↓</span></a>
-        <a class="button button-primary header-add" href="/watch/new">{{template "icon-plus"}}{{t "approved.add_project"}}</a>
+        <a class="button button-primary header-add" href="/watch/new?lang={{.Meta.Locale}}">{{template "icon-plus"}}{{t "approved.add_project"}}</a>
       {{end}}
       <nav class="language-switch" aria-label="{{t "language.label"}}">
         <a href="{{.Meta.ChineseURL}}" lang="zh-CN" {{if eq .Meta.Locale "zh-CN"}}aria-current="true"{{end}}>中文</a>
@@ -96,7 +96,7 @@
         </div>
       </header>
       {{end}}
-      {{if .Meta.Stale}}<div class="notice notice-warning" role="status">{{template "icon-history"}}<p>{{tf "ui.stale_notice" .Meta.AsOfLabel}} <a href="/runs">{{t "ui.inspect_collection"}}</a></p></div>{{end}}
+      {{if .Meta.Stale}}<div class="notice notice-warning" role="status">{{template "icon-history"}}<p>{{tf "ui.stale_notice" .Meta.AsOfLabel}} <a href="/runs?lang={{.Meta.Locale}}">{{t "ui.inspect_collection"}}</a></p></div>{{end}}
       {{range .Meta.Warnings}}<div class="notice notice-warning" role="status"><p>{{.}}</p></div>{{end}}
       {{template "content" .}}
     </main>

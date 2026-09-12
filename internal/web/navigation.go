@@ -12,6 +12,19 @@ import (
 
 const maxLibraryReturnBytes = 8192
 
+// Keep a contextual library destination while using the current page language.
+func localizedLibraryReturnURL(raw, locale string) string {
+	valid, ok := validatedLibraryReturnURL(raw)
+	if !ok {
+		valid = "/repositories"
+	}
+	u, _ := url.Parse(valid)
+	values := u.Query()
+	values.Set("lang", normalizeLocale(locale))
+	u.RawQuery = values.Encode()
+	return u.String()
+}
+
 // canonicalLibraryURL records the effective scope, not just the incoming query.
 // In particular, a daily view must not silently become tomorrow's additions.
 func (h *Handler) canonicalLibraryURL(original url.Values, filter RepositoryQuery, locale string) string {

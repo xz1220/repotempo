@@ -224,6 +224,7 @@ func (h *Handler) parseTemplates() error {
 			"repositoryOwner":  repositoryOwner,
 			"repositoryName":   repositoryName,
 			"libraryExportURL": libraryExportURL,
+			"libraryLocaleURL": localizedLibraryReturnURL,
 			"aiAnalysis":       aiAnalysis,
 			"analysisSource":   analysisSource,
 			"tagOptionLabel":   func(tag string) string { return tagOptionLabel(tag, locale) },

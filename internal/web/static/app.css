@@ -2392,7 +2392,7 @@ h2 { font-size: 20px; line-height: 1.35; font-weight: 650; }
 .library-summary dd { margin: 0; color: var(--ink); font-family: var(--font-data); font-size: 14px; line-height: 1.4; font-weight: 550; font-variant-numeric: tabular-nums; }
 .library-summary dl > div:last-child dd { font-size: 12px; }
 .library-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-.library-views { display: flex; gap: 2px; padding: 3px; border: var(--rule); border-radius: 7px; background: var(--bg); }
+.library-views { display: flex; gap: 2px; min-width: 0; max-width: 100%; overflow-x: auto; padding: 3px; border: var(--rule); border-radius: 7px; background: var(--bg); }
 .library-views a { display: flex; align-items: center; justify-content: center; min-height: 30px; padding: 6px 11px; border: 1px solid transparent; border-radius: 4px; color: var(--muted); font-size: 12px; line-height: 16px; white-space: nowrap; }
 .library-views a:hover { background: var(--surface); color: var(--ink); text-decoration: none; }
 .library-views a.is-active { border-color: var(--border); background: var(--surface); color: var(--ink); font-weight: 550; }
@@ -2418,12 +2418,12 @@ html.js .library-filter-panel[data-collapsed="true"] { display: none; }
 .field textarea::placeholder { color: var(--muted); opacity: 1; }
 .search-control { position: relative; }
 .search-control > svg { position: absolute; top: 50%; left: 10px; width: 15px; height: 15px; color: var(--muted); transform: translateY(-50%); pointer-events: none; }
-.search-control input { padding-left: 32px; }
+.search-control input:not([type="checkbox"]):not([type="hidden"]) { padding-left: 32px; }
 .library-filter-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 .library-filter-actions .button { min-height: 32px; }
 .library-filter-help { margin-top: 10px; color: var(--muted); font-size: 11px; line-height: 1.65; }
 .library-active-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
-.library-active-filters .tag { min-height: 26px; padding: 3px 7px; border: var(--rule); border-radius: 4px; background: var(--surface); color: var(--muted); font-size: 11px; }
+.library-active-filters .tag { max-width: 100%; min-height: 26px; padding: 3px 7px; border: var(--rule); border-radius: 4px; background: var(--surface); color: var(--muted); font-size: 11px; white-space: normal; overflow-wrap: anywhere; }
 .library-active-filters .tag:hover { background: var(--fg-soft); color: var(--ink); text-decoration: none; }
 .new-project-note { padding: 0; margin: 0 0 8px; font-size: 11px; }
 .library-result-meta { display: flex; align-items: center; gap: 10px; min-height: 34px; margin-bottom: 8px; color: var(--muted); font-size: 11px; }
@@ -2466,8 +2466,8 @@ html.js .library-filter-panel[data-collapsed="true"] { display: none; }
   .library-summary dl > div + div { padding-left: 18px; }
 }
 @media (max-width: 820px) {
-  .app-sidebar { width: 208px; padding: 23px 14px; transform: translateX(-100%); transition: transform 200ms var(--ease-out); }
-  .app-sidebar.is-open { transform: translateX(0); box-shadow: 0 0 0 100vmax color-mix(in oklch, var(--fg) 30%, transparent); }
+  .app-sidebar { width: 208px; padding: 23px 14px; visibility: hidden; transform: translateX(-100%); transition: transform 200ms var(--ease-out); }
+  .app-sidebar.is-open { visibility: visible; transform: translateX(0); box-shadow: 0 0 0 100vmax color-mix(in oklch, var(--fg) 30%, transparent); }
   .app-main { margin-left: 0; }
   .app-header { height: 56px; }
   .sidebar-toggle { display: grid; }
@@ -2491,7 +2491,7 @@ html.js .library-filter-panel[data-collapsed="true"] { display: none; }
   .library-summary dl > div:last-child { grid-column: 1 / -1; margin: 0; padding: 10px 0 0; border-top: var(--rule); border-left: 0; }
   .library-toolbar { flex-wrap: wrap; gap: 10px; }
   .library-views { width: 100%; }
-  .library-views a { flex: 1; min-height: 38px; padding-inline: 7px; }
+  .library-views a { flex: 1 0 auto; min-height: 38px; padding-inline: 7px; }
   .library-tools { margin-left: auto; }
   .view-toggle button { width: 34px; min-height: 30px; }
   .library-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
