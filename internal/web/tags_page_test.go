@@ -166,16 +166,16 @@ func TestTagAndLegacyFilterBadgesAreIndependentlyClearable(t *testing.T) {
 	for _, locale := range []string{localeChinese, localeEnglish} {
 		queryer := populatedFake()
 		handler := newTestHandlerWithLocale(t, queryer, locale)
-		values := url.Values{"tag": {"skills"}, "topic": {"ai-agent"}, "source": {"github_trending"}, "date": {"2026-08-30"}, "period": {"7d"}, "focus": {"1"}, "new": {"1"}, "q": {"agent"}, "sort": {"growth_rate"}, "cursor": {"2s"}, "lang": {locale}}
+		values := url.Values{"tag": {"skills"}, "topic": {"ai-agent"}, "source": {"github_trending"}, "status": {"paused"}, "date": {"2026-08-30"}, "period": {"7d"}, "focus": {"1"}, "new": {"1"}, "q": {"agent"}, "sort": {"growth_rate"}, "cursor": {"2s"}, "lang": {locale}}
 		response := request(t, handler, "/repositories?"+values.Encode())
 		body := html.UnescapeString(response.Body.String())
 		badge := regexp.MustCompile(`(?s)<nav class="library-active-filters"[^>]*>(.*?)</nav>`).FindString(body)
 		links := parsedTagLinks(t, badge)
-		if len(links) != 3 {
-			t.Fatalf("expected tag/category/legacy-source badges, got %d", len(links))
+		if len(links) != 5 {
+			t.Fatalf("expected tag/category/legacy-source/search/status badges, got %d", len(links))
 		}
 		l := newLocalizer(locale)
-		for index, key := range []string{"tag", "topic", "source"} {
+		for index, key := range []string{"tag", "topic", "source", "q", "status"} {
 			link := links[index]
 			if link.URL.Query().Has(key) || link.URL.Query().Has("cursor") {
 				t.Fatalf("clear %s retained that filter or the old cursor: %s", key, link.URL)
@@ -195,7 +195,7 @@ func TestTagAndLegacyFilterBadgesAreIndependentlyClearable(t *testing.T) {
 		if !strings.Contains(badge, l.Textf("tags.legacy_source", "GitHub Trending")) {
 			t.Fatal("legacy source restriction is hidden from the reader")
 		}
-		for _, key := range []string{"topic", "source"} {
+		for _, key := range []string{"topic", "source", "status"} {
 			if !regexp.MustCompile(`<input\b[^>]*type="hidden"[^>]*name="` + key + `"`).MatchString(body) {
 				t.Fatalf("submitting a different filter would silently drop legacy %s", key)
 			}
