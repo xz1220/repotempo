@@ -372,8 +372,12 @@ func apiError(response rawResponse) error {
 	case http.StatusForbidden:
 		if response.RateLimit.Remaining == 0 {
 			code = CodePrimaryRateLimit
-		} else if isSecondaryLimit(response.Body) {
+		} else if response.RateLimit.RetryAfter > 0 || isSecondaryLimit(response.Body) {
 			code = CodeSecondaryRateLimit
+		} else if strings.EqualFold(strings.TrimSpace(message), "Repository access blocked") {
+			// GitHub blocked this repository, not the caller's access to other
+			// repositories. Rate-limit signals above always take precedence.
+			code = CodeRepositoryBlocked
 		} else {
 			code = CodeForbidden
 		}

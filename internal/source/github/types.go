@@ -104,6 +104,7 @@ const (
 	CodeBadRequest           ErrorCode = "bad_request"
 	CodeNotModified          ErrorCode = "not_modified_without_cache"
 	CodeForbidden            ErrorCode = "forbidden"
+	CodeRepositoryBlocked    ErrorCode = "repository_access_blocked"
 	CodeNotFoundOrPrivate    ErrorCode = "not_found_or_private"
 	CodeValidation           ErrorCode = "validation_failed"
 	CodePrimaryRateLimit     ErrorCode = "primary_rate_limit"
